@@ -1,0 +1,2154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Análise do oscilador amortecido a partir da vídeo-análise no Tracker: ajuste da trajetória, ajuste dos picos de amplitude, multivisualização de posição, velocidade e aceleração, e exploração do modelo.">
+<style>
+/* base que a hospedagem de artifacts acrescentava: sem margem no body e [hidden] sempre oculto */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Laboratório de Oscilações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: bancada de análise — o gráfico (com resíduos logo abaixo) fica fixo à esquerda; à direita, os passos do experimento em sequência */
+:root {
+  --bg: #e9eeed;
+  --paper: #fbfcfb;
+  --surface: #ffffff;
+  --ink: #17232a;
+  --ink-soft: #566871;
+  --line: #d4dddc;
+  --grid-minor: #e8efed;
+  --grid-major: #cbdad6;
+  --axis: #2f424b;
+  --accent: #0c6b6b;
+  --accent-ink: #ffffff;
+  --err: #b3261e;
+  --ok: #17784a; --warn: #9a6400; --bad: #b3261e;
+  --data: #1f63c6; --fit: #cf4520; --c3: #12845a; --c4: #8040c8;
+  --shade: rgba(23, 35, 42, 0.055);
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1316; --paper: #121a1e; --surface: #172025; --ink: #e2eaed; --ink-soft: #92a3ab;
+    --line: #26343a; --grid-minor: #172227; --grid-major: #233238; --axis: #a3b5bd;
+    --accent: #4cbfbf; --accent-ink: #0b1517; --err: #ff8a80;
+    --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80;
+    --data: #63a4ff; --fit: #ff7b55; --c3: #43cf98; --c4: #b58cff;
+    --shade: rgba(0, 0, 0, 0.28);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1316; --paper: #121a1e; --surface: #172025; --ink: #e2eaed; --ink-soft: #92a3ab;
+  --line: #26343a; --grid-minor: #172227; --grid-major: #233238; --axis: #a3b5bd;
+  --accent: #4cbfbf; --accent-ink: #0b1517; --err: #ff8a80;
+  --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80;
+  --data: #63a4ff; --fit: #ff7b55; --c3: #43cf98; --c4: #b58cff;
+  --shade: rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 28px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; max-width: 1400px; margin: 0 auto 12px; }
+.brand { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.brand h1 { font-family: var(--font-display); font-weight: 600; font-size: 1.45rem; letter-spacing: 0.01em; margin: 0; line-height: 1.2; text-wrap: balance; }
+.brand .sub { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); }
+.tabs { display: inline-flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.tabs a { text-decoration: none; padding: 6px 12px; border-radius: 6px; font-weight: 500; color: var(--ink-soft); font-size: 0.88rem; text-align: center; }
+@media (max-width: 620px) { .tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; } .tabs a { padding: 6px 4px; font-size: 0.8rem; line-height: 1.2; } }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.plot-wrap.third { height: calc(min(56vh, 600px) / 3 + 40px); min-height: 150px; }
+@media (max-width: 900px) { .plot-wrap.third { height: 170px; } }
+.seg { display: inline-flex; background: var(--paper); border: 1px solid var(--line); border-radius: 7px; padding: 2px; gap: 2px; align-self: flex-start; }
+.seg button { border: none; background: none; cursor: pointer; padding: 5px 12px; border-radius: 5px; font-size: 0.84rem; font-weight: 500; color: var(--ink-soft); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.legend .scale { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-soft); }
+table.peaks { width: 100%; border-collapse: collapse; }
+table.peaks th { text-align: left; font-weight: 500; font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); padding: 0 4px 6px 0; }
+table.peaks td { padding: 2px 4px 2px 0; }
+table.peaks td.i { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); width: 22px; }
+table.peaks td.x { width: 30px; }
+table.peaks input { font-family: var(--font-mono); font-size: 15px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); width: 100%; min-width: 0; }
+table.peaks input.bad { border-color: var(--err); }
+table.peaks .del { border: none; background: none; cursor: pointer; color: var(--ink-soft); width: 28px; height: 28px; border-radius: 6px; font-size: 1.05rem; }
+table.peaks .del:hover { color: var(--err); }
+.btn.warn, .btn.ghost.warn { background: var(--warn); border-color: var(--warn); color: var(--accent-ink); }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#resetAll { min-width: 7.5em; }
+.theme { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 2px; gap: 2px; }
+.theme button { border: none; background: none; cursor: pointer; padding: 4px 10px; border-radius: 5px; font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); }
+.theme button:hover { color: var(--ink); }
+.theme button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 620px) { .top-actions { margin-left: 0; } }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; max-width: 1400px; margin: 0 auto; align-items: start; }
+@media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.stage { display: flex; flex-direction: column; gap: 8px; min-width: 0; position: sticky; top: 12px; }
+@media (max-width: 900px) { .stage { position: static; } }
+.plot-wrap { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.plot-wrap.main { height: min(56vh, 600px); min-height: 260px; }
+.plot-wrap.small { height: 160px; }
+@media (max-width: 900px) { .plot-wrap.main { height: 340px; min-height: 0; } .plot-wrap.small { height: 130px; } }
+.plot-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.plot-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+.tool { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; height: 32px; padding: 0 10px; cursor: pointer; font-size: 0.82rem; font-weight: 500; }
+.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+.readout { font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-soft); min-height: 2.4em; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.78rem; color: var(--ink-soft); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw-pt { width: 8px; height: 8px; background: var(--data); display: inline-block; }
+.sw-ln { width: 18px; border-top: 2.5px solid var(--fit); display: inline-block; }
+.sw-dash { width: 18px; border-top: 2px dashed var(--fit); display: inline-block; opacity: 0.8; }
+.sw-shade { width: 14px; height: 10px; background: var(--shade); border: 1px solid var(--line); display: inline-block; }
+.sw-c { width: 18px; border-top: 2.5px solid var(--c); display: inline-block; }
+.sw-cd { width: 18px; border-top: 2px dashed var(--c); display: inline-block; }
+.legend label.tg { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--ink); }
+.legend label.tg input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+table.res.q3 td.v { text-align: left; }
+table.res.q3 th:not(:first-child) { white-space: nowrap; }
+
+.panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.block h2 { font-family: var(--font-display); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); margin: 0; display: flex; align-items: center; gap: 8px; }
+.block h2 .n { font-family: var(--font-mono); letter-spacing: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 500; }
+.note { font-size: 0.8rem; color: var(--ink-soft); margin: 0; max-width: 65ch; }
+.note code, .help code { font-family: var(--font-mono); font-size: 0.76rem; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 0.76rem; font-weight: 500; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); background: var(--paper); }
+.badge.ex { border-color: var(--warn); color: var(--warn); }
+
+.meas { display: flex; flex-direction: column; gap: 4px; }
+.meas > label { font-size: 0.84rem; font-weight: 500; }
+.meas > label span { font-family: var(--font-mono); font-weight: 400; color: var(--ink-soft); }
+.meas-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.8fr) 64px; gap: 6px; align-items: center; }
+.meas-row .pm { font-family: var(--font-mono); color: var(--ink-soft); }
+.meas-row .unit { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-soft); }
+input.num, select.sel, .field input, .field select {
+  font-family: var(--font-mono); font-size: 16px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); width: 100%; min-width: 0;
+}
+select.sel, .field select { font-size: 14px; padding: 6px 6px; }
+input.num.bad, .field input.bad { border-color: var(--err); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.field label { font-size: 0.78rem; color: var(--ink-soft); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); border-radius: 6px; padding: 7px 14px; font-weight: 500; cursor: pointer; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: none; color: var(--accent); }
+.btn.small { padding: 4px 10px; font-size: 0.8rem; }
+textarea { width: 100%; min-height: 110px; font-family: var(--font-mono); font-size: 13px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); resize: vertical; }
+.msg { font-size: 0.8rem; margin: 0; color: var(--err); }
+.status { font-size: 0.82rem; margin: 0; color: var(--ink-soft); }
+.status.ok { color: var(--ok); }
+.status.bad { color: var(--err); }
+
+.tbl-wrap { overflow-x: auto; }
+table.res { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.res th { text-align: left; font-weight: 500; font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); padding: 4px 6px 6px 0; border-bottom: 1px solid var(--line); }
+table.res td { padding: 6px 6px 6px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+table.res tr:last-child td { border-bottom: none; }
+table.res td.q { font-size: 0.86rem; white-space: nowrap; }
+table.res td.q span { display: block; font-size: 0.72rem; color: var(--ink-soft); white-space: normal; }
+table.res td.v { font-family: var(--font-mono); font-size: 0.86rem; white-space: nowrap; }
+table.res td.u { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
+@media (max-width: 440px) { table.res td.v { font-size: 0.78rem; } table.res td.q { font-size: 0.8rem; white-space: normal; } table.res td.u { font-size: 0.74rem; } }
+table.res td.miss { color: var(--ink-soft); font-family: var(--font-ui); font-size: 0.8rem; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); } .chip.info { color: var(--accent); }
+.cmp { display: flex; flex-direction: column; gap: 10px; }
+.cmp-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.cmp-item:last-child { border-bottom: none; padding-bottom: 0; }
+.cmp-item .t { font-weight: 500; font-size: 0.86rem; }
+.cmp-item .d { grid-column: 1 / 3; font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.cmp-item .d.hint { font-family: var(--font-ui); color: var(--warn); }
+.relbox { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 6px; background: var(--paper); }
+.relbox .note { color: var(--ink); }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; }
+.empty p { margin: 0; max-width: 34ch; text-align: center; font-size: 0.86rem; color: var(--ink-soft); background: var(--paper); padding: 10px 14px; border-radius: 8px; border: 1px dashed var(--line); }
+.empty b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+.note.hint-warn { color: var(--warn); }
+@media (pointer: coarse) { .plot-wrap canvas { touch-action: pan-y; } }
+
+.param { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 4px 10px; align-items: center; }
+.param label { font-size: 0.86rem; font-weight: 500; }
+.param label span { font-family: var(--font-mono); font-weight: 400; color: var(--ink-soft); }
+.param input[type="range"] { grid-column: 1 / 3; width: 100%; accent-color: var(--accent); margin: 0; }
+.param .num { font-size: 15px; padding: 4px 6px; text-align: right; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 14px; margin: 0; font-variant-numeric: tabular-nums; }
+.kv dt { font-size: 0.84rem; color: var(--ink-soft); }
+.kv dd { margin: 0; font-family: var(--font-mono); font-size: 0.86rem; min-width: 0; overflow-wrap: anywhere; }
+
+details.help summary { cursor: pointer; font-weight: 500; font-size: 0.84rem; color: var(--accent); }
+details.help[open] summary { margin-bottom: 6px; }
+.help p, .help li { font-size: 0.82rem; color: var(--ink-soft); margin: 0 0 6px; max-width: 65ch; }
+.help ol { margin: 0; padding-left: 18px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.86rem; z-index: 20; }
+.loadfail { padding: 24px; color: var(--err); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Laboratório de Oscilações</h1>
+    <span class="sub">oscilador amortecido · m·z̈ + b·ż + k·z = 0</span>
+  </div>
+  <nav class="tabs" aria-label="Seções">
+    <a href="#analise" data-tab="analise">Análise da curva</a>
+    <a href="#picos" data-tab="picos">Ajuste dos picos</a>
+    <a href="#multi" data-tab="multi">Multivisualização</a>
+    <a href="#explorar" data-tab="explorar">Explorar o modelo</a>
+  </nav>
+  <div class="top-actions">
+    <button class="btn ghost small" id="resetAll" type="button" title="Apaga os dados de todas as abas">Limpar tudo</button>
+    <div class="theme" role="group" aria-label="Tema">
+      <button type="button" data-theme-opt="system" aria-pressed="true">Sistema</button>
+      <button type="button" data-theme-opt="light" aria-pressed="false">Claro</button>
+      <button type="button" data-theme-opt="dark" aria-pressed="false">Escuro</button>
+    </div>
+  </div>
+</header>
+<script>
+(() => {
+  const root = document.documentElement, KEY = "lab-osc-tema", hostTheme = root.getAttribute("data-theme");
+  const btns = document.querySelectorAll("[data-theme-opt]");
+  function apply(opt) {
+    if (opt === "light" || opt === "dark") root.setAttribute("data-theme", opt);
+    else if (hostTheme) root.setAttribute("data-theme", hostTheme);
+    else root.removeAttribute("data-theme");
+    btns.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === opt)));
+  }
+  let saved = "system";
+  try { saved = localStorage.getItem(KEY) || "system"; } catch {}
+  apply(saved);
+  btns.forEach(b => b.addEventListener("click", () => { apply(b.dataset.themeOpt); try { localStorage.setItem(KEY, b.dataset.themeOpt); } catch {} }));
+})();
+</script>
+
+<main>
+  <!-- ================= ANÁLISE ================= -->
+  <section class="app" id="tab-analise">
+    <div class="stage">
+      <div class="plot-wrap main">
+        <canvas id="aPlot" aria-label="Trajetória medida e curva de ajuste"></canvas>
+        <div class="empty" id="aEmpty"><p><b>Nenhuma trajetória ainda</b>Preencha as medidas diretas no passo 1 e importe o arquivo do Tracker no passo 2. Os pontos, as curvas e os resíduos aparecem aqui.</p></div>
+        <div class="plot-tools"><button class="tool" id="aFrame" type="button" title="Enquadrar os dados">Enquadrar</button></div>
+      </div>
+      <div class="plot-wrap small"><canvas id="aRes" aria-label="Resíduos do ajuste"></canvas></div>
+      <div class="readout" id="aReadout"></div>
+      <div class="legend">
+        <span><i class="sw-pt"></i>dados (Tracker)</span>
+        <label class="tg" style="--c:var(--c3)"><input type="checkbox" id="showExp"><i class="sw-c"></i>curva com os parâmetros medidos</label>
+        <label class="tg" style="--c:var(--fit)"><input type="checkbox" id="showFit"><i class="sw-c"></i>ajuste livre</label>
+        <span style="--c:var(--ink-soft)"><i class="sw-cd"></i>envoltórias</span>
+        <span><i class="sw-shade"></i>fora do intervalo de ajuste</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <section class="block">
+        <h2><span class="n">1</span>Medidas diretas</h2>
+        <div class="meas">
+          <label for="mVal">Massa <span>m</span></label>
+          <div class="meas-row">
+            <input class="num" id="mVal" inputmode="decimal" autocomplete="off" placeholder="valor">
+            <span class="pm">±</span>
+            <input class="num" id="mSig" inputmode="decimal" autocomplete="off" placeholder="incerteza" aria-label="Incerteza da massa">
+            <select class="sel" id="mUnit" aria-label="Unidade da massa"><option value="g">g</option><option value="kg">kg</option></select>
+          </div>
+        </div>
+        <div class="meas">
+          <label for="fVal">Frequência de oscilação <span>f</span></label>
+          <div class="meas-row">
+            <input class="num" id="fVal" inputmode="decimal" autocomplete="off" placeholder="valor">
+            <span class="pm">±</span>
+            <input class="num" id="fSig" inputmode="decimal" autocomplete="off" placeholder="incerteza" aria-label="Incerteza da frequência">
+            <span class="unit">Hz</span>
+          </div>
+        </div>
+        <div class="meas">
+          <label for="AVal">Amplitude inicial <span>A₀</span></label>
+          <div class="meas-row">
+            <input class="num" id="AVal" inputmode="decimal" autocomplete="off" placeholder="valor">
+            <span class="pm">±</span>
+            <input class="num" id="ASig" inputmode="decimal" autocomplete="off" placeholder="incerteza" aria-label="Incerteza da amplitude">
+            <span class="unit" id="AUnit">m</span>
+          </div>
+        </div>
+        <div class="meas">
+          <label for="gVal">Coeficiente de decaimento da amplitude <span>γ (= b/m)</span></label>
+          <div class="meas-row">
+            <input class="num" id="gVal" inputmode="decimal" autocomplete="off" placeholder="valor">
+            <span class="pm">±</span>
+            <input class="num" id="gSig" inputmode="decimal" autocomplete="off" placeholder="incerteza" aria-label="Incerteza do coeficiente de decaimento">
+            <span class="unit">s⁻¹</span>
+          </div>
+          <div class="row" style="margin-top:4px"><button class="btn ghost small" id="useG" type="button">Usar o γ da aba Ajuste dos picos</button></div>
+        </div>
+        <p class="note">A amplitude cai como e<sup>−γt/2</sup>, a mesma convenção da aba Ajuste dos picos. Com f, A₀ e γ, a página traça a curva do modelo com os parâmetros medidos (passo 3). A massa entra no cálculo de b e k.</p>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">2</span>Trajetória do Tracker</h2>
+        <p class="status" id="srcLine"></p>
+        <div class="row">
+          <button class="btn" id="importBtn" type="button">Importar arquivo</button>
+          <button class="btn ghost" id="pasteToggle" type="button" aria-expanded="false">Colar tabela</button>
+          <input type="file" id="fileIn" accept=".txt,.csv,.tsv,.dat,text/plain,text/csv,text/tab-separated-values" hidden>
+        </div>
+        <div id="pasteBox" hidden>
+          <textarea id="pasteArea" spellcheck="false" aria-label="Dados colados do Tracker" placeholder="Cole aqui a tabela copiada do Tracker (t e posição)"></textarea>
+          <div class="row" style="margin-top:6px"><button class="btn small" id="pasteUse" type="button">Usar dados colados</button></div>
+        </div>
+        <p class="msg" id="dataMsg" hidden></p>
+        <div class="grid2">
+          <div class="field"><label for="tCol">Coluna do tempo (s)</label><select id="tCol"></select></div>
+          <div class="field"><label for="zCol">Coluna da posição</label><select id="zCol"></select></div>
+          <div class="field"><label for="posUnit">Unidade da posição</label>
+            <select id="posUnit"><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option></select></div>
+          <div class="field"><label for="zSig">Incerteza de cada ponto σ<sub>z</sub> (opcional)</label><input id="zSig" inputmode="decimal" autocomplete="off" placeholder="estimar dos resíduos"></div>
+          <div class="field"><label for="t1">Ajustar a partir de t (s)</label><input id="t1" inputmode="decimal" autocomplete="off"></div>
+          <div class="field"><label for="t2">até t (s)</label><input id="t2" inputmode="decimal" autocomplete="off"></div>
+        </div>
+        <div class="row"><button class="btn ghost small" id="fullRange" type="button">Usar todos os pontos</button></div>
+        <div class="relbox" id="relBox" hidden>
+          <p class="note" id="relTxt"></p>
+          <button class="btn small" id="relUse" type="button">Ajustar a partir daí</button>
+        </div>
+        <p class="note">Se o vídeo começa antes de a massa ser solta, comece o ajuste no instante em que ela é solta. Os resíduos ajudam: com o intervalo certo, eles ficam espalhados em torno de zero, sem ondas.</p>
+        <details class="help">
+          <summary>Como levar os dados do Tracker para cá</summary>
+          <ol>
+            <li>Calibre a escala no Tracker com a régua do vídeo, para a posição sair em metros (ou cm).</li>
+            <li>Marque a massa quadro a quadro. Pode deixar a origem onde quiser: o ajuste encontra a posição de equilíbrio z<sub>e</sub>.</li>
+            <li>Exporte a tabela de dados como arquivo de texto ou CSV e importe aqui. Outra opção: selecione a tabela de dados no Tracker, copie e use <b>Colar tabela</b>.</li>
+          </ol>
+          <p>Vírgula ou ponto decimal, tabulação, ponto e vírgula e as linhas de título do Tracker (nome da massa, nomes das colunas) são reconhecidos. Só não dá para usar a vírgula ao mesmo tempo como delimitador e como decimal: nesse caso, exporte com tabulação ou ponto e vírgula. A página escolhe sozinha a coluna que mais oscila; confira se é a certa.</p>
+        </details>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">3</span>Curva com os parâmetros medidos</h2>
+        <p class="note">z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(2πf(t−t₀) + φ), com A₀, f e γ do passo 1 e t₀ no início do intervalo. Só z<sub>e</sub> e φ são ajustados, porque não são medidos diretamente.</p>
+        <p class="status" id="expStatus"></p>
+        <div class="tbl-wrap"><table class="res q3" id="expQual"></table></div>
+        <div id="expVerdict"></div>
+        <p class="note hint-warn" id="expSigNote" hidden></p>
+        <div class="tbl-wrap"><table class="res" id="expPar"></table></div>
+        <details class="help">
+          <summary>Como ler essas medidas de qualidade</summary>
+          <p><b>RMS dos resíduos</b>: desvio típico entre os pontos e a curva, na unidade da posição. Quanto menor, melhor.</p>
+          <p><b>R²</b>: fração da variação de z explicada pela curva. Perto de 1 é bom, mas em oscilações quase sempre passa de 0,99; compare as duas colunas.</p>
+          <p><b>χ²/ν</b>: aparece quando você informa σ<sub>z</sub> no passo 2. Perto de 1, a curva descreve os dados dentro da incerteza dos pontos.</p>
+          <p><b>Autocorrelação dos resíduos r₁</b>: perto de 0, os resíduos se espalham ao acaso; perto de 1, formam ondas, sinal de que a curva se afasta dos dados de forma sistemática. É o que se vê no gráfico de resíduos, em um número.</p>
+          <p>O ajuste livre serve de referência: é a melhor curva possível desse modelo para estes pontos.</p>
+        </details>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">4</span>Ajuste livre</h2>
+        <p class="note">Todos os parâmetros livres: z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)</sup>·sen(ω(t−t₀) + φ), com t₀ no início do intervalo de ajuste. Aqui γ = b/(2m), a taxa de decaimento da amplitude. Mínimos quadrados (Levenberg–Marquardt).</p>
+        <p class="status" id="fitStatus"></p>
+        <div class="tbl-wrap"><table class="res" id="fitTable"></table></div>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">5</span>Grandezas do ajuste livre</h2>
+        <div class="tbl-wrap"><table class="res" id="derTable"></table></div>
+        <div id="regime"></div>
+        <p class="note">Incertezas propagadas pela matriz de covariância do ajuste (inclui a correlação entre γ e ω) e pela incerteza da massa.</p>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">6</span>Medido × ajustado</h2>
+        <div class="cmp" id="cmpList"></div>
+        <p class="note">Critério: |Δ| ≤ 2σ compatíveis; entre 2σ e 3σ, discrepância moderada; acima de 3σ, incompatíveis. σ combina as incertezas da medida direta e do ajuste livre.</p>
+        <div class="row">
+          <button class="btn" id="copyBtn" type="button">Copiar resultados</button>
+          <button class="btn ghost" id="toExplore" type="button">Abrir no modo explorar</button>
+        </div>
+        <p class="note">A tabela copiada sai com vírgula decimal e cola como tabela no editor de texto ou na planilha.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= PICOS ================= -->
+  <section class="app" id="tab-picos" hidden>
+    <div class="stage">
+      <div class="plot-wrap main">
+        <canvas id="pPlot" aria-label="Amplitude dos picos em função do tempo e curva de ajuste"></canvas>
+        <div class="empty" id="pEmpty"><p><b>Nenhum pico ainda</b>Digite na tabela o instante t e a amplitude A de pelo menos 3 picos, ou cole as colunas de uma planilha. O ajuste aparece aqui.</p></div>
+        <div class="plot-tools"><button class="tool" id="pFrame" type="button">Enquadrar</button></div>
+      </div>
+      <div class="plot-wrap small"><canvas id="pLn" aria-label="Logaritmo da amplitude em função do tempo"></canvas></div>
+      <div class="readout" id="pReadout"></div>
+      <div class="legend">
+        <span><i class="sw-pt"></i>picos medidos (± σ<sub>A</sub>)</span>
+        <span><i class="sw-ln"></i>ajuste A(t) = A₀·e<sup>−γt/2</sup></span>
+        <span>abaixo: ln A × t, uma reta de inclinação −γ/2</span>
+      </div>
+    </div>
+    <div class="panel">
+      <section class="block">
+        <h2><span class="n">1</span>Amplitudes dos picos</h2>
+        <p class="note">Para cada pico da oscilação (máximo ou mínimo), anote o instante t e a amplitude A, que é a distância do pico até a posição de equilíbrio. Use sempre um valor positivo.</p>
+        <div class="grid2">
+          <div class="field"><label for="pUnit">Unidade de A</label><select id="pUnit"><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option></select></div>
+          <div class="field"><label for="pSig">Incerteza de A, se for a mesma para todos</label><input id="pSig" inputmode="decimal" autocomplete="off" placeholder="opcional"></div>
+        </div>
+        <div class="tbl-wrap"><table class="peaks" id="pTable"></table></div>
+        <div class="row">
+          <button class="btn small" id="pAdd" type="button">+ Adicionar pico</button>
+          <button class="btn ghost small" id="pPasteT" type="button" aria-expanded="false">Colar da planilha</button>
+          <button class="btn ghost small" id="pClear" type="button">Limpar tabela</button>
+        </div>
+        <div id="pPasteBox" hidden>
+          <textarea id="pPasteArea" spellcheck="false" aria-label="Picos colados" placeholder="Cole as colunas t, A e, se tiver, σA (uma linha por pico)"></textarea>
+          <div class="row" style="margin-top:6px"><button class="btn small" id="pPasteUse" type="button">Usar dados colados</button></div>
+        </div>
+        <p class="msg" id="pMsg" hidden></p>
+        <p class="note">A coluna σ<sub>A</sub> de cada linha tem prioridade sobre a incerteza comum. Linhas incompletas são ignoradas e ficam marcadas em vermelho.</p>
+      </section>
+      <section class="block">
+        <h2><span class="n">2</span>Ajuste</h2>
+        <p class="note">Modelo: A(t) = A₀·e<sup>−γt/2</sup>, por mínimos quadrados não lineares, ponderados por σ<sub>A</sub> quando todas as linhas têm incerteza. Nesta aba γ = b/m. Nas abas Análise da curva e Explorar, o parâmetro de amortecimento é b/(2m), que corresponde a γ/2 daqui.</p>
+        <p class="status" id="pStatus"></p>
+        <div class="tbl-wrap"><table class="res" id="pFitTable"></table></div>
+      </section>
+      <section class="block">
+        <h2><span class="n">3</span>Grandezas e comparação</h2>
+        <div class="tbl-wrap"><table class="res" id="pDerTable"></table></div>
+        <div class="cmp" id="pCmp"></div>
+        <div class="row"><button class="btn" id="pCopy" type="button">Copiar resultados</button></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= MULTIVISUALIZAÇÃO ================= -->
+  <section class="app" id="tab-multi" hidden>
+    <div class="stage">
+      <div class="plot-wrap main" id="mOverWrap">
+        <canvas id="mOver" aria-label="Posição, velocidade e aceleração sobrepostas"></canvas>
+        <div class="plot-tools"><button class="tool" id="mFrame" type="button">Enquadrar</button></div>
+        <div class="empty" id="mEmpty"><p><b>Nenhum arquivo ainda</b>Importe um arquivo do Tracker com o tempo e a posição (e, se tiver, a velocidade e a aceleração). As três curvas aparecem aqui, uma sobre a outra.</p></div>
+      </div>
+      <div class="stack" id="mStack" hidden>
+        <div class="plot-wrap third"><canvas id="mX" aria-label="Posição em função do tempo"></canvas><div class="plot-tools"><button class="tool" id="mFrame2" type="button">Enquadrar</button></div></div>
+        <div class="plot-wrap third"><canvas id="mV" aria-label="Velocidade em função do tempo"></canvas></div>
+        <div class="plot-wrap third"><canvas id="mA" aria-label="Aceleração em função do tempo"></canvas></div>
+      </div>
+      <div class="readout" id="mReadout"></div>
+      <div class="legend" id="mLegend">
+        <label class="tg" style="--c:var(--data)"><input type="checkbox" id="mShowX"><i class="sw-c"></i>posição <span class="scale" id="mScaleX"></span></label>
+        <label class="tg" style="--c:var(--fit)"><input type="checkbox" id="mShowV"><i class="sw-c"></i>velocidade <span class="scale" id="mScaleV"></span></label>
+        <label class="tg" style="--c:var(--c4)"><input type="checkbox" id="mShowA"><i class="sw-c"></i>aceleração <span class="scale" id="mScaleA"></span></label>
+      </div>
+    </div>
+    <div class="panel">
+      <section class="block">
+        <h2><span class="n">1</span>Arquivo do Tracker</h2>
+        <p class="status" id="mSrc">Nenhum arquivo importado ainda.</p>
+        <div class="row">
+          <button class="btn" id="mImport" type="button">Importar arquivo</button>
+          <button class="btn ghost" id="mPasteT" type="button" aria-expanded="false">Colar tabela</button>
+          <button class="btn ghost" id="mFromA" type="button">Usar a trajetória da Análise da curva</button>
+          <input type="file" id="mFile" accept=".txt,.csv,.tsv,.dat,text/plain,text/csv,text/tab-separated-values" hidden>
+        </div>
+        <div id="mPasteBox" hidden>
+          <textarea id="mPasteArea" spellcheck="false" aria-label="Tabela colada do Tracker" placeholder="Cole aqui a tabela copiada do Tracker (t, posição, velocidade, aceleração)"></textarea>
+          <div class="row" style="margin-top:6px"><button class="btn small" id="mPasteUse" type="button">Usar dados colados</button></div>
+        </div>
+        <p class="msg" id="mMsg" hidden></p>
+        <div class="grid2">
+          <div class="field"><label for="mT">Tempo (s)</label><select id="mT"></select></div>
+          <div class="field"><label for="mLen">Unidade de comprimento</label><select id="mLen"><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option></select></div>
+          <div class="field"><label for="mXc">Posição</label><select id="mXc"></select></div>
+          <div class="field"><label for="mVc">Velocidade</label><select id="mVc"></select></div>
+          <div class="field"><label for="mAc">Aceleração</label><select id="mAc"></select></div>
+          <div class="field"></div>
+          <div class="field"><label for="mT1">Mostrar a partir de t (s)</label><input id="mT1" inputmode="decimal" autocomplete="off"></div>
+          <div class="field"><label for="mT2">até t (s)</label><input id="mT2" inputmode="decimal" autocomplete="off"></div>
+        </div>
+        <div class="row"><button class="btn ghost small" id="mFull" type="button">Usar todo o intervalo</button></div>
+        <p class="note">No Tracker, inclua na tabela de dados as colunas de velocidade e aceleração (v e a) antes de exportar. Se o arquivo não tiver uma delas, escolha "calcular por derivada numérica": a velocidade sai da posição, e a aceleração sai da velocidade.</p>
+      </section>
+      <section class="block">
+        <h2><span class="n">2</span>Visualização</h2>
+        <div class="seg" role="group" aria-label="Modo de visualização">
+          <button type="button" data-mode="over" aria-pressed="true">Sobrepostas</button>
+          <button type="button" data-mode="stack" aria-pressed="false">Empilhadas</button>
+        </div>
+        <p class="note" id="mModeNote"></p>
+        <label class="check"><input type="checkbox" id="mCenter"> Centralizar a posição no equilíbrio (subtrair a média)</label>
+        <label class="check"><input type="checkbox" id="mDots"> Mostrar os pontos medidos</label>
+      </section>
+      <section class="block">
+        <h2><span class="n">3</span>Relações entre as curvas</h2>
+        <p class="status" id="mRelStatus"></p>
+        <div class="tbl-wrap"><table class="res" id="mRel"></table></div>
+        <p class="note">Estimativas na frequência dominante da posição, ajustando a cada curva uma senoide no intervalo mostrado. No MHS, a velocidade está adiantada de 90° em relação à posição e a aceleração está em oposição de fase (180°); com amortecimento fraco, os valores ficam próximos desses.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= EXPLORAR ================= -->
+  <section class="app" id="tab-explorar" hidden>
+    <div class="stage">
+      <div class="plot-wrap main">
+        <canvas id="ePlot" aria-label="Posição em função do tempo"></canvas>
+        <div class="plot-tools"><button class="tool" id="eFrame" type="button">Enquadrar</button></div>
+      </div>
+      <div class="plot-wrap small"><canvas id="eEn" aria-label="Energia mecânica em função do tempo"></canvas></div>
+      <div class="readout" id="eReadout"></div>
+      <div class="legend" id="eLegend">
+        <span style="--c:var(--data)"><i class="sw-c"></i>z(t) com o b escolhido</span>
+        <span style="--c:var(--data)"><i class="sw-cd"></i>envoltória</span>
+        <span style="--c:var(--fit)" class="cmpLeg" hidden><i class="sw-c"></i>crítico (b = b<sub>c</sub>)</span>
+        <span style="--c:var(--c3)" class="cmpLeg" hidden><i class="sw-c"></i>supercrítico (b = 2b<sub>c</sub>)</span>
+        <span style="--c:var(--c4)"><i class="sw-c"></i>energia E(t)</span>
+        <span style="--c:var(--c4)"><i class="sw-cd"></i>E₀·e<sup>−2γt</sup></span>
+      </div>
+    </div>
+    <div class="panel">
+      <section class="block">
+        <h2>Sistema massa-mola</h2>
+        <p class="note">Solta da posição z(0) = A₀ com velocidade nula. Mude b e veja a oscilação passar de subcrítica a crítica e supercrítica.</p>
+        <div class="param"><label for="eM">Massa <span>m (g)</span></label><input class="num" id="eMn" inputmode="decimal" aria-label="Massa em gramas"><input type="range" id="eM" min="20" max="1000" step="1"></div>
+        <div class="param"><label for="eK">Constante elástica <span>k (N/m)</span></label><input class="num" id="eKn" inputmode="decimal" aria-label="Constante elástica"><input type="range" id="eK" min="0.5" max="100" step="0.1"></div>
+        <div class="param"><label for="eB">Coeficiente de amortecimento <span>b (kg/s)</span></label><input class="num" id="eBn" inputmode="decimal" aria-label="Coeficiente de amortecimento"><input type="range" id="eB" min="0" max="5" step="0.001"></div>
+        <div class="param"><label for="eA">Amplitude inicial <span>A₀ (m)</span></label><input class="num" id="eAn" inputmode="decimal" aria-label="Amplitude inicial"><input type="range" id="eA" min="0.005" max="0.3" step="0.001"></div>
+        <div class="param"><label for="eD">Duração <span>(s)</span></label><input class="num" id="eDn" inputmode="decimal" aria-label="Duração"><input type="range" id="eD" min="1" max="60" step="0.5"></div>
+        <label class="check"><input type="checkbox" id="eCmp"> Comparar com os regimes crítico e supercrítico</label>
+        <div class="row"><button class="btn ghost small" id="eCrit" type="button">Levar b ao valor crítico</button></div>
+      </section>
+      <section class="block">
+        <h2>Grandezas do modelo</h2>
+        <dl class="kv" id="eKV"></dl>
+        <div id="eRegime"></div>
+      </section>
+      <section class="block">
+        <h2>O que observar</h2>
+        <p class="note">No regime subcrítico, a amplitude cai como e<sup>−γt</sup> e a energia como e<sup>−2γt</sup>: em τ = 1/γ a amplitude cai a 37% e a energia a 14%. A frequência ω = √(ω₀² − γ²) quase não muda com amortecimento fraco. Com b = b<sub>c</sub> = 2√(mk), o sistema volta ao equilíbrio no menor tempo, sem oscilar.</p>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+  // ================= utilidades numéricas e de formato =================
+  const nfCache = {};
+  const nf = (d) => nfCache[d] || (nfCache[d] = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false }));
+  const minus = (s) => s.replace(/-/g, "−");
+  const SUP = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+  const sup = (n) => String(n).split("").map(c => SUP[c] || c).join("");
+  function fmtSig(v, sig = 4) {
+    if (v == null || !isFinite(v)) return "—";
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e6 || a < 1e-4) { const e = Math.floor(Math.log10(a)); return minus(nf(sig - 1).format(v / 10 ** e)) + "×10" + sup(e); }
+    const d = Math.max(0, Math.min(8, sig - 1 - Math.floor(Math.log10(a))));
+    return minus(nf(d).format(v));
+  }
+  function fmtTick(v, step) {
+    if (Math.abs(v) < step * 1e-9) return "0";
+    const a = Math.abs(step);
+    if (a >= 1e5 || a < 1e-4) { const e = Math.floor(Math.log10(Math.abs(v))); return minus(nf(1).format(v / 10 ** e)) + "e" + e; }
+    const d = Math.max(0, -Math.floor(Math.log10(a) + 1e-9));
+    return minus(nf(d).format(v));
+  }
+  // valor ± incerteza, incerteza com 2 algarismos se começar por 1 ou 2, senão 1
+  function fmtUnc(v, s) {
+    if (v == null || !isFinite(v)) return "—";
+    if (!(s > 0) || !isFinite(s)) return fmtSig(v, 4);
+    const big = Math.max(Math.abs(v), s);
+    let n = 0;
+    if (big >= 1e5 || big < 1e-3) n = Math.floor(Math.log10(big));
+    const vv = v / 10 ** n, ss = s / 10 ** n;
+    let e = Math.floor(Math.log10(ss));
+    let lead = ss / 10 ** e;
+    let sig = lead < 2.95 ? 2 : 1;
+    let q = 10 ** (e - sig + 1);
+    let sr = Math.round(ss / q) * q;
+    if (sr >= 10 ** (e + 1) && sig === 1) { e += 1; q = 10 ** (e - sig + 1); sr = Math.round(ss / q) * q; }
+    const dec = Math.max(0, -(e - sig + 1));
+    let vr = Math.round(vv / q) * q;
+    if (Object.is(vr, -0) || Math.abs(vr) < q / 2) vr = 0;
+    const body = `(${minus(nf(dec).format(vr))} ± ${nf(dec).format(sr)})`;
+    return n ? `${body}×10${sup(n)}` : body;
+  }
+  // número digitado: aceita vírgula decimal e sinal unicode
+  function parseNum(s) {
+    if (s == null) return NaN;
+    const t = String(s).trim().replace(/\s/g, "").replace(/[−–]/g, "-").replace(",", ".");
+    if (!t) return NaN;
+    return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t) ? Number(t) : NaN;
+  }
+  const fmtIn = (v, sig = 4) => isFinite(v) ? fmtSig(v, sig).replace("−", "-") : "";
+  // números para planilha: vírgula decimal, sinal "-" comum e notação E, que o Excel e o Planilhas Google reconhecem
+  const DESUP = { "⁻": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9" };
+  const plain = (s) => s.replace(/×10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_, e) => "E" + e.split("").map(c => DESUP[c]).join("")).replace(/−/g, "-");
+  const tsvNum = (v) => isFinite(v) ? plain(fmtSig(v, 6)) : "";
+  const tsvRaw = (v) => v == null || !isFinite(v) ? "" : String(v).replace(".", ",").replace("e", "E");
+  function tsvPair(v, e) { const t = fmtUnc(v, e); const m = t.match(/^\(([^±]+) ± ([^)]+)\)(.*)$/); return m ? [plain(m[1].trim() + m[3]), plain(m[2].trim() + m[3])] : [tsvNum(v), ""]; }
+
+  // ================= leitura da tabela do Tracker =================
+  function parseTable(text) {
+    const lines = String(text).replace(/^﻿/, "").split(/\r\n|\r|\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim());
+    if (lines.length < 3) throw new Error("A tabela precisa de pelo menos três linhas com dados.");
+    const sample = lines.slice(0, 60);
+    const has = (ch) => sample.some(l => l.includes(ch));
+    const tryParse = (delim, decComma) => {
+      const split = (l) => delim === "ws" ? l.trim().split(/\s+/) : l.split(delim).map(c => c.trim().replace(/^"(.*)"$/, "$1"));
+      const num = (c) => {
+        let t = c.trim().replace(/[−–]/g, "-");
+        if (!t) return null;
+        if (decComma) t = t.replace(",", ".");
+        return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t) ? Number(t) : NaN;
+      };
+      const rows = lines.map(split);
+      const isNum = (r) => { const cells = r.filter(c => c !== ""); return cells.length >= 2 && r.every(c => { const v = num(c); return v === null || isFinite(v); }); };
+      const numRows = rows.map(isNum);
+      const first = numRows.indexOf(true);
+      if (first < 0) return null;
+      let header = null, hIdx = -1;
+      for (let i = first - 1; i >= 0; i--) { if (rows[i].filter(c => c).length >= 2) { header = rows[i]; hIdx = i; break; } }
+      const body = rows.filter((r, i) => i >= first && numRows[i]);
+      const used = (r) => { let k = r.length; while (k > 0 && r[k - 1] === "") k--; return k; };
+      const ncol = body.reduce((m, r) => Math.max(m, used(r)), header ? used(header) : 0);
+      // vírgula usada ao mesmo tempo como separador e como decimal: os números se partem em pedaços
+      if (delim === ",") {
+        if (header && ncol > used(header)) return { ambiguous: true };
+        let frag = 0, all = 0;
+        body.slice(0, 50).forEach(r => r.forEach(c => { if (c) { all++; if (/^0\d+$/.test(c)) frag++; } }));
+        if (!header && all && frag / all > 0.2) return { ambiguous: true };
+      }
+      // nomes das trilhas na linha acima do cabeçalho (ex.: "massa A ... massa B")
+      let groups = null;
+      if (hIdx > 0 && !numRows[hIdx - 1]) {
+        const gr = rows[hIdx - 1]; let cur = ""; groups = [];
+        for (let j = 0; j < ncol; j++) { if (gr[j]) cur = gr[j]; groups.push(cur); }
+      }
+      const cols = [];
+      for (let j = 0; j < ncol; j++) {
+        const values = body.map(r => { const v = r[j] == null ? null : num(r[j]); return v == null || !isFinite(v) ? null : v; });
+        if (values.filter(v => v != null).length < 3) continue;
+        cols.push({ name: (header && header[j]) ? header[j] : `coluna ${j + 1}`, values, j });
+      }
+      // nomes repetidos (várias trilhas): acrescenta a trilha ou a ordem
+      const count = {};
+      cols.forEach(c => { count[c.name] = (count[c.name] || 0) + 1; });
+      const seen = {};
+      cols.forEach(c => {
+        if (count[c.name] < 2) return;
+        seen[c.name] = (seen[c.name] || 0) + 1;
+        const g = groups && groups[c.j];
+        c.name = g ? `${c.name} (${g})` : `${c.name} (${seen[c.name]}ª)`;
+      });
+      cols.forEach(c => delete c.j);
+      return cols.length >= 2 ? { cols, score: body.length * cols.length } : null;
+    };
+    const cands = [];
+    // o separador mais específico presente decide; a vírgula só é separador quando não há tabulação nem ponto e vírgula
+    if (has("\t")) cands.push(["\t", true], ["\t", false]);
+    else if (has(";")) cands.push([";", true], [";", false]);
+    else if (has(",")) cands.push([",", false], ["ws", true]);
+    else cands.push(["ws", false]);
+    let best = null, ambiguous = false;
+    for (const [d, c] of cands) {
+      const r = tryParse(d, c);
+      if (r && r.ambiguous) { ambiguous = true; continue; }
+      if (r && (!best || r.score > best.score)) best = r;
+    }
+    if (!best && ambiguous) throw new Error("A vírgula aparece como separador de colunas e como separador decimal, então os números não podem ser lidos. Exporte do Tracker com tabulação ou ponto e vírgula como delimitador, ou copie a tabela e use Colar tabela.");
+    if (!best) throw new Error("Não encontrei duas colunas numéricas. Confira se a tabela tem o tempo e a posição.");
+    return best.cols;
+  }
+  function stdev(a) { const v = a.filter(x => x != null); const m = v.reduce((s, x) => s + x, 0) / v.length; return Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length); }
+  function guessCols(cols) {
+    let ti = cols.findIndex(c => /^(t|tempo|time)\b/i.test(c.name.trim()));
+    if (ti < 0) ti = 0;
+    const cand = cols.map((c, j) => j).filter(j => j !== ti);
+    const named = cand.filter(j => /^[xyz]$/i.test(cols[j].name.trim()));
+    const pool = named.length ? named : cand;
+    let zi = pool[0], best = -1;
+    pool.forEach(j => { const s = stdev(cols[j].values); if (s > best) { best = s; zi = j; } });
+    return { ti, zi };
+  }
+
+  // ================= estado =================
+  const KEY = "lab-osc-v1";
+  let S = null;
+  try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch { S = null; }
+  if (!S || !S.a) S = {
+    a: { raw: null, src: "", ti: null, zi: null, unitPos: "m", meas: { m: "", sm: "", mu: "g", f: "", sf: "", A: "", sA: "", g: "", sg: "" }, sz: "", t1: "", t2: "" },
+    e: { m: 200, k: 20, b: 0.12, A: 0.05, dur: 10, compare: false }
+  };
+  if (!S.e) S.e = { m: 200, k: 20, b: 0.12, A: 0.05, dur: 10, compare: false };
+  // quem abriu a versão com exemplo: descarta os dados e as medidas de exemplo
+  if (S.a.example) { S.a = { raw: null, src: "", ti: null, zi: null, unitPos: S.a.unitPos || "m", meas: { m: "", sm: "", mu: "g", f: "", sf: "", A: "", sA: "", g: "", sg: "" }, sz: "", t1: "", t2: "", showExp: S.a.showExp, showFit: S.a.showFit }; }
+  if (S.p && S.p.example) delete S.p;
+  let saveT = null;
+  function save() {
+    clearTimeout(saveT);
+    saveT = setTimeout(() => {
+      try {
+        const out = JSON.parse(JSON.stringify(S));
+        if (out.a.raw && out.a.raw.length > 1.5e6) out.a.raw = null;
+        if (out.m && out.m.raw && out.m.raw.length > 1.5e6) out.m.raw = null;
+        localStorage.setItem(KEY, JSON.stringify(out));
+      } catch { /* armazenamento indisponível */ }
+    }, 300);
+  }
+  let cols = [];
+  function loadCols() {
+    cols = [];
+    if (S.a.raw) { try { cols = parseTable(S.a.raw); } catch { cols = []; S.a.raw = null; } }
+    if (!cols.length) return;
+    if (S.a.ti == null || S.a.zi == null || !cols[S.a.ti] || !cols[S.a.zi]) { const g = guessCols(cols); S.a.ti = g.ti; S.a.zi = g.zi; }
+  }
+
+  // ================= álgebra linear e ajuste =================
+  function solve(Ain, bin) {
+    const n = bin.length, A = Ain.map(r => r.slice()), b = bin.slice();
+    for (let i = 0; i < n; i++) {
+      let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      if (Math.abs(A[p][i]) < 1e-300) return null;
+      [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < n; r++) { const f = A[r][i] / A[i][i]; if (!f) continue; for (let c = i; c < n; c++) A[r][c] -= f * A[i][c]; b[r] -= f * b[i]; }
+    }
+    const x = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) { let s = b[i]; for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c]; x[i] = s / A[i][i]; }
+    return x;
+  }
+  function inverse(A) {
+    const n = A.length, out = Array.from({ length: n }, () => new Array(n).fill(0));
+    for (let j = 0; j < n; j++) { const e = new Array(n).fill(0); e[j] = 1; const col = solve(A, e); if (!col) return null; for (let i = 0; i < n; i++) out[i][j] = col[i]; }
+    return out;
+  }
+  // p = [ze, A, γ, ω, φ]
+  const model = (p, t, t0) => { const u = t - t0; return p[0] + p[1] * Math.exp(-p[2] * u) * Math.sin(p[3] * u + p[4]); };
+  function grad(p, t, t0) {
+    const u = t - t0, e = Math.exp(-p[2] * u), s = Math.sin(p[3] * u + p[4]), c = Math.cos(p[3] * u + p[4]);
+    return [1, e * s, -p[1] * u * e * s, p[1] * e * c * u, p[1] * e * c];
+  }
+  function sse(p, ts, zs, t0) { let s = 0; for (let i = 0; i < ts.length; i++) { const r = zs[i] - model(p, ts[i], t0); s += r * r; } return s; }
+  function lm(ts, zs, p0, t0) {
+    let p = p0.slice(), lam = 1e-3, cur = sse(p, ts, zs, t0), it = 0, conv = false;
+    const k = p.length;
+    for (it = 0; it < 300; it++) {
+      const JTJ = Array.from({ length: k }, () => new Array(k).fill(0)), JTr = new Array(k).fill(0);
+      for (let i = 0; i < ts.length; i++) {
+        const g = grad(p, ts[i], t0), r = zs[i] - model(p, ts[i], t0);
+        for (let a = 0; a < k; a++) { JTr[a] += g[a] * r; for (let b = a; b < k; b++) JTJ[a][b] += g[a] * g[b]; }
+      }
+      for (let a = 0; a < k; a++) for (let b = 0; b < a; b++) JTJ[a][b] = JTJ[b][a];
+      let accepted = false;
+      while (lam < 1e12) {
+        const M = JTJ.map((r, a) => r.map((v, b) => a === b ? v * (1 + lam) + 1e-30 : v));
+        const d = solve(M, JTr);
+        if (!d) { lam *= 10; continue; }
+        const pn = p.map((v, a) => v + d[a]);
+        const sn = sse(pn, ts, zs, t0);
+        if (isFinite(sn) && sn < cur) {
+          const rel = (cur - sn) / Math.max(cur, 1e-300);
+          p = pn; cur = sn; lam = Math.max(lam / 3, 1e-9); accepted = true;
+          if (rel < 1e-12) conv = true;
+          break;
+        }
+        lam *= 4;
+      }
+      if (!accepted || conv) { conv = true; break; }
+    }
+    // matriz JᵀJ no ponto final
+    const JTJ = Array.from({ length: k }, () => new Array(k).fill(0));
+    for (let i = 0; i < ts.length; i++) { const g = grad(p, ts[i], t0); for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) JTJ[a][b] += g[a] * g[b]; }
+    return { p, sse: cur, JTJ, iters: it + 1, conv };
+  }
+  function estimateFreq(ts, zs) {
+    const m = zs.reduce((s, z) => s + z, 0) / zs.length;
+    const cross = [];
+    for (let i = 1; i < zs.length; i++) {
+      const a = zs[i - 1] - m, b = zs[i] - m;
+      if (a < 0 && b >= 0) cross.push(ts[i - 1] + (ts[i] - ts[i - 1]) * (-a) / (b - a));
+    }
+    if (cross.length >= 2) return 2 * Math.PI * (cross.length - 1) / (cross[cross.length - 1] - cross[0]);
+    return 2 * Math.PI / Math.max(1e-6, (ts[ts.length - 1] - ts[0]) / 2);
+  }
+
+  // ================= análise =================
+  let R = null; // resultado do ajuste
+  const el = (id) => document.getElementById(id);
+  const massKg = () => { const v = parseNum(S.a.meas.m), s = parseNum(S.a.meas.sm), f = S.a.meas.mu === "kg" ? 1 : 1e-3; return { v: v * f, s: isFinite(s) ? Math.abs(s) * f : 0 }; };
+  function points() {
+    const ct = cols[S.a.ti], cz = cols[S.a.zi];
+    if (!ct || !cz) return [];
+    const out = [];
+    for (let i = 0; i < Math.min(ct.values.length, cz.values.length); i++) {
+      const t = ct.values[i], z = cz.values[i];
+      if (t != null && z != null) out.push({ t, z });
+    }
+    out.sort((a, b) => a.t - b.t);
+    return out;
+  }
+  function range(pts) {
+    const lo = pts.length ? pts[0].t : 0, hi = pts.length ? pts[pts.length - 1].t : 1;
+    let t1 = parseNum(S.a.t1), t2 = parseNum(S.a.t2);
+    if (!isFinite(t1)) t1 = lo; if (!isFinite(t2)) t2 = hi;
+    return [t1, t2];
+  }
+  // instante em que a massa é solta: fim de um trecho inicial parado, que dura bem mais que a passagem por um ponto de retorno
+  function releaseTime(pts) {
+    const n = pts.length;
+    if (n < 30) return null;
+    let zmin = Infinity, zmax = -Infinity; for (const q of pts) { if (q.z < zmin) zmin = q.z; if (q.z > zmax) zmax = q.z; }
+    const pp = zmax - zmin; if (!(pp > 0)) return null;
+    const z0 = pts.slice(0, 5).map(q => q.z).sort((a, b) => a - b)[2];
+    const tol = 0.03 * pp;
+    let k = 0; while (k < n && Math.abs(pts[k].z - z0) < tol) k++;
+    if (k < 8 || k > n * 0.6) return null;
+    const rest = pts.slice(k);
+    if (rest.length < 20) return null;
+    const w = estimateFreq(rest.map(q => q.t), rest.map(q => q.z));
+    const T = 2 * Math.PI / w;
+    if (!(pts[k - 1].t - pts[0].t > 0.15 * T)) return null;
+    return pts[k - 1].t;
+  }
+  // curva com os parâmetros medidos: A₀, f e γ fixos; só z_e e φ são ajustados
+  function fitExp(ts, zs, t0, A, w, gh, sz) { // gh = γ/2, taxa de decaimento da amplitude
+    const n = ts.length, env = ts.map(t => A * Math.exp(-gh * (t - t0)));
+    const zeFor = (ph) => { let s = 0; for (let i = 0; i < n; i++) s += zs[i] - env[i] * Math.sin(w * (ts[i] - t0) + ph); return s / n; };
+    const sseFor = (ph) => { const ze = zeFor(ph); let s = 0; for (let i = 0; i < n; i++) { const r = zs[i] - ze - env[i] * Math.sin(w * (ts[i] - t0) + ph); s += r * r; } return s; };
+    const K = 72; let best = 0, bs = Infinity;
+    for (let k = 0; k < K; k++) { const ph = -Math.PI + 2 * Math.PI * k / K, s = sseFor(ph); if (s < bs) { bs = s; best = ph; } }
+    // refinamento da fase por seção áurea
+    const gr = (Math.sqrt(5) - 1) / 2;
+    let a = best - 2 * Math.PI / K, b = best + 2 * Math.PI / K, c = b - gr * (b - a), d = a + gr * (b - a), fc = sseFor(c), fd = sseFor(d);
+    for (let it = 0; it < 60; it++) { if (fc < fd) { b = d; d = c; fd = fc; c = b - gr * (b - a); fc = sseFor(c); } else { a = c; c = d; fc = fd; d = a + gr * (b - a); fd = sseFor(d); } }
+    const ph = Math.atan2(Math.sin((a + b) / 2), Math.cos((a + b) / 2)), ze = zeFor(ph);
+    const f = (t) => ze + A * Math.exp(-gh * (t - t0)) * Math.sin(w * (t - t0) + ph);
+    const resid = ts.map((t, i) => zs[i] - f(t));
+    const sse = resid.reduce((s, r) => s + r * r, 0), nu = n - 2;
+    let a12 = 0, a22 = 0; ts.forEach((t, i) => { const dph = env[i] * Math.cos(w * (t - t0) + ph); a12 += dph; a22 += dph * dph; });
+    const det = n * a22 - a12 * a12, s2 = sz > 0 ? sz * sz : sse / nu;
+    return { ze, ph, sze: det > 0 ? Math.sqrt(a22 / det * s2) : NaN, sph: det > 0 ? Math.sqrt(n / det * s2) : NaN, f, resid };
+  }
+  // medidas de qualidade de uma curva a partir dos resíduos
+  function quality(resid, zs, nPar, sz) {
+    const n = resid.length;
+    let sse = 0, mz = 0, mr = 0; resid.forEach(r => { sse += r * r; mr += r; }); zs.forEach(z => { mz += z; }); mz /= n; mr /= n;
+    let sst = 0; zs.forEach(z => { sst += (z - mz) ** 2; });
+    let num = 0, den = 0; for (let i = 0; i < n; i++) { den += (resid[i] - mr) ** 2; if (i) num += (resid[i] - mr) * (resid[i - 1] - mr); }
+    return { n, nu: n - nPar, rms: Math.sqrt(sse / n), r2: sst > 0 ? 1 - sse / sst : NaN, chi2red: sz > 0 ? sse / (sz * sz) / (n - nPar) : null, r1: den > 0 ? num / den : 0 };
+  }
+  function analyze() {
+    R = null;
+    const pts = points();
+    const [t1, t2] = range(pts);
+    const sel = pts.filter(p => p.t >= t1 && p.t <= t2);
+    const res = { pts, t1, t2, sel, ok: false, release: releaseTime(pts) };
+    const bad = (m) => { res.msg = m; R = res; };
+    if (!pts.length) return bad("Importe a trajetória do Tracker no passo 2 para traçar as curvas.");
+    if (S.a.ti === S.a.zi) return bad("A mesma coluna está escolhida para o tempo e para a posição. Escolha colunas diferentes no passo 2.");
+    if (!(t2 > t1)) return bad(`O início do intervalo de ajuste (t = ${fmtSig(t1, 4)} s) precisa ser menor que o fim (t = ${fmtSig(t2, 4)} s).`);
+    if (sel.length < 12) return bad(`Há ${sel.length} ${sel.length === 1 ? "ponto" : "pontos"} entre t = ${fmtSig(t1, 4)} s e t = ${fmtSig(t2, 4)} s. O ajuste precisa de pelo menos 12; amplie o intervalo.`);
+    const ts = sel.map(p => p.t), zs = sel.map(p => p.z), t0 = ts[0];
+    const fM = parseNum(S.a.meas.f), AM = parseNum(S.a.meas.A), gM = parseNum(S.a.meas.g);
+    // curva com os parâmetros medidos (independe do ajuste livre)
+    {
+      const miss = [], neg = [], nan = [], list = (a) => a.join(", ").replace(/, ([^,]*)$/, " e $1");
+      const chk = (raw, v, name, zeroOk) => { if (!String(raw || "").trim()) miss.push(name); else if (!isFinite(v)) nan.push(name); else if (v < 0 || (!zeroOk && v === 0)) neg.push(name); };
+      chk(S.a.meas.f, fM, "f", false); chk(S.a.meas.A, AM, "A₀", false); chk(S.a.meas.g, gM, "γ", true);
+      const szv = parseNum(S.a.sz);
+      if (miss.length || neg.length || nan.length) res.exp = { ok: false, msg: [miss.length ? `Preencha no passo 1: ${list(miss)}.` : "", nan.length ? `O valor de ${list(nan)} no passo 1 não é um número; use vírgula ou ponto como decimal.` : "", neg.length ? `${list(neg)} ${neg.length > 1 ? "precisam ser positivos" : (neg[0] === "γ" ? "não pode ser negativo" : "precisa ser positivo")} (passo 1).` : ""].filter(Boolean).join(" ") };
+      else {
+        const X = fitExp(ts, zs, t0, AM, 2 * Math.PI * fM, gM / 2, szv);
+        res.exp = Object.assign(X, { ok: true, A: AM, w: 2 * Math.PI * fM, gh: gM / 2, t0, q: quality(X.resid, zs, 2, szv), residT: ts });
+      }
+    }
+    const ze0 = zs.reduce((s, z) => s + z, 0) / zs.length;
+    const w0 = fM > 0 ? 2 * Math.PI * fM : estimateFreq(ts, zs);
+    const T = 2 * Math.PI / w0;
+    const ampIn = (a, b) => { let m = 0; for (let i = 0; i < ts.length; i++) if (ts[i] >= a && ts[i] <= b) m = Math.max(m, Math.abs(zs[i] - ze0)); return m; };
+    const A1 = ampIn(t0, t0 + T), A2 = ampIn(ts[ts.length - 1] - T, ts[ts.length - 1]);
+    let zmin = Infinity, zmax = -Infinity; for (const z of zs) { if (z < zmin) zmin = z; if (z > zmax) zmax = z; }
+    const A0 = AM > 0 ? AM : (A1 || (zmax - zmin) / 2);
+    const span = ts[ts.length - 1] - t0 - T;
+    const g0 = gM > 0 ? gM / 2 : (A1 > 0 && A2 > 0 && span > 0 ? Math.max(0, Math.log(A1 / A2) / span) : 0);
+    let bestP = null, bestS = Infinity;
+    for (let k = 0; k < 24; k++) {
+      const ph = -Math.PI + k * Math.PI / 12;
+      const p = [ze0, A0, g0, w0, ph], s = sse(p, ts, zs, t0);
+      if (s < bestS) { bestS = s; bestP = p; }
+    }
+    let fit = lm(ts, zs, bestP, t0);
+    // segunda tentativa com a frequência estimada dos dados, se a medida estiver longe
+    if (fM > 0) {
+      const wAlt = estimateFreq(ts, zs);
+      if (Math.abs(wAlt - w0) / w0 > 0.05) {
+        let pb = null, sb = Infinity;
+        for (let k = 0; k < 24; k++) { const p = [ze0, A0, g0, wAlt, -Math.PI + k * Math.PI / 12], s = sse(p, ts, zs, t0); if (s < sb) { sb = s; pb = p; } }
+        const alt = lm(ts, zs, pb, t0);
+        if (alt.sse < fit.sse) fit = alt;
+      }
+    }
+    let p = fit.p.slice();
+    const sgn = [1, 1, 1, 1, 1];
+    if (p[3] < 0) { p[3] = -p[3]; p[4] = Math.PI - p[4]; sgn[3] *= -1; sgn[4] *= -1; }
+    if (p[1] < 0) { p[1] = -p[1]; p[4] += Math.PI; sgn[1] *= -1; }
+    p[4] = Math.atan2(Math.sin(p[4]), Math.cos(p[4]));
+    const n = ts.length, nu = n - 5;
+    const sz = parseNum(S.a.sz);
+    const hasSz = sz > 0;
+    const inv = inverse(fit.JTJ);
+    if (!inv) { res.msg = "O ajuste não ficou determinado. Confira o intervalo e a coluna da posição."; R = res; return; }
+    const s2 = hasSz ? sz * sz : fit.sse / nu;
+    const cov = inv.map((r, a) => r.map((v, b) => v * s2 * sgn[a] * sgn[b]));
+    const sig = cov.map((r, a) => Math.sqrt(Math.max(0, r[a])));
+    const sEst = Math.sqrt(fit.sse / nu);
+    Object.assign(res, {
+      ok: true, p, cov, sig, t0, n, nu, iters: fit.iters, conv: fit.conv, tb: ts[ts.length - 1],
+      noOsc: !(p[1] > 3 * sig[1]) || !(p[1] > 2 * sEst),
+      gSig: p[2] > 2 * sig[2],
+      chi2red: hasSz ? fit.sse / (sz * sz) / nu : null, sEst: Math.sqrt(fit.sse / nu), hasSz,
+      resid: sel.map(q => ({ t: q.t, r: q.z - model(p, q.t, t0) }))
+    });
+    res.q = quality(res.resid.map(q => q.r), zs, 5, hasSz ? sz : 0);
+    // grandezas derivadas: q = [ze, A, γ, ω, φ, m]
+    const mk = massKg();
+    const hasM = mk.v > 0;
+    const q = [...p, hasM ? mk.v : 1];
+    const C = Array.from({ length: 6 }, (_, a) => Array.from({ length: 6 }, (_, b) => a < 5 && b < 5 ? cov[a][b] : (a === 5 && b === 5 ? mk.s ** 2 : 0)));
+    const prop = (fn) => {
+      const v = fn(q);
+      const g = q.map((x, j) => { const h = 1e-6 * Math.max(Math.abs(x), 1e-9); const a = q.slice(), b = q.slice(); a[j] += h; b[j] -= h; return (fn(a) - fn(b)) / (2 * h); });
+      let s2 = 0; for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) s2 += g[a] * C[a][b] * g[b];
+      return { v, s: Math.sqrt(Math.max(0, s2)) };
+    };
+    const w0f = (x) => Math.sqrt(x[3] * x[3] + x[2] * x[2]);
+    res.der = {
+      tau: prop(x => 1 / x[2]),
+      f: prop(x => x[3] / (2 * Math.PI)),
+      T: prop(x => 2 * Math.PI / x[3]),
+      w0: prop(w0f),
+      dec: prop(x => x[2] * 2 * Math.PI / x[3]),
+      Q: prop(x => w0f(x) / (2 * x[2])),
+      ratio: prop(x => x[2] / w0f(x)),
+      b: hasM ? prop(x => 2 * x[5] * x[2]) : null,
+      k: hasM ? prop(x => x[5] * (x[3] * x[3] + x[2] * x[2])) : null,
+      hasM
+    };
+    // comparação
+    const cmp = [];
+    const fS = parseNum(S.a.meas.sf), AS = parseNum(S.a.meas.sA);
+    const near = (a, b, tol) => Math.abs(a / b - 1) < tol;
+    if (fM > 0) {
+      const ff = res.der.f.v;
+      let hint = "";
+      if (near(fM / ff, 2 * Math.PI, 0.05)) hint = "O valor medido parece ser a frequência angular ω (em rad/s). No passo 1 entra f = ω/2π, em Hz.";
+      else if (near(fM * ff, 1, 0.05)) hint = "O valor medido parece ser o período T (em s). No passo 1 entra a frequência f = 1/T, em Hz.";
+      cmp.push({ name: "Frequência f", unit: "Hz", meas: fM, ms: isFinite(fS) ? Math.abs(fS) : 0, fit: ff, fs: res.der.f.s, hint });
+    } else cmp.push({ name: "Frequência f", missing: true });
+    if (AM > 0) {
+      let hint = "";
+      for (const fac of [1000, 100, 10]) {
+        if (near(AM / p[1], fac, 0.2)) { hint = `A medida é cerca de ${fac} vezes o valor ajustado. Confira se ela está na mesma unidade da posição do Tracker (${S.a.unitPos}).`; break; }
+        if (near(p[1] / AM, fac, 0.2)) { hint = `A medida é cerca de ${fac} vezes menor que o valor ajustado. Confira se ela está na mesma unidade da posição do Tracker (${S.a.unitPos}).`; break; }
+      }
+      cmp.push({ name: "Amplitude inicial A₀", unit: S.a.unitPos, meas: AM, ms: isFinite(AS) ? Math.abs(AS) : 0, fit: p[1], fs: sig[1], hint });
+    } else cmp.push({ name: "Amplitude inicial A₀", missing: true });
+    const gS = parseNum(S.a.meas.sg);
+    if (gM > 0) cmp.push({ name: "Decaimento γ (= b/m)", unit: "s⁻¹", meas: gM, ms: isFinite(gS) ? Math.abs(gS) : 0, fit: 2 * p[2], fs: 2 * sig[2], fitLabel: "ajuste livre 2γ",
+      hint: near(gM / (2 * p[2]), 0.5, 0.1) ? "O valor medido parece ser b/(2m), a metade de γ. Nesta página, o γ do passo 1 é b/m (amplitude caindo como e^(−γt/2))." : near(gM / (2 * p[2]), 2, 0.1) ? "O valor medido é cerca do dobro do esperado. Confira se ele é b/m (amplitude caindo como e^(−γt/2))." : "" });
+    else cmp.push({ name: "Decaimento γ (= b/m)", missing: true });
+    res.cmp = cmp;
+    R = res;
+  }
+
+  // ================= painel da análise =================
+  const U = () => S.a.unitPos;
+  function row(q, sub, v, u) { return `<tr><td class="q">${q}${sub ? `<span>${sub}</span>` : ""}</td><td class="v">${v}</td><td class="u">${u}</td></tr>`; }
+  const fmtR2 = (v) => !isFinite(v) ? "—" : minus(nf(v > 0.999 ? 5 : 4).format(v));
+  function renderExp() {
+    const st = el("expStatus"), qt = el("expQual"), vd = el("expVerdict"), pt = el("expPar");
+    const X = R && R.exp;
+    if (!X || !X.ok) {
+      st.className = "status bad";
+      st.textContent = X ? X.msg : (R && R.msg ? R.msg : "Importe a trajetória para traçar a curva.");
+      qt.innerHTML = vd.innerHTML = pt.innerHTML = ""; el("expSigNote").hidden = true; return;
+    }
+    const u = U(), F = R.ok && !R.noOsc ? R.q : null, E = X.q;
+    st.className = "status ok";
+    st.textContent = `Curva traçada sobre ${E.n} pontos, de t = ${fmtSig(X.t0, 4)} s a ${fmtSig(X.residT[X.residT.length - 1], 4)} s.`;
+    const two = (lab, sub, a, b) => `<tr><td class="q">${lab}${sub ? `<span>${sub}</span>` : ""}</td><td class="v">${a}</td><td class="v">${b}</td></tr>`;
+    qt.innerHTML = `<thead><tr><th>Qualidade</th><th>Medidos</th><th>Ajuste livre</th></tr></thead><tbody>` +
+      two(`RMS dos resíduos (${u})`, "", fmtSig(E.rms, 2), F ? fmtSig(F.rms, 2) : "—") +
+      two("R²", "", fmtR2(E.r2), F ? fmtR2(F.r2) : "—") +
+      (E.chi2red != null ? two("χ²/ν", `ν = ${E.nu} e ${E.nu - 3}`, fmtSig(E.chi2red, 3), F && F.chi2red != null ? fmtSig(F.chi2red, 3) : "—") : "") +
+      two("r₁ dos resíduos", "autocorrelação", minus(nf(2).format(E.r1)), F ? minus(nf(2).format(F.r1)) : "—") + `</tbody>`;
+    if (F) {
+      const ratio = E.rms / F.rms;
+      const [k, lab, txt] = ratio < 1.25
+        ? ["ok", "Descreve os dados", "quase tão bem quanto o ajuste livre"]
+        : ratio < 2 ? ["warn", "Descreve razoavelmente", "com desvios maiores que os do ajuste livre"]
+        : ["bad", "Não descreve bem os dados", "com desvios bem maiores que os do ajuste livre"];
+      vd.innerHTML = `<div class="row"><span class="chip ${k}">${lab}</span><span class="note">RMS ${fmtSig(ratio, 2)} vez${ratio >= 2 ? "es" : ""} o do ajuste livre: ${txt}.</span></div>` +
+        (ratio >= 1.25 ? `<p class="note" style="margin-top:6px">Confira f, A₀ e γ no passo 1 e o intervalo de ajuste. Se a curva sai de fase com o tempo, o desvio vem da frequência; se a amplitude da curva se afasta da dos pontos, vem do decaimento γ ou de A₀. O passo 6 mostra qual medida difere do ajuste livre.</p>` : "") +
+        `<p class="note" style="margin-top:6px">Critério: RMS até 1,25 vez o do ajuste livre, descreve os dados; até 2 vezes, razoavelmente; acima disso, não descreve bem.</p>`;
+    } else vd.innerHTML = `<p class="note">Sem o ajuste livre, não há referência para comparar; use os números acima e o gráfico de resíduos.</p>`;
+    const mk = massKg(), hasM = mk.v > 0;
+    const fM = parseNum(S.a.meas.f), sf = Math.abs(parseNum(S.a.meas.sf)) || 0, gM = parseNum(S.a.meas.g), sg = Math.abs(parseNum(S.a.meas.sg)) || 0;
+    const w = 2 * Math.PI * fM, sw = 2 * Math.PI * sf, w0 = Math.sqrt(w * w + gM * gM / 4), sw0 = Math.sqrt((w * sw) ** 2 + (gM / 4 * sg) ** 2) / w0;
+    const miss = `<td class="v miss">informe a massa no passo 1</td>`;
+    const noSig = [["f", S.a.meas.f, S.a.meas.sf], ["γ", S.a.meas.g, S.a.meas.sg], ["m", S.a.meas.m, S.a.meas.sm]].filter(([, v, e]) => parseNum(v) > 0 && !(parseNum(e) > 0)).map(x => x[0]);
+    pt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
+      row("z<sub>e</sub>", "ajustado", fmtUnc(X.ze, X.sze), u) +
+      row("φ", "ajustado", fmtUnc(X.ph, X.sph), "rad") +
+      row("ω = 2πf", "da frequência medida", fmtUnc(w, sw), "rad/s") +
+      row("ω₀ = √(ω² + γ²/4)", "frequência natural", fmtUnc(w0, sw0), "rad/s") +
+      (gM > 0 ? row("τ = 2/γ", "tempo para A cair a A₀/e", fmtUnc(2 / gM, 2 * sg / gM ** 2), "s") : "") +
+      (hasM ? row("b = m·γ", "coeficiente de amortecimento", fmtUnc(mk.v * gM, Math.sqrt((gM * mk.s) ** 2 + (mk.v * sg) ** 2)), "kg/s") : `<tr><td class="q">b = m·γ</td>${miss}<td class="u">kg/s</td></tr>`) +
+      (hasM ? row("k = m·ω₀²", "constante elástica", fmtUnc(mk.v * w0 * w0, Math.sqrt((w0 * w0 * mk.s) ** 2 + (2 * mk.v * w0 * sw0) ** 2)), "N/m") : `<tr><td class="q">k = m·ω₀²</td>${miss}<td class="u">N/m</td></tr>`) +
+      `</tbody>`;
+    el("expSigNote").hidden = !noSig.length;
+    if (noSig.length) el("expSigNote").textContent = `Sem incerteza informada para ${noSig.join(", ").replace(/, ([^,]*)$/, " e $1")} no passo 1: as incertezas abaixo ficam subestimadas.`;
+  }
+  function renderAnalysis() {
+    renderExp();
+    const st = el("fitStatus"), ft = el("fitTable"), dt = el("derTable"), cl = el("cmpList"), rg = el("regime");
+    const pts = R ? R.pts : [];
+    el("srcLine").textContent = pts.length ? `${S.a.src || "Dados colados"} · ${pts.length} pontos` : "Nenhuma trajetória importada ainda.";
+    el("aEmpty").hidden = pts.length > 0;
+    const rel = R && R.release;
+    const relShow = rel != null && R.t1 < rel - (1e-3 * Math.max(1, Math.abs(rel)));
+    el("relBox").hidden = !relShow;
+    if (relShow) el("relTxt").textContent = `A massa parece estar parada até t ≈ ${fmtSig(rel, 3)} s e ser solta nesse instante. O trecho parado não segue o modelo e distorce o ajuste.`;
+    if (!R || !R.ok) {
+      st.className = "status bad"; st.textContent = R && R.msg ? R.msg : "Importe a trajetória para fazer o ajuste.";
+      ft.innerHTML = ""; dt.innerHTML = ""; cl.innerHTML = ""; rg.innerHTML = "";
+      return;
+    }
+    const p = R.p, s = R.sig, u = U();
+    st.className = R.noOsc || !R.conv ? "status bad" : "status ok";
+    st.textContent = `Ajuste com ${R.n} pontos, de t = ${fmtSig(R.t0, 4)} s a ${fmtSig(R.tb, 4)} s.` +
+      (R.conv ? "" : " Atenção: o ajuste parou antes de convergir; confira o intervalo e as medidas diretas.") +
+      (R.noOsc ? " Os dados não mostram uma oscilação clara: a amplitude ajustada é comparável ao ruído. Confira a coluna da posição e o intervalo de ajuste." : "");
+    ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
+      row("z<sub>e</sub>", "posição de equilíbrio", fmtUnc(p[0], s[0]), u) +
+      row("A₀", `amplitude em t₀ = ${fmtSig(R.t0, 4)} s`, fmtUnc(p[1], s[1]), u) +
+      row("γ", "parâmetro de amortecimento", fmtUnc(p[2], s[2]), "s⁻¹") +
+      row("ω", "frequência angular amortecida", fmtUnc(p[3], s[3]), "rad/s") +
+      row("φ", "fase", fmtUnc(p[4], s[4]), "rad") +
+      (R.hasSz
+        ? row("χ²/ν", `ν = N − 5 = ${R.nu}`, fmtSig(R.chi2red, 3), "")
+        : row("σ estimada", "desvio dos pontos em torno do ajuste", fmtSig(R.sEst, 2), u)) + `</tbody>`;
+    if (R.noOsc) {
+      dt.innerHTML = ""; cl.innerHTML = "";
+      rg.innerHTML = `<p class="note">Sem uma oscilação identificada, as grandezas derivadas e a comparação com as medidas diretas não fazem sentido.</p>`;
+      return;
+    }
+    const d = R.der;
+    const miss = `<td class="v miss">informe a massa no passo 1</td>`;
+    const gPos = p[2] > 0;
+    const undef = (q, un) => `<tr><td class="q">${q}</td><td class="v miss">não definido, pois γ ≤ 0</td><td class="u">${un}</td></tr>`;
+    dt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
+      (gPos ? row("τ = 1/γ", "tempo de relaxação", fmtUnc(d.tau.v, d.tau.s), "s") : undef("τ = 1/γ", "s")) +
+      row("f = ω/2π", "frequência", fmtUnc(d.f.v, d.f.s), "Hz") +
+      row("T = 2π/ω", "período", fmtUnc(d.T.v, d.T.s), "s") +
+      row("ω₀ = √(ω² + γ²)", "frequência natural", fmtUnc(d.w0.v, d.w0.s), "rad/s") +
+      (d.hasM ? row("b = 2mγ", "coeficiente de amortecimento", fmtUnc(d.b.v, d.b.s), "kg/s") : `<tr><td class="q">b = 2mγ</td>${miss}<td class="u">kg/s</td></tr>`) +
+      (d.hasM ? row("k = m·ω₀²", "constante elástica", fmtUnc(d.k.v, d.k.s), "N/m") : `<tr><td class="q">k = m·ω₀²</td>${miss}<td class="u">N/m</td></tr>`) +
+      (gPos ? row("Q = ω₀/(2γ)", "fator de qualidade", fmtUnc(d.Q.v, d.Q.s), "") : undef("Q = ω₀/(2γ)", "")) +
+      row("δ = γT", "decremento logarítmico", fmtUnc(d.dec.v, d.dec.s), "") + `</tbody>`;
+    const r = d.ratio.v, rs = d.ratio.s;
+    let cls = "ok", txt = "Subcrítico";
+    if (!R.gSig) { cls = "warn"; txt = "Amortecimento não significativo"; }
+    else if (r >= 1) { cls = "bad"; txt = "Não subcrítico"; }
+    const gNote = !R.gSig
+      ? `<p class="note" style="margin-top:6px">γ não chega a 2σ acima de zero neste intervalo, então o amortecimento não foi medido com segurança e τ e Q ficam mal determinados. Use um intervalo mais longo, com mais oscilações.</p>`
+      : "";
+    rg.innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/ω₀ = ${fmtUnc(r, rs)}${r < 1 && R.gSig ? " &lt; 1" : ""}</span></div>` + gNote +
+      `<p class="note" style="margin-top:6px">O modelo com seno já supõe o regime subcrítico (γ &lt; ω₀), então o ajuste confirma esse regime e mostra a folga γ/ω₀.</p>`;
+    cl.innerHTML = R.cmp.map(c => {
+      if (c.missing) return `<div class="cmp-item"><span class="t">${c.name}</span><span class="chip info">sem medida direta</span><span class="d">Preencha o passo 1 para comparar.</span></div>`;
+      const sc = Math.sqrt(c.ms ** 2 + c.fs ** 2);
+      const z = sc > 0 ? Math.abs(c.meas - c.fit) / sc : Infinity;
+      const [k, lab] = z <= 2 ? ["ok", "compatíveis"] : z <= 3 ? ["warn", "discrepância moderada"] : ["bad", "incompatíveis"];
+      return `<div class="cmp-item"><span class="t">${c.name}</span><span class="chip ${k}">${lab}</span>` +
+        `<span class="d">medida ${fmtUnc(c.meas, c.ms)} ${c.unit} · ${c.fitLabel || "ajuste livre"} ${fmtUnc(c.fit, c.fs)} ${c.unit} · |Δ| = ${isFinite(z) ? fmtSig(z, 2) : "∞"}σ</span>` +
+        (c.hint && z > 2 ? `<span class="d hint">${c.hint}</span>` : "") + `</div>`;
+    }).join("");
+  }
+  function resultsTSV() {
+    if (!R || !R.ok || R.noOsc) return "";
+    const p = R.p, s = R.sig, d = R.der, u = U();
+    const num = tsvNum;
+    // valor e incerteza arredondados como na tela, sem parênteses
+    const pair = tsvPair;
+    const lines = [["Grandeza", "Valor", "Incerteza", "Unidade"]];
+    const add = (q, v, e, un) => { const [a, b] = pair(v, e); lines.push([q, a, b, un]); };
+    const mk = massKg();
+    if (mk.v > 0) add("m (medida)", parseNum(S.a.meas.m), parseNum(S.a.meas.sm), S.a.meas.mu);
+    const fM = parseNum(S.a.meas.f), AM = parseNum(S.a.meas.A);
+    if (fM > 0) add("f (medida)", fM, parseNum(S.a.meas.sf), "Hz");
+    if (AM > 0) add("A0 (medida)", AM, parseNum(S.a.meas.sA), u);
+    add("ze", p[0], s[0], u); add("A0 (ajuste)", p[1], s[1], u); add("γ", p[2], s[2], "s^-1"); add("ω", p[3], s[3], "rad/s"); add("φ", p[4], s[4], "rad");
+    if (p[2] > 0) add("τ = 1/γ", d.tau.v, d.tau.s, "s");
+    add("f (ajuste)", d.f.v, d.f.s, "Hz"); add("T", d.T.v, d.T.s, "s"); add("ω0", d.w0.v, d.w0.s, "rad/s");
+    if (d.hasM) { add("b = 2mγ", d.b.v, d.b.s, "kg/s"); add("k = m·ω0²", d.k.v, d.k.s, "N/m"); }
+    if (p[2] > 0) add("Q", d.Q.v, d.Q.s, "");
+    add("δ = γT", d.dec.v, d.dec.s, ""); add("γ/ω0", d.ratio.v, d.ratio.s, "");
+    lines.push(["N (pontos)", String(R.n), "", ""]);
+    lines.push(["intervalo de ajuste", `${num(R.t1)} a ${num(R.t2)}`, "", "s"]);
+    if (R.hasSz) lines.push(["χ²/ν", num(R.chi2red), "", ""]); else lines.push(["σ estimada dos pontos", num(R.sEst), "", u]);
+    const X = R.exp;
+    if (X && X.ok) {
+      const gM = parseNum(S.a.meas.g);
+      lines.push([]); lines.push(["Curva com os parâmetros medidos", "", "", ""]);
+      if (gM >= 0) add("γ (medida, = b/m)", gM, parseNum(S.a.meas.sg), "s^-1");
+      add("ze (curva medida)", X.ze, X.sze, u); add("φ (curva medida)", X.ph, X.sph, "rad");
+      lines.push(["Qualidade", "Parâmetros medidos", "Ajuste livre", ""]);
+      lines.push(["RMS dos resíduos", num(X.q.rms), num(R.q.rms), u]);
+      lines.push(["R²", plain(fmtR2(X.q.r2)), plain(fmtR2(R.q.r2)), ""]);
+      if (X.q.chi2red != null) lines.push(["χ²/ν", num(X.q.chi2red), num(R.q.chi2red), ""]);
+      lines.push(["r1 dos resíduos", num(X.q.r1), num(R.q.r1), ""]);
+    }
+    return lines.map(l => l.join("\t")).join("\n");
+  }
+
+  // ================= gráfico genérico =================
+  let colors = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+    colors = { paper: g("--paper"), gridMinor: g("--grid-minor"), gridMajor: g("--grid-major"), axis: g("--axis"), ink: g("--ink"), inkSoft: g("--ink-soft"), shade: g("--shade"), data: g("--data"), fit: g("--fit"), c3: g("--c3"), c4: g("--c4") };
+  }
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const nm = m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10;
+    return { step: nm * p, minor: (nm * p) / (nm === 2 ? 4 : 5) };
+  }
+  class Plot {
+    constructor(canvas, o) {
+      this.c = canvas; this.ctx = canvas.getContext("2d"); this.wrap = canvas.parentElement; this.o = o;
+      this.W = 0; this.H = 0; this.dpr = 1; this.y = { min: -1, max: 1 }; this.yAuto = true;
+      new ResizeObserver(() => this.resize()).observe(this.wrap);
+      this.bind();
+    }
+    resize() {
+      const r = this.wrap.getBoundingClientRect();
+      this.dpr = window.devicePixelRatio || 1;
+      this.W = Math.max(1, Math.round(r.width)); this.H = Math.max(1, Math.round(r.height));
+      this.c.width = Math.round(this.W * this.dpr); this.c.height = Math.round(this.H * this.dpr);
+      schedule();
+    }
+    X(x) { const v = this.o.xv; return (x - v.min) * this.W / (v.max - v.min); }
+    Y(y) { return this.H - (y - this.y.min) * this.H / (this.y.max - this.y.min); }
+    xAt(px) { const v = this.o.xv; return v.min + px / this.W * (v.max - v.min); }
+    yAt(py) { return this.y.min + (this.H - py) / this.H * (this.y.max - this.y.min); }
+    autoRange(layers) {
+      const xv = this.o.xv; let lo = Infinity, hi = -Infinity;
+      const take = (y) => { if (isFinite(y)) { if (y < lo) lo = y; if (y > hi) hi = y; } };
+      layers.forEach(L => {
+        if (L.noFit) return;
+        if (L.type === "pts") L.xs.forEach((x, i) => { if (x >= xv.min && x <= xv.max) { const e = L.es && L.es[i] > 0 ? L.es[i] : 0; take(L.ys[i] - e); take(L.ys[i] + e); } });
+        if (L.type === "fn") { const a = Math.max(xv.min, L.from ?? -Infinity), b = Math.min(xv.max, L.to ?? Infinity); if (a < b) for (let i = 0; i <= 200; i++) take(L.f(a + (b - a) * i / 200)); }
+        if (L.type === "hline") take(L.y);
+        if (L.type === "line") L.xs.forEach((x, i) => { if (x >= xv.min && x <= xv.max) take(L.ys[i]); });
+      });
+      if (!(lo < hi)) { if (isFinite(lo)) { lo -= 1; hi += 1; } else return; }
+      if (this.o.symY) { const m = Math.max(Math.abs(lo), Math.abs(hi)) * 1.15; this.y.min = -m; this.y.max = m; return; }
+      if (this.o.yZero && lo > 0) lo = 0;
+      const pad = (hi - lo) * 0.08; this.y.min = lo - pad; this.y.max = hi + pad * (this.o.compact ? 2.5 : 1.6);
+    }
+    draw() {
+      const { W, H } = this; if (W < 4 || H < 4) return;
+      const xv = this.o.xv, X = (x) => this.X(x), Y = (y) => this.Y(y);
+      const key = `${dataVer}|${xv.min}|${xv.max}|${this.yAuto ? "a" : this.y.min + "," + this.y.max}|${W}|${H}|${this.dpr}`;
+      if (key !== this.key || !this.base) {
+        this.layers = this.o.layers();
+        if (this.yAuto) this.autoRange(this.layers);
+        this.drawBase(this.layers);
+        this.key = key;
+      }
+      const layers = this.layers, ctx = this.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.c.width, this.c.height); ctx.drawImage(this.base, 0, 0);
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.drawTrace(ctx, layers, X, Y, xv, H);
+    }
+    drawBase(layers) {
+      if (!this.base) { this.base = document.createElement("canvas"); this.bctx = this.base.getContext("2d"); }
+      this.base.width = this.c.width; this.base.height = this.c.height;
+      const ctx = this.bctx, { W, H } = this;
+      const xv = this.o.xv, X = (x) => this.X(x), Y = (y) => this.Y(y);
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, W, H);
+      const gx = niceStep((xv.max - xv.min) / Math.max(2, W / 90)), gy = niceStep((this.y.max - this.y.min) / Math.max(2, H / (this.o.compact ? 36 : 60)));
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = colors.gridMinor; ctx.beginPath();
+      if (!this.o.compact) {
+        for (let x = Math.ceil(xv.min / gx.minor) * gx.minor; x <= xv.max; x += gx.minor) { const px = Math.round(X(x)) + 0.5; ctx.moveTo(px, 0); ctx.lineTo(px, H); }
+        for (let y = Math.ceil(this.y.min / gy.minor) * gy.minor; y <= this.y.max; y += gy.minor) { const py = Math.round(Y(y)) + 0.5; ctx.moveTo(0, py); ctx.lineTo(W, py); }
+      }
+      ctx.stroke();
+      ctx.strokeStyle = colors.gridMajor; ctx.beginPath();
+      const xt = [], yt = [];
+      for (let k = Math.ceil(xv.min / gx.step); k * gx.step <= xv.max; k++) { const x = k * gx.step; xt.push(x); const px = Math.round(X(x)) + 0.5; ctx.moveTo(px, 0); ctx.lineTo(px, H); }
+      for (let k = Math.ceil(this.y.min / gy.step); k * gy.step <= this.y.max; k++) { const y = k * gy.step; yt.push(y); const py = Math.round(Y(y)) + 0.5; ctx.moveTo(0, py); ctx.lineTo(W, py); }
+      ctx.stroke();
+      layers.filter(L => L.type === "outside").forEach(L => {
+        ctx.fillStyle = colors.shade; const a = X(L.from), b = X(L.to);
+        if (a > 0) ctx.fillRect(0, 0, Math.min(a, W), H);
+        if (b < W) ctx.fillRect(Math.max(b, 0), 0, W - Math.max(b, 0), H);
+      });
+      const ox = X(0), oy = Y(0);
+      ctx.strokeStyle = colors.axis; ctx.lineWidth = 1.25; ctx.beginPath();
+      if (oy >= 0 && oy <= H) { ctx.moveTo(0, Math.round(oy) + 0.5); ctx.lineTo(W, Math.round(oy) + 0.5); }
+      if (ox >= 0 && ox <= W) { ctx.moveTo(Math.round(ox) + 0.5, 0); ctx.lineTo(Math.round(ox) + 0.5, H); }
+      ctx.stroke();
+      const clampPy = (py) => Math.max(-4 * H, Math.min(5 * H, py));
+      layers.forEach(L => {
+        const col = colors[L.color] || L.color;
+        if (L.type === "hline") {
+          ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = L.width || 1; ctx.setLineDash(L.dash || []); ctx.globalAlpha = L.alpha ?? 1;
+          const py = Math.round(Y(L.y)) + 0.5; ctx.beginPath(); ctx.moveTo(L.from != null ? X(L.from) : 0, py); ctx.lineTo(L.to != null ? X(L.to) : W, py); ctx.stroke(); ctx.restore();
+        } else if (L.type === "fn") {
+          const a = Math.max(xv.min, L.from ?? -Infinity), b = Math.min(xv.max, L.to ?? Infinity);
+          if (!(a < b)) return;
+          const n = Math.max(40, Math.ceil(W * 1.5 * (b - a) / (xv.max - xv.min)));
+          ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = L.width || 2; ctx.setLineDash(L.dash || []); ctx.globalAlpha = L.alpha ?? 1; ctx.lineJoin = "round";
+          ctx.beginPath(); let pen = false;
+          for (let i = 0; i <= n; i++) { const x = i === n ? b : a + (b - a) * i / n, y = L.f(x); if (!isFinite(y)) { pen = false; continue; } const px = X(x), py = clampPy(Y(y)); if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; } }
+          ctx.stroke(); ctx.restore();
+        } else if (L.type === "line") {
+          ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = L.width || 2; ctx.lineJoin = "round"; ctx.globalAlpha = L.alpha ?? 1;
+          ctx.beginPath(); let pen = false;
+          for (let i = 0; i < L.xs.length; i++) {
+            const y = L.ys[i]; if (y == null || !isFinite(y)) { pen = false; continue; }
+            const px = X(L.xs[i]), py = clampPy(Y(y)); if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
+          }
+          ctx.stroke();
+          if (L.dots) { ctx.fillStyle = col; for (let i = 0; i < L.xs.length; i++) { const y = L.ys[i]; if (y == null || !isFinite(y)) continue; const px = X(L.xs[i]), py = Y(y); if (px < -4 || px > W + 4 || py < -4 || py > H + 4) continue; ctx.fillRect(px - 2, py - 2, 4, 4); } }
+          ctx.restore();
+        } else if (L.type === "pts") {
+          ctx.save(); ctx.fillStyle = col; ctx.globalAlpha = L.alpha ?? 1; const r = L.r || 2.5;
+          if (L.es) {
+            ctx.strokeStyle = col; ctx.lineWidth = 1.25; ctx.beginPath();
+            for (let i = 0; i < L.xs.length; i++) {
+              const e = L.es[i]; if (!(e > 0)) continue;
+              const px = X(L.xs[i]), y1 = clampPy(Y(L.ys[i] - e)), y2 = clampPy(Y(L.ys[i] + e));
+              ctx.moveTo(px, y1); ctx.lineTo(px, y2); ctx.moveTo(px - 4, y1); ctx.lineTo(px + 4, y1); ctx.moveTo(px - 4, y2); ctx.lineTo(px + 4, y2);
+            }
+            ctx.stroke();
+          }
+          for (let i = 0; i < L.xs.length; i++) { const px = X(L.xs[i]), py = Y(L.ys[i]); if (px < -5 || px > W + 5 || py < -5 || py > H + 5) continue; ctx.fillRect(px - r, py - r, 2 * r, 2 * r); }
+          ctx.restore();
+        }
+      });
+      // rótulos
+      ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace'; ctx.lineJoin = "round";
+      const label = (t, x, y) => { ctx.lineWidth = 3; ctx.strokeStyle = colors.paper; ctx.strokeText(t, x, y); ctx.fillStyle = colors.inkSoft; ctx.fillText(t, x, y); };
+      if (!this.o.noXLabels) {
+        const ly = (!this.o.compact && oy >= 0 && oy <= H - 18) ? oy + 5 : H - 16;
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        xt.forEach(x => { if (Math.abs(x) < gx.step * 1e-9) return; const px = X(x); if (px < 14 || px > W - 14) return; label(fmtTick(x, gx.step), px, ly); });
+      }
+      const leftSide = ox < 50 || ox > W;
+      ctx.textBaseline = "middle"; ctx.textAlign = leftSide ? "left" : "right";
+      const lx = leftSide ? 6 : ox - 6;
+      yt.forEach(y => { if (Math.abs(y) < gy.step * 1e-9 && ox >= 0 && ox <= W) return; const py = Y(y); if (py < 10 || py > H - 10) return; label(fmtTick(y, gy.step), lx, py); });
+      ctx.font = '500 12px "IBM Plex Mono", ui-monospace, monospace';
+      const title = (t, x, y) => { ctx.lineWidth = 4; ctx.strokeStyle = colors.paper; ctx.strokeText(t, x, y); ctx.fillStyle = colors.ink; ctx.fillText(t, x, y); };
+      if (this.o.xTitle) { ctx.textAlign = "right"; ctx.textBaseline = "bottom"; title(this.o.xTitle(), W - 8, (oy >= 22 && oy <= H - 8) ? oy - 5 : H - 20); }
+      if (this.o.yTitle) { const t = this.o.yTitle(); ctx.textAlign = "left"; ctx.textBaseline = "top"; const tw = ctx.measureText(t).width; title(t, Math.min(Math.max((leftSide ? 6 : ox + 7), 6), W - tw - 8), 7); }
+    }
+    drawTrace(ctx, layers, X, Y, xv, H) {
+      const tr = this.o.getTrace();
+      if (tr != null && tr >= xv.min && tr <= xv.max) {
+        const px = Math.round(X(tr)) + 0.5;
+        ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = colors.axis; ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke(); ctx.restore();
+        layers.forEach(L => {
+          if (!L.trace) return;
+          const col = colors[L.color] || L.color;
+          if (L.type === "fn") {
+            if ((L.from != null && tr < L.from) || (L.to != null && tr > L.to)) return;
+            const y = L.f(tr); if (!isFinite(y)) return; const py = Y(y); if (py < -6 || py > H + 6) return;
+            ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = colors.paper; ctx.stroke();
+          } else if (L.type === "line") {
+            const y = interpAt(L.xs, L.ys, tr); if (!isFinite(y)) return; const py = Y(y); if (py < -6 || py > H + 6) return;
+            ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = colors.paper; ctx.stroke();
+          } else if (L.type === "pts") {
+            const xs = L.xs; let lo = 0, hi = xs.length - 1;
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] < tr) lo = mid; else hi = mid; }
+            let bi = -1, bd = 14;
+            for (let i = Math.max(0, lo - 2); i <= Math.min(xs.length - 1, hi + 2); i++) { const d = Math.abs(X(xs[i]) - px); if (d < bd) { bd = d; bi = i; } }
+            if (bi >= 0) { ctx.beginPath(); ctx.arc(X(L.xs[bi]), Y(L.ys[bi]), 7, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke(); }
+          }
+        });
+      }
+    }
+    bind() {
+      const c = this.c, pointers = new Map(); let g = null;
+      const pos = (e) => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+      const start = () => {
+        const pts = [...pointers.values()], xv = { ...this.o.xv }, yv = { ...this.y };
+        if (pts.length === 1) g = { type: "pan", p0: pts[0], xv, yv, moved: g ? g.moved : false };
+        else if (pts.length >= 2) { const [a, b] = pts; g = { type: "pinch", xv, yv, moved: true, dx0: Math.max(30, Math.abs(a.x - b.x)), dy0: Math.max(30, Math.abs(a.y - b.y)), mx: this.xAt((a.x + b.x) / 2), my: this.yAt((a.y + b.y) / 2) }; }
+      };
+      c.addEventListener("pointerdown", (e) => { c.setPointerCapture(e.pointerId); pointers.set(e.pointerId, pos(e)); if (pointers.size === 1) g = null; start(); });
+      c.addEventListener("pointermove", (e) => {
+        const p = pos(e);
+        if (!pointers.has(e.pointerId)) { if (e.pointerType === "mouse") this.o.setTrace(this.xAt(p.x)); return; }
+        pointers.set(e.pointerId, p); if (!g) return;
+        const xv = this.o.xv;
+        if (g.type === "pan") {
+          const dx = p.x - g.p0.x, dy = p.y - g.p0.y;
+          if (!g.moved && Math.hypot(dx, dy) < 5) return;
+          g.moved = true;
+          const ux = (g.xv.max - g.xv.min) / this.W; xv.min = g.xv.min - dx * ux; xv.max = g.xv.max - dx * ux;
+          if (this.o.panY && Math.abs(dy) > 2) { const uy = (g.yv.max - g.yv.min) / this.H; this.y.min = g.yv.min + dy * uy; this.y.max = g.yv.max + dy * uy; this.yAuto = false; }
+          if (e.pointerType === "mouse") this.o.setTrace(this.xAt(p.x)); else schedule();
+        } else {
+          const pts = [...pointers.values()]; if (pts.length < 2) return;
+          const [a, b] = pts, mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          const fx = g.dx0 / Math.max(30, Math.abs(a.x - b.x)), fy = g.dy0 / Math.max(30, Math.abs(a.y - b.y));
+          const sx = (g.xv.max - g.xv.min) * fx; xv.min = g.mx - (mid.x / this.W) * sx; xv.max = xv.min + sx;
+          if (this.o.panY) { const sy = (g.yv.max - g.yv.min) * fy; this.y.max = g.my + (mid.y / this.H) * sy; this.y.min = this.y.max - sy; this.yAuto = false; }
+          schedule();
+        }
+      });
+      const end = (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        const tap = g && g.type === "pan" && !g.moved && pointers.size === 1;
+        const p = pos(e); pointers.delete(e.pointerId);
+        if (tap && e.type === "pointerup") this.o.setTrace(this.xAt(p.x));
+        if (pointers.size === 0) g = null; else start();
+      };
+      c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end);
+      c.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse" && !pointers.size) this.o.setTrace(null); });
+      c.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const r = c.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+        const f = Math.exp(Math.max(-60, Math.min(60, e.deltaY)) * 0.004);
+        const xv = this.o.xv, x = this.xAt(px);
+        xv.min = x - (x - xv.min) * f; xv.max = x + (xv.max - x) * f;
+        if (this.o.panY && !e.shiftKey) { const y = this.yAt(py); this.y.min = y - (y - this.y.min) * f; this.y.max = y + (this.y.max - y) * f; this.yAuto = false; }
+        schedule();
+      }, { passive: false });
+    }
+  }
+
+  // ================= gráficos da análise =================
+  const aX = { min: 0, max: 9 }; let aTrace = null;
+  const aSet = (x) => { aTrace = x; scheduleTrace(); };
+  function aLayers() {
+    if (!R) return [];
+    const L = [];
+    if (R.ok || R.pts.length) L.push({ type: "outside", from: R.t1, to: R.t2 });
+    const inT = [], inZ = [], outT = [], outZ = [];
+    R.pts.forEach(q => { if (q.t >= R.t1 && q.t <= R.t2) { inT.push(q.t); inZ.push(q.z); } else { outT.push(q.t); outZ.push(q.z); } });
+    if (outT.length) L.push({ type: "pts", xs: outT, ys: outZ, color: "data", r: 2, alpha: 0.35 });
+    const showFit = R.ok && S.a.showFit !== false, X = R.exp, showExp = X && X.ok && S.a.showExp !== false;
+    const env = (ze, A, g, t0, col) => [1, -1].forEach(sg => L.push({ type: "fn", f: t => ze + sg * A * Math.exp(-g * (t - t0)), from: R.t1, to: R.t2, color: col, width: 1.25, dash: [6, 5], alpha: 0.8, noFit: true }));
+    if (showFit) { L.push({ type: "hline", y: R.p[0], color: "fit", dash: [2, 4], alpha: 0.7, from: R.t1, to: R.t2, noFit: true }); env(R.p[0], R.p[1], R.p[2], R.t0, "fit"); }
+    if (showExp) env(X.ze, X.A, X.gh, X.t0, "c3");
+    L.push({ type: "pts", xs: inT, ys: inZ, color: "data", r: 2.25, trace: true });
+    if (showExp) L.push({ type: "fn", f: X.f, from: R.t1, to: R.t2, color: "c3", width: 2, trace: true, noFit: true });
+    if (showFit) L.push({ type: "fn", f: t => model(R.p, t, R.t0), from: R.t1, to: R.t2, color: "fit", width: 2, trace: true });
+    return L;
+  }
+  function rLayers() {
+    if (!R) return [];
+    const X = R.exp, L = [{ type: "outside", from: R.t1, to: R.t2 }, { type: "hline", y: 0, color: "axis", width: 1.25 }];
+    if (X && X.ok && S.a.showExp !== false) L.push({ type: "pts", xs: X.residT, ys: X.resid, color: "c3", r: 2, trace: true });
+    if (R.ok && S.a.showFit !== false) L.push({ type: "pts", xs: R.resid.map(q => q.t), ys: R.resid.map(q => q.r), color: "fit", r: 2, trace: true });
+    return L.length > 2 ? L : [];
+  }
+  const aPlot = new Plot(el("aPlot"), { xv: aX, panY: true, layers: aLayers, getTrace: () => aTrace, setTrace: aSet, xTitle: () => "t (s)", yTitle: () => `z (${U()})` });
+  const rPlot = new Plot(el("aRes"), { xv: aX, symY: true, compact: true, layers: rLayers, getTrace: () => aTrace, setTrace: aSet, yTitle: () => `resíduo (${U()})`, noXLabels: false });
+  function frameA() {
+    const pts = R ? R.pts : [];
+    if (pts.length) { const lo = pts[0].t, hi = pts[pts.length - 1].t, pad = (hi - lo) * 0.02 || 1; aX.min = lo - pad; aX.max = hi + pad; }
+    aPlot.yAuto = true; rPlot.yAuto = true;
+  }
+  function aReadout() {
+    const box = el("aReadout");
+    if (aTrace == null || !R) { box.innerHTML = "<span>Passe o cursor ou toque no gráfico para ler os valores.</span>"; return; }
+    const parts = [`<b>t = ${fmtSig(aTrace, 4)} s</b>`];
+    const u = U();
+    let near = null, bd = Infinity;
+    R.pts.forEach(q => { const d = Math.abs(q.t - aTrace); if (d < bd) { bd = d; near = q; } });
+    if (near) parts.push(`<span>ponto: (${fmtSig(near.t, 4)} s; ${fmtSig(near.z, 4)} ${u})</span>`);
+    const inR = aTrace >= R.t1 && aTrace <= R.t2, nearIn = near && near.t >= R.t1 && near.t <= R.t2, X = R.exp;
+    if (inR && X && X.ok && S.a.showExp !== false) parts.push(`<span>curva medida: ${fmtSig(X.f(aTrace), 4)} ${u}${nearIn ? ` (resíduo ${fmtSig(near.z - X.f(near.t), 2)})` : ""}</span>`);
+    if (inR && R.ok && S.a.showFit !== false) parts.push(`<span>ajuste livre: ${fmtSig(model(R.p, aTrace, R.t0), 4)} ${u}${nearIn ? ` (resíduo ${fmtSig(near.z - model(R.p, near.t, R.t0), 2)})` : ""}</span>`);
+    box.innerHTML = parts.join("");
+  }
+
+  // ================= controles da análise =================
+  const measIds = { mVal: "m", mSig: "sm", fVal: "f", fSig: "sf", AVal: "A", ASig: "sA", gVal: "g", gSig: "sg" };
+  function syncInputs() {
+    for (const [id, k] of Object.entries(measIds)) if (document.activeElement !== el(id)) el(id).value = S.a.meas[k] || "";
+    el("mUnit").value = S.a.meas.mu || "g";
+    el("showExp").checked = S.a.showExp !== false; el("showFit").checked = S.a.showFit !== false;
+    el("posUnit").value = S.a.unitPos; el("AUnit").textContent = S.a.unitPos;
+    if (document.activeElement !== el("zSig")) el("zSig").value = S.a.sz || "";
+    const opts = (sel) => cols.map((c, j) => `<option value="${j}"${j === sel ? " selected" : ""}>${c.name.replace(/[&<>"]/g, "")}</option>`).join("");
+    el("tCol").innerHTML = opts(S.a.ti); el("zCol").innerHTML = opts(S.a.zi);
+    if (R) {
+      // o que o aluno digitou fica no campo, mesmo quando o intervalo é inválido
+      const has = R.pts.length > 0;
+      if (document.activeElement !== el("t1")) el("t1").value = S.a.t1 !== "" ? S.a.t1 : (has ? fmtIn(R.t1, 5) : "");
+      if (document.activeElement !== el("t2")) el("t2").value = S.a.t2 !== "" ? S.a.t2 : (has ? fmtIn(R.t2, 5) : "");
+      const badRange = !!(R.msg && /intervalo|pontos entre/.test(R.msg));
+      el("t1").classList.toggle("bad", badRange); el("t2").classList.toggle("bad", badRange);
+    }
+  }
+  let fitT = null;
+  function refit(delay = 120, reframe = false) {
+    clearTimeout(fitT);
+    fitT = setTimeout(() => { analyze(); if (reframe) frameA(); syncInputs(); renderAnalysis(); schedule(); save(); }, delay);
+  }
+  for (const [id, k] of Object.entries(measIds)) {
+    el(id).addEventListener("input", () => {
+      S.a.meas[k] = el(id).value;
+      const v = el(id).value.trim(), n = parseNum(v);
+      // valores medidos positivos (γ pode ser zero); incertezas não negativas
+      const okVal = k.startsWith("s") || k === "g" ? n >= 0 : n > 0;
+      el(id).classList.toggle("bad", v !== "" && !(isFinite(n) && okVal));
+      refit(250);
+    });
+  }
+  el("mUnit").addEventListener("change", () => { S.a.meas.mu = el("mUnit").value; refit(0); });
+  el("posUnit").addEventListener("change", () => { S.a.unitPos = el("posUnit").value; refit(0); });
+  el("zSig").addEventListener("input", () => { S.a.sz = el("zSig").value; refit(300); });
+  el("tCol").addEventListener("change", () => { S.a.ti = +el("tCol").value; S.a.t1 = S.a.t2 = ""; refit(0, true); });
+  el("zCol").addEventListener("change", () => { S.a.zi = +el("zCol").value; refit(0, true); });
+  ["t1", "t2"].forEach(id => {
+    el(id).addEventListener("change", () => { S.a[id] = el(id).value; refit(0); });
+    el(id).addEventListener("keydown", (e) => { if (e.key === "Enter") el(id).blur(); });
+  });
+  el("fullRange").addEventListener("click", () => { S.a.t1 = S.a.t2 = ""; refit(0); });
+  ["showExp", "showFit"].forEach(id => el(id).addEventListener("change", () => { S.a[id] = el(id).checked; aPlot.yAuto = true; rPlot.yAuto = true; schedule(); save(); }));
+  el("useG").addEventListener("click", () => {
+    const Q = typeof fitPeaks === "function" ? fitPeaks() : null;
+    if (!Q || !Q.ok) { toast("A aba Ajuste dos picos ainda não tem um ajuste. Insira os picos lá primeiro."); return; }
+    const [v, e] = tsvPair(Q.g, Q.sg);
+    S.a.meas.g = v; S.a.meas.sg = e;
+    syncInputs(); refit(0);
+    toast("γ copiado do ajuste dos picos.");
+  });
+  el("relUse").addEventListener("click", () => { if (R && R.release != null) { S.a.t1 = fmtIn(R.release, 6).replace(/(,\d*?)0+$/, "$1").replace(/,$/, ""); refit(0); } });
+  el("aFrame").addEventListener("click", () => { frameA(); schedule(); });
+
+  function useText(text, name) {
+    const msg = el("dataMsg"); msg.hidden = true;
+    try {
+      const c = parseTable(text);
+      cols = c; S.a.raw = text; S.a.src = name;
+      const g = guessCols(cols); S.a.ti = g.ti; S.a.zi = g.zi; S.a.t1 = S.a.t2 = "";
+      aTrace = null;
+      refit(0, true);
+      return true;
+    } catch (e) { msg.textContent = `${name}: ${e.message}`; msg.hidden = false; return false; }
+  }
+  el("importBtn").addEventListener("click", () => el("fileIn").click());
+  el("fileIn").addEventListener("change", () => {
+    const f = el("fileIn").files[0]; el("fileIn").value = "";
+    if (!f) return;
+    if (f.size > 8e6) { el("dataMsg").textContent = "O arquivo passa de 8 MB."; el("dataMsg").hidden = false; return; }
+    const rd = new FileReader();
+    rd.onload = () => useText(String(rd.result), f.name);
+    rd.onerror = () => { el("dataMsg").textContent = `Não consegui ler ${f.name}.`; el("dataMsg").hidden = false; };
+    rd.readAsText(f);
+  });
+  el("pasteToggle").addEventListener("click", () => { const box = el("pasteBox"); box.hidden = !box.hidden; el("pasteToggle").setAttribute("aria-expanded", String(!box.hidden)); if (!box.hidden) el("pasteArea").focus(); });
+  el("pasteUse").addEventListener("click", () => { const t = el("pasteArea").value; if (!t.trim()) return; if (useText(t, "Dados colados")) { el("pasteBox").hidden = true; el("pasteToggle").setAttribute("aria-expanded", "false"); } });
+  const aWrap = el("aPlot").parentElement;
+  aWrap.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
+  aWrap.addEventListener("drop", (e) => {
+    e.preventDefault(); const f = e.dataTransfer?.files?.[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = () => useText(String(rd.result), f.name); rd.readAsText(f);
+  });
+
+  function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; d.setAttribute("role", "status"); document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
+  el("copyBtn").addEventListener("click", () => {
+    const tsv = resultsTSV();
+    if (!tsv) { toast(R && R.noOsc ? "Não há oscilação identificada para copiar. Confira a coluna da posição e o intervalo." : "Faça o ajuste antes de copiar."); return; }
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = tsv; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch {}
+      ta.remove(); toast(ok ? "Resultados copiados." : "Não consegui copiar. Selecione a tabela e copie manualmente.");
+    };
+    try { navigator.clipboard.writeText(tsv).then(() => toast("Resultados copiados."), fallback); } catch { fallback(); }
+  });
+
+  // ================= explorar =================
+  const E = S.e;
+  const eX = { min: 0, max: E.dur }; let eTrace = null;
+  const eSet = (x) => { eTrace = x; scheduleTrace(); };
+  function sys(b) {
+    const m = E.m / 1000, k = E.k, A = E.A, g = b / (2 * m), w0 = Math.sqrt(k / m);
+    let x;
+    if (g < w0 * (1 - 1e-9)) { const w = Math.sqrt(w0 * w0 - g * g); x = (t) => A * Math.exp(-g * t) * (Math.cos(w * t) + g / w * Math.sin(w * t)); return { g, w0, w, x, env: A * w0 / w, regime: "sub" }; }
+    if (g <= w0 * (1 + 1e-9)) { x = (t) => A * Math.exp(-g * t) * (1 + g * t); return { g, w0, w: 0, x, regime: "crit" }; }
+    const d = Math.sqrt(g * g - w0 * w0), r1 = -g + d, r2 = -g - d;
+    x = (t) => A * (r2 * Math.exp(r1 * t) - r1 * Math.exp(r2 * t)) / (r2 - r1);
+    return { g, w0, w: 0, x, regime: "super" };
+  }
+  const bCrit = () => 2 * Math.sqrt(E.m / 1000 * E.k);
+  function energyFn(s) {
+    const m = E.m / 1000, k = E.k;
+    return (t) => { const h = 1e-5 * Math.max(1, t); const v = (s.x(t + h) - s.x(Math.max(0, t - h))) / (t + h - Math.max(0, t - h)); const x = s.x(t); return 0.5 * m * v * v + 0.5 * k * x * x; };
+  }
+  function eLayers() {
+    const s = sys(E.b), L = [];
+    if (E.compare) {
+      L.push({ type: "fn", f: sys(2 * bCrit()).x, from: 0, to: E.dur, color: "c3", width: 1.75, trace: true });
+      L.push({ type: "fn", f: sys(bCrit()).x, from: 0, to: E.dur, color: "fit", width: 1.75, trace: true });
+    }
+    if (s.regime === "sub") {
+      L.push({ type: "fn", f: t => s.env * Math.exp(-s.g * t), from: 0, to: E.dur, color: "data", width: 1.25, dash: [6, 5], alpha: 0.75 });
+      L.push({ type: "fn", f: t => -s.env * Math.exp(-s.g * t), from: 0, to: E.dur, color: "data", width: 1.25, dash: [6, 5], alpha: 0.75 });
+    }
+    L.push({ type: "fn", f: s.x, from: 0, to: E.dur, color: "data", width: 2.25, trace: true });
+    return L;
+  }
+  function enLayers() {
+    const s = sys(E.b), E0 = 0.5 * E.k * E.A * E.A;
+    return [
+      { type: "hline", y: 0, color: "axis", noFit: true },
+      { type: "fn", f: t => E0 * Math.exp(-2 * s.g * t), from: 0, to: E.dur, color: "c4", width: 1.25, dash: [6, 5] },
+      { type: "fn", f: energyFn(s), from: 0, to: E.dur, color: "c4", width: 2, trace: true }
+    ];
+  }
+  const ePlot = new Plot(el("ePlot"), { xv: eX, panY: true, layers: eLayers, getTrace: () => eTrace, setTrace: eSet, xTitle: () => "t (s)", yTitle: () => "z − zₑ (m)" });
+  const enPlot = new Plot(el("eEn"), { xv: eX, compact: true, layers: enLayers, getTrace: () => eTrace, setTrace: eSet, yTitle: () => "E (J)" });
+  enPlot.o.panY = false;
+  function frameE() { eX.min = 0; eX.max = E.dur; ePlot.yAuto = true; enPlot.yAuto = true; }
+  const eCtl = [["eM", "eMn", "m", 1], ["eK", "eKn", "k", 0.1], ["eB", "eBn", "b", 0.001], ["eA", "eAn", "A", 0.001], ["eD", "eDn", "dur", 0.5]];
+  function syncE() {
+    const bmax = Math.max(0.05, Math.ceil(2.5 * bCrit() * 100) / 100, E.b);
+    el("eB").max = bmax; el("eB").step = bmax / 1000;
+    if (E.m > +el("eM").max) el("eM").max = Math.ceil(E.m * 1.5);
+    if (E.k > +el("eK").max) el("eK").max = Math.ceil(E.k * 1.5);
+    if (E.A > +el("eA").max) el("eA").max = Math.ceil(E.A * 150) / 100;
+    if (E.dur > +el("eD").max) el("eD").max = Math.ceil(E.dur);
+    eCtl.forEach(([r, n, k]) => { el(r).value = E[k]; if (document.activeElement !== el(n)) el(n).value = fmtSig(E[k], 4); });
+    el("eCmp").checked = !!E.compare;
+    document.querySelectorAll(".cmpLeg").forEach(x => x.hidden = !E.compare);
+    const s = sys(E.b), bc = bCrit();
+    const kv = [
+      ["ω₀ = √(k/m)", `${fmtSig(s.w0, 4)} rad/s`],
+      ["γ = b/(2m)", `${fmtSig(s.g, 4)} s⁻¹`],
+      ["ω = √(ω₀² − γ²)", s.regime === "sub" ? `${fmtSig(s.w, 4)} rad/s` : "não oscila"],
+      ["T = 2π/ω", s.regime === "sub" ? `${fmtSig(2 * Math.PI / s.w, 4)} s` : "—"],
+      ["τ = 1/γ", s.g > 0 ? `${fmtSig(1 / s.g, 4)} s` : "∞"],
+      ["Q = ω₀/(2γ)", s.g > 0 ? fmtSig(s.w0 / (2 * s.g), 4) : "∞"],
+      ["b<sub>c</sub> = 2√(mk)", `${fmtSig(bc, 4)} kg/s`]
+    ];
+    el("eKV").innerHTML = kv.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+    const [cls, txt] = s.regime === "sub" ? (s.g === 0 ? ["info", "Sem amortecimento"] : ["ok", "Subcrítico"]) : s.regime === "crit" ? ["warn", "Crítico"] : ["bad", "Supercrítico"];
+    el("eRegime").innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/ω₀ = ${fmtSig(s.g / s.w0, 3)}</span></div>`;
+  }
+  eCtl.forEach(([r, n, k]) => {
+    el(r).addEventListener("input", () => { E[k] = +el(r).value; if (k === "dur") frameE(); else { ePlot.yAuto = true; enPlot.yAuto = true; } syncE(); schedule(); save(); });
+    el(n).addEventListener("change", () => {
+      const v = parseNum(el(n).value);
+      if (isFinite(v) && (v > 0 || (k === "b" && v >= 0))) {
+        E[k] = k === "dur" ? Math.min(300, Math.max(0.5, v)) : v;
+        if (k === "dur") frameE(); else { ePlot.yAuto = true; enPlot.yAuto = true; }
+      }
+      syncE(); schedule(); save();
+    });
+    el(n).addEventListener("keydown", (e) => { if (e.key === "Enter") el(n).blur(); });
+  });
+  el("eCmp").addEventListener("change", () => { E.compare = el("eCmp").checked; ePlot.yAuto = true; syncE(); schedule(); save(); });
+  el("eCrit").addEventListener("click", () => { E.b = bCrit(); ePlot.yAuto = true; enPlot.yAuto = true; syncE(); schedule(); save(); });
+  el("eFrame").addEventListener("click", () => { frameE(); schedule(); });
+  el("toExplore").addEventListener("click", () => {
+    if (!R || !R.ok || R.noOsc) { toast("Faça um ajuste com oscilação identificada antes de levar os valores."); return; }
+    if (!R.der.hasM) { toast("Informe a massa no passo 1 para levar os valores."); return; }
+    const toM = { m: 1, cm: 0.01, mm: 0.001 }[S.a.unitPos] || 1;
+    E.m = massKg().v * 1000; E.k = R.der.k.v; E.b = R.der.b.v; E.A = R.p[1] * toM; E.dur = Math.max(1, Math.round((R.t2 - R.t1) * 2) / 2);
+    frameE(); syncE(); save();
+    location.hash = "#explorar";
+  });
+  function eReadout() {
+    const box = el("eReadout");
+    if (eTrace == null) { box.innerHTML = "<span>Passe o cursor ou toque no gráfico para ler os valores.</span>"; return; }
+    const s = sys(E.b), parts = [`<b>t = ${fmtSig(eTrace, 4)} s</b>`];
+    if (eTrace >= 0 && eTrace <= E.dur) {
+      parts.push(`<span>z − zₑ = ${fmtSig(s.x(eTrace), 4)} m</span>`);
+      parts.push(`<span>E = ${fmtSig(energyFn(s)(eTrace), 3)} J</span>`);
+      if (E.compare) { parts.push(`<span>crítico: ${fmtSig(sys(bCrit()).x(eTrace), 3)} m</span>`); parts.push(`<span>supercrítico: ${fmtSig(sys(2 * bCrit()).x(eTrace), 3)} m</span>`); }
+    }
+    box.innerHTML = parts.join("");
+  }
+
+  // ================= ajuste dos picos: A(t) = A₀·e^(−γt/2), γ = b/m =================
+  if (!S.p || !Array.isArray(S.p.rows)) S.p = { rows: Array.from({ length: 5 }, () => ({ t: "", A: "", s: "" })), unit: "m", sAll: "" };
+  const P = S.p;
+  let PR = null; // resultado do ajuste dos picos
+  function peakData() {
+    const pts = [], bad = new Set();
+    const sAll = parseNum(P.sAll);
+    P.rows.forEach((r, i) => {
+      const ts = String(r.t || "").trim(), As = String(r.A || "").trim(), ss = String(r.s || "").trim();
+      if (!ts && !As && !ss) return;
+      const t = parseNum(ts), A = parseNum(As), s = parseNum(ss);
+      const ok = isFinite(t) && isFinite(A) && A > 0 && (!ss || (isFinite(s) && s > 0));
+      if (!ok) { bad.add(i); return; }
+      pts.push({ t, A, s: ss ? s : (sAll > 0 ? sAll : null), i });
+    });
+    pts.sort((a, b) => a.t - b.t);
+    return { pts, bad };
+  }
+  function fitPeaks() {
+    const { pts, bad } = peakData();
+    const res = { pts, bad, ok: false };
+    if (pts.length < 3) { res.msg = "Insira pelo menos 3 picos com t e A para fazer o ajuste."; return res; }
+    const weighted = pts.every(q => q.s > 0);
+    const w = pts.map(q => weighted ? 1 / (q.s * q.s) : 1);
+    // chute inicial: reta em ln A (pesos (A/σ)² propagam σ para ln A)
+    let Sw = 0, St = 0, Sy = 0, Stt = 0, Sty = 0;
+    pts.forEach(q => { const y = Math.log(q.A), wi = weighted ? (q.A / q.s) ** 2 : 1; Sw += wi; St += wi * q.t; Sy += wi * y; Stt += wi * q.t * q.t; Sty += wi * q.t * y; });
+    const den = Sw * Stt - St * St;
+    if (!(Math.abs(den) > 1e-300)) { res.msg = "Os picos precisam ter instantes t diferentes."; return res; }
+    const slope = (Sw * Sty - St * Sy) / den, icpt = (Sy - slope * St) / Sw;
+    let A0 = Math.exp(icpt), g = -2 * slope;
+    const f = (a, gg, t) => a * Math.exp(-gg * t / 2);
+    const chi = (a, gg) => pts.reduce((s, q, i) => s + w[i] * (q.A - f(a, gg, q.t)) ** 2, 0);
+    let cur = chi(A0, g), lam = 1e-3, conv = false;
+    for (let it = 0; it < 300 && !conv; it++) {
+      let a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
+      pts.forEach((q, i) => {
+        const e = Math.exp(-g * q.t / 2), d0 = e, d1 = -A0 * q.t / 2 * e, r = q.A - A0 * e;
+        a11 += w[i] * d0 * d0; a12 += w[i] * d0 * d1; a22 += w[i] * d1 * d1; b1 += w[i] * d0 * r; b2 += w[i] * d1 * r;
+      });
+      let accepted = false;
+      while (lam < 1e12) {
+        const m11 = a11 * (1 + lam), m22 = a22 * (1 + lam), det = m11 * m22 - a12 * a12;
+        if (!(Math.abs(det) > 0)) { lam *= 10; continue; }
+        const dA = (b1 * m22 - a12 * b2) / det, dg = (m11 * b2 - a12 * b1) / det;
+        const nA = A0 + dA, ng = g + dg, nc = chi(nA, ng);
+        if (isFinite(nc) && nc <= cur) {
+          const rel = (cur - nc) / Math.max(cur, 1e-300);
+          A0 = nA; g = ng; cur = nc; lam = Math.max(lam / 3, 1e-9); accepted = true;
+          if (rel < 1e-12) conv = true;
+          break;
+        }
+        lam *= 4;
+      }
+      if (!accepted) conv = true;
+    }
+    let a11 = 0, a12 = 0, a22 = 0;
+    pts.forEach((q, i) => { const e = Math.exp(-g * q.t / 2), d0 = e, d1 = -A0 * q.t / 2 * e; a11 += w[i] * d0 * d0; a12 += w[i] * d0 * d1; a22 += w[i] * d1 * d1; });
+    const det = a11 * a22 - a12 * a12;
+    if (!(det > 0)) { res.msg = "O ajuste não ficou determinado. Confira os valores da tabela."; return res; }
+    const n = pts.length, nu = n - 2;
+    const scale = weighted ? 1 : (nu > 0 ? cur / nu : NaN);
+    const cAA = a22 / det * scale, cgg = a11 / det * scale, cAg = -a12 / det * scale;
+    Object.assign(res, {
+      ok: true, A0, g, sA0: Math.sqrt(Math.max(0, cAA)), sg: Math.sqrt(Math.max(0, cgg)), cAg,
+      n, nu, weighted, chi2red: weighted && nu > 0 ? cur / nu : null, sEst: !weighted && nu > 0 ? Math.sqrt(cur / nu) : null,
+      partialSigma: !weighted && pts.some(q => q.s > 0)
+    });
+    if (n === 3) res.warn = "Com só 3 picos, as incertezas do ajuste são pouco confiáveis; use mais picos.";
+    return res;
+  }
+
+  function renderPeakTable() {
+    const u = P.unit, tb = el("pTable");
+    tb.innerHTML = `<thead><tr><th>#</th><th>t (s)</th><th>A (${u})</th><th>σ<sub>A</sub> (${u})</th><th></th></tr></thead><tbody>` +
+      P.rows.map((r, i) => `<tr data-i="${i}"><td class="i">${i + 1}</td>` +
+        `<td><input data-k="t" inputmode="decimal" autocomplete="off" aria-label="t do pico ${i + 1}" value="${String(r.t || "").replace(/"/g, "")}"></td>` +
+        `<td><input data-k="A" inputmode="decimal" autocomplete="off" aria-label="A do pico ${i + 1}" value="${String(r.A || "").replace(/"/g, "")}"></td>` +
+        `<td><input data-k="s" inputmode="decimal" autocomplete="off" aria-label="Incerteza de A do pico ${i + 1}" placeholder="—" value="${String(r.s || "").replace(/"/g, "")}"></td>` +
+        `<td class="x"><button class="del" type="button" aria-label="Remover pico ${i + 1}" title="Remover">×</button></td></tr>`).join("") + `</tbody>`;
+  }
+  function markBadRows(bad) {
+    el("pTable").querySelectorAll("tbody tr").forEach(tr => {
+      const i = +tr.dataset.i, isBad = bad.has(i);
+      tr.querySelectorAll("input").forEach(inp => {
+        const v = inp.value.trim(), k = inp.dataset.k;
+        let b = false;
+        if (isBad) {
+          const num = parseNum(v);
+          if (k === "t") b = !isFinite(num);
+          else if (k === "A") b = !(num > 0);
+          else b = v !== "" && !(num > 0);
+        }
+        inp.classList.toggle("bad", b);
+      });
+    });
+  }
+  function renderPeaks() {
+    PR = fitPeaks();
+    el("pEmpty").hidden = PR.pts.length > 0;
+    el("pUnit").value = P.unit;
+    if (document.activeElement !== el("pSig")) el("pSig").value = P.sAll || "";
+    markBadRows(PR.bad);
+    const st = el("pStatus"), ft = el("pFitTable"), dt = el("pDerTable"), cm = el("pCmp"), u = P.unit;
+    const nBad = PR.bad.size;
+    if (!PR.ok) {
+      st.className = "status bad"; st.textContent = PR.msg + (nBad ? ` ${nBad} ${nBad === 1 ? "linha está incompleta ou inválida" : "linhas estão incompletas ou inválidas"}.` : "");
+      ft.innerHTML = dt.innerHTML = cm.innerHTML = ""; return;
+    }
+    st.className = PR.warn ? "status bad" : "status ok";
+    st.textContent = `Ajuste com ${PR.n} picos` + (PR.weighted ? ", ponderado por σA." : ", sem ponderação.") +
+      (nBad ? ` ${nBad} ${nBad === 1 ? "linha ignorada" : "linhas ignoradas"} (em vermelho).` : "") +
+      (PR.partialSigma ? " Algumas linhas não têm σA, então a ponderação foi desligada; preencha todas ou use a incerteza comum." : "") +
+      (PR.warn ? " " + PR.warn : "");
+    ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
+      row("A₀", "amplitude em t = 0", fmtUnc(PR.A0, PR.sA0), u) +
+      row("γ", "γ = b/m nesta aba", fmtUnc(PR.g, PR.sg), "s⁻¹") +
+      (PR.weighted ? row("χ²/ν", `ν = N − 2 = ${PR.nu}`, fmtSig(PR.chi2red, 3), "") : row("σ estimada", "desvio dos picos em torno do ajuste", fmtSig(PR.sEst, 2), u)) + `</tbody>`;
+    const gPos = PR.g > 0;
+    const mk = massKg(), hasM = mk.v > 0;
+    const bV = hasM ? mk.v * PR.g : NaN, bS = hasM ? Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2) : NaN;
+    const mText = hasM ? `com m = ${fmtUnc(parseNum(S.a.meas.m), parseNum(S.a.meas.sm))} ${S.a.meas.mu} do passo 1 da análise` : "";
+    dt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
+      row("γ/2 = b/(2m)", "parâmetro das outras abas", fmtUnc(PR.g / 2, PR.sg / 2), "s⁻¹") +
+      (gPos ? row("τ = 2/γ", "tempo para A cair a A₀/e", fmtUnc(2 / PR.g, 2 * PR.sg / PR.g ** 2), "s") : `<tr><td class="q">τ = 2/γ</td><td class="v miss">não definido, pois γ ≤ 0</td><td class="u">s</td></tr>`) +
+      (gPos ? row("t½ = 2·ln2/γ", "tempo para A cair à metade", fmtUnc(2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2), "s") : "") +
+      (hasM ? row("b = m·γ", mText, fmtUnc(bV, bS), "kg/s") : `<tr><td class="q">b = m·γ</td><td class="v miss">informe a massa no passo 1 da Análise da curva</td><td class="u">kg/s</td></tr>`) + `</tbody>`;
+    // comparação com o ajuste da curva completa
+    if (R && R.ok && !R.noOsc) {
+      const a = PR.g / 2, sa = PR.sg / 2, c = R.p[2], sc = R.sig[2];
+      const z = Math.abs(a - c) / Math.sqrt(sa * sa + sc * sc);
+      const [k, lab] = z <= 2 ? ["ok", "compatíveis"] : z <= 3 ? ["warn", "discrepância moderada"] : ["bad", "incompatíveis"];
+      cm.innerHTML = `<div class="cmp-item"><span class="t">γ/2 dos picos × γ da curva completa</span><span class="chip ${k}">${lab}</span>` +
+        `<span class="d">picos ${fmtUnc(a, sa)} s⁻¹ · curva ${fmtUnc(c, sc)} s⁻¹ · |Δ| = ${fmtSig(z, 2)}σ</span>` +
+        `<span class="d" style="font-family:var(--font-ui)">Os dois métodos medem o mesmo amortecimento b/(2m): um usa só os picos, o outro usa a trajetória inteira.</span></div>`;
+    } else {
+      cm.innerHTML = `<div class="cmp-item"><span class="t">γ/2 dos picos × γ da curva completa</span><span class="chip info">sem ajuste da curva</span><span class="d" style="font-family:var(--font-ui)">Faça o ajuste na aba Análise da curva para comparar os dois métodos.</span></div>`;
+    }
+  }
+  function peaksTSV() {
+    if (!PR || !PR.ok) return "";
+    const u = P.unit, L = [["Grandeza", "Valor", "Incerteza", "Unidade"]];
+    const num = tsvNum;
+    const add = (q, v, e, un) => { const [a, b] = tsvPair(v, e); L.push([q, a, b, un]); };
+    L.push(["N (picos)", String(PR.n), "", ""]);
+    add("A0", PR.A0, PR.sA0, u); add("γ = b/m", PR.g, PR.sg, "s^-1"); add("γ/2 = b/(2m)", PR.g / 2, PR.sg / 2, "s^-1");
+    if (PR.g > 0) { add("τ = 2/γ", 2 / PR.g, 2 * PR.sg / PR.g ** 2, "s"); add("t1/2 = 2·ln2/γ", 2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2, "s"); }
+    const mk = massKg(); if (mk.v > 0) add("b = m·γ", mk.v * PR.g, Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2), "kg/s");
+    if (PR.weighted) L.push(["χ²/ν", num(PR.chi2red), "", ""]); else L.push(["σ estimada dos picos", num(PR.sEst), "", u]);
+    L.push([]); L.push(["t (s)", `A (${u})`, `σA (${u})`, ""]);
+    PR.pts.forEach(q => L.push([tsvRaw(q.t), tsvRaw(q.A), q.s ? tsvRaw(q.s) : "", ""]));
+    return L.map(l => l.join("\t")).join("\n");
+  }
+
+  // gráficos dos picos
+  const pX = { min: 0, max: 10 }; let pTrace = null;
+  const pSet = (x) => { pTrace = x; scheduleTrace(); };
+  const pFit = (t) => PR && PR.ok ? PR.A0 * Math.exp(-PR.g * t / 2) : NaN;
+  function pRange() { const pts = PR ? PR.pts : []; const lo = Math.min(0, pts.length ? pts[0].t : 0), hi = pts.length ? pts[pts.length - 1].t : 1; return [lo, hi > lo ? hi : lo + 1]; }
+  function pLayers() {
+    if (!PR) return [];
+    const L = [], [lo, hi] = pRange();
+    if (PR.ok) L.push({ type: "fn", f: pFit, from: lo, to: hi + 0.05 * (hi - lo), color: "fit", width: 2, trace: true });
+    L.push({ type: "pts", xs: PR.pts.map(q => q.t), ys: PR.pts.map(q => q.A), es: PR.pts.map(q => q.s || 0), color: "data", r: 3.5, trace: true });
+    return L;
+  }
+  function pLnLayers() {
+    if (!PR) return [];
+    const L = [], [lo, hi] = pRange();
+    if (PR.ok) L.push({ type: "fn", f: t => Math.log(PR.A0) - PR.g * t / 2, from: lo, to: hi + 0.05 * (hi - lo), color: "fit", width: 2 });
+    L.push({ type: "pts", xs: PR.pts.map(q => q.t), ys: PR.pts.map(q => Math.log(q.A)), es: PR.pts.map(q => q.s ? q.s / q.A : 0), color: "data", r: 3, trace: true });
+    return L;
+  }
+  const pPlot = new Plot(el("pPlot"), { xv: pX, panY: true, yZero: true, layers: pLayers, getTrace: () => pTrace, setTrace: pSet, xTitle: () => "t (s)", yTitle: () => `A (${P.unit})` });
+  const pLnPlot = new Plot(el("pLn"), { xv: pX, compact: true, layers: pLnLayers, getTrace: () => pTrace, setTrace: pSet, yTitle: () => `ln(A / ${P.unit})` });
+  function frameP() { const [lo, hi] = pRange(); const pad = (hi - lo) * 0.05; pX.min = lo - pad; pX.max = hi + pad; pPlot.yAuto = true; pLnPlot.yAuto = true; }
+  function pReadout() {
+    const box = el("pReadout");
+    if (pTrace == null || !PR) { box.innerHTML = "<span>Passe o cursor ou toque no gráfico para ler os valores.</span>"; return; }
+    const parts = [`<b>t = ${fmtSig(pTrace, 4)} s</b>`];
+    if (PR.ok) parts.push(`<span>ajuste: A = ${fmtSig(pFit(pTrace), 4)} ${P.unit}</span>`);
+    let near = null, bd = Infinity; PR.pts.forEach(q => { const d = Math.abs(q.t - pTrace); if (d < bd) { bd = d; near = q; } });
+    if (near) parts.push(`<span>pico ${near.i + 1}: (${fmtSig(near.t, 4)} s; ${fmtSig(near.A, 4)} ${P.unit})</span>`);
+    box.innerHTML = parts.join("");
+  }
+
+  // controles dos picos
+  let pT = null;
+  function refitPeaks(delay = 150, reframe = false) {
+    clearTimeout(pT);
+    pT = setTimeout(() => { renderPeaks(); if (reframe) frameP(); schedule(); save(); }, delay);
+  }
+  el("pTable").addEventListener("input", (e) => {
+    const inp = e.target.closest("input"); if (!inp) return;
+    const i = +inp.closest("tr").dataset.i; P.rows[i][inp.dataset.k] = inp.value;
+    refitPeaks(250);
+  });
+  el("pTable").addEventListener("change", () => refitPeaks(0, true));
+  el("pTable").addEventListener("click", (e) => {
+    const b = e.target.closest(".del"); if (!b) return;
+    P.rows.splice(+b.closest("tr").dataset.i, 1);
+    if (!P.rows.length) P.rows.push({ t: "", A: "", s: "" });
+    renderPeakTable(); refitPeaks(0, true);
+  });
+  el("pTable").addEventListener("keydown", (e) => {
+    // Enter na última linha cria uma nova, para digitar os picos em sequência
+    if (e.key !== "Enter") return;
+    const inp = e.target.closest("input"); if (!inp) return;
+    e.preventDefault();
+    const tr = inp.closest("tr"), i = +tr.dataset.i, k = inp.dataset.k;
+    if (i === P.rows.length - 1) { P.rows.push({ t: "", A: "", s: "" }); renderPeakTable(); }
+    const next = el("pTable").querySelector(`tr[data-i="${i + 1}"] input[data-k="${k}"]`); if (next) next.focus();
+    refitPeaks(0, true);
+  });
+  el("pAdd").addEventListener("click", () => {
+    P.rows.push({ t: "", A: "", s: "" }); renderPeakTable();
+    el("pTable").querySelector(`tr[data-i="${P.rows.length - 1}"] input[data-k="t"]`).focus();
+  });
+  let clearArmed = null;
+  el("pClear").addEventListener("click", () => {
+    const btn = el("pClear");
+    if (!clearArmed) {
+      btn.textContent = "Confirmar: apagar todos os picos"; btn.classList.add("warn");
+      clearArmed = setTimeout(() => { clearArmed = null; btn.textContent = "Limpar tabela"; btn.classList.remove("warn"); }, 4000);
+      return;
+    }
+    clearTimeout(clearArmed); clearArmed = null; btn.textContent = "Limpar tabela"; btn.classList.remove("warn");
+    P.rows = Array.from({ length: 5 }, () => ({ t: "", A: "", s: "" })); P.sAll = "";
+    renderPeakTable(); refitPeaks(0, true);
+    el("pTable").querySelector('input[data-k="t"]').focus();
+  });
+  el("pUnit").addEventListener("change", () => { P.unit = el("pUnit").value; renderPeakTable(); refitPeaks(0); });
+  el("pSig").addEventListener("input", () => { P.sAll = el("pSig").value; el("pSig").classList.toggle("bad", el("pSig").value.trim() !== "" && !(parseNum(el("pSig").value) > 0)); refitPeaks(250); });
+  el("pPasteT").addEventListener("click", () => { const bx = el("pPasteBox"); bx.hidden = !bx.hidden; el("pPasteT").setAttribute("aria-expanded", String(!bx.hidden)); if (!bx.hidden) el("pPasteArea").focus(); });
+  el("pPasteUse").addEventListener("click", () => {
+    const msg = el("pMsg"); msg.hidden = true;
+    try {
+      let c = parseTable(el("pPasteArea").value);
+      const toS = (v) => v == null ? "" : String(v).replace(".", ",");
+      const find = (re) => c.findIndex(x => re.test(x.name.trim()));
+      let it = find(/^(t\b|tempo|time)/i), ia = find(/^(a\b|a0|a₀|amplit)/i), is = find(/(σ|sigma|incert|erro|^s\s*a|^sa\b|^u\()/i);
+      if (it < 0 || ia < 0) {
+        // sem nomes: ignora uma primeira coluna que seja só a numeração 1, 2, 3…
+        const idx = c[0].values.every((v, i) => v === i + 1 || v === i);
+        if (idx && c.length >= 3) c = c.slice(1);
+        it = 0; ia = 1; is = c.length > 2 ? 2 : -1;
+      }
+      const n = c[it].values.length;
+      P.rows = Array.from({ length: n }, (_, i) => ({ t: toS(c[it].values[i]), A: toS(c[ia].values[i]), s: is >= 0 ? toS(c[is].values[i]) : "" })).filter(r => r.t || r.A);
+      el("pPasteBox").hidden = true; el("pPasteT").setAttribute("aria-expanded", "false");
+      renderPeakTable(); refitPeaks(0, true);
+    } catch (e) { msg.textContent = e.message.replace("o tempo e a posição", "t e A"); msg.hidden = false; }
+  });
+  el("pFrame").addEventListener("click", () => { frameP(); schedule(); });
+  el("pCopy").addEventListener("click", () => {
+    const tsv = peaksTSV();
+    if (!tsv) { toast("Faça o ajuste antes de copiar."); return; }
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = tsv; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch {}
+      ta.remove(); toast(ok ? "Resultados copiados." : "Não consegui copiar. Selecione a tabela e copie manualmente.");
+    };
+    try { navigator.clipboard.writeText(tsv).then(() => toast("Resultados copiados."), fallback); } catch { fallback(); }
+  });
+
+  // ================= multivisualização: posição, velocidade e aceleração =================
+  if (!S.m) S.m = { raw: null, src: "", ti: null, xi: null, vi: null, ai: null, unit: "m", t1: "", t2: "", mode: "over", center: true, dots: false, show: { x: true, v: true, a: true } };
+  const M = S.m;
+  if (!M.show) M.show = { x: true, v: true, a: true };
+  const NONE = -1, DER = -2;
+  let mCols = [], MD = null, mTrace = null;
+  // valor interpolado de uma série ordenada no instante t
+  function interpAt(xs, ys, t) {
+    const n = xs.length; if (!n || !(t >= xs[0] && t <= xs[n - 1])) return NaN;
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= t) lo = mid; else hi = mid; }
+    const a = ys[lo], b = ys[hi], okA = a != null && isFinite(a), okB = b != null && isFinite(b);
+    if (okA && okB) { const sp = xs[hi] - xs[lo]; return sp > 0 ? a + (b - a) * (t - xs[lo]) / sp : a; }
+    return okA ? a : okB ? b : NaN;
+  }
+  function mGuess(cols) {
+    const base = (j) => cols[j].name.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, "");
+    let ti = cols.findIndex(c => /^(t|tempo|time)\b/i.test(c.name.trim())); if (ti < 0) ti = 0;
+    const others = cols.map((_, j) => j).filter(j => j !== ti);
+    const posC = others.filter(j => /^[xyz]$/.test(base(j)));
+    let xi = posC.length ? posC.reduce((b, j) => stdev(cols[j].values) > stdev(cols[b].values) ? j : b, posC[0]) : (others.find(j => !/^[va]/.test(base(j))) ?? others[0]);
+    const axis = base(xi)[0];
+    const pick = (letter) => {
+      const c = others.filter(j => j !== xi && base(j)[0] === letter && base(j).length <= 6);
+      const same = c.find(j => base(j).slice(1).replace(/[^a-z]/g, "") === axis);
+      return same != null ? same : (c.length ? c[0] : DER);
+    };
+    return { ti, xi, vi: pick("v"), ai: pick("a") };
+  }
+  function mLoad() {
+    mCols = [];
+    if (M.raw) { try { mCols = parseTable(M.raw); } catch { mCols = []; M.raw = null; } }
+    if (mCols.length && (M.ti == null || !mCols[M.ti])) Object.assign(M, mGuess(mCols));
+  }
+  function mSeries() {
+    const ct = mCols[M.ti]; if (!ct) return null;
+    const idx = ct.values.map((_, i) => i).filter(i => ct.values[i] != null).sort((a, b) => ct.values[a] - ct.values[b]);
+    if (idx.length < 3) return null;
+    const tAll = idx.map(i => ct.values[i]);
+    const col = (j) => j >= 0 && mCols[j] ? idx.map(i => mCols[j].values[i]) : null;
+    const deriv = (ys) => ys ? ys.map((_, i) => {
+      if (i === 0 || i === ys.length - 1) return null;
+      const a = ys[i - 1], b = ys[i + 1], dt = tAll[i + 1] - tAll[i - 1];
+      return a == null || b == null || !(dt > 0) ? null : (b - a) / dt;
+    }) : null;
+    const x = col(M.xi);
+    const v = M.vi === DER ? deriv(x) : col(M.vi);
+    const a = M.ai === DER ? deriv(v || deriv(x)) : col(M.ai);
+    const lo = tAll[0], hi = tAll[tAll.length - 1];
+    let t1 = parseNum(M.t1), t2 = parseNum(M.t2);
+    if (!isFinite(t1)) t1 = lo; if (!isFinite(t2)) t2 = hi;
+    const keep = tAll.map((t, i) => i).filter(i => tAll[i] >= t1 && tAll[i] <= t2);
+    const cut = (ys) => ys ? keep.map(i => ys[i]) : null;
+    const D = { t: keep.map(i => tAll[i]), x: cut(x), v: cut(v), a: cut(a), t1, t2, lo, hi, bad: !(t2 > t1) };
+    if (D.x && M.center) { const vals = D.x.filter(y => y != null); const m = vals.reduce((s, y) => s + y, 0) / (vals.length || 1); D.xMean = m; D.x = D.x.map(y => y == null ? null : y - m); }
+    const maxAbs = (ys) => ys ? ys.reduce((m, y) => y != null && isFinite(y) ? Math.max(m, Math.abs(y)) : m, 0) : 0;
+    D.mx = maxAbs(D.x); D.mv = maxAbs(D.v); D.ma = maxAbs(D.a);
+    return D;
+  }
+  const mUnits = () => ({ x: M.unit, v: `${M.unit}/s`, a: `${M.unit}/s²` });
+  const SER = [["x", "posição", "data"], ["v", "velocidade", "fit"], ["a", "aceleração", "c4"]];
+  // senoide na frequência dominante: y ≈ c + α·sen(ωt) + β·cos(ωt) = c + R·sen(ωt + ψ)
+  function harmonic(ts, ys, w) {
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], b = [0, 0, 0]; let n = 0; const t0 = ts[0];
+    for (let i = 0; i < ts.length; i++) {
+      const y = ys[i]; if (y == null || !isFinite(y)) continue;
+      const f = [1, Math.sin(w * (ts[i] - t0)), Math.cos(w * (ts[i] - t0))]; n++;
+      for (let r = 0; r < 3; r++) { b[r] += f[r] * y; for (let c = 0; c < 3; c++) A[r][c] += f[r] * f[c]; }
+    }
+    if (n < 6) return null;
+    const x = solve(A, b); if (!x) return null;
+    return { R: Math.hypot(x[1], x[2]), psi: Math.atan2(x[2], x[1]) };
+  }
+  function mRelations(D) {
+    const st = el("mRelStatus"), tb = el("mRel");
+    const valid = (ys) => ys ? D.t.map((t, i) => [t, ys[i]]).filter(([, y]) => y != null && isFinite(y)) : [];
+    const ref = D.x ? "x" : D.v ? "v" : null;
+    const rp = ref ? valid(D[ref]) : [];
+    if (rp.length < 12) { st.className = "status bad"; st.textContent = "É preciso a posição (ou a velocidade) com pelo menos 12 pontos no intervalo."; tb.innerHTML = ""; return; }
+    const w = estimateFreq(rp.map(q => q[0]), rp.map(q => q[1]));
+    const H = {}; ["x", "v", "a"].forEach(k => { if (D[k]) H[k] = harmonic(D.t, D[k], w); });
+    const deg = (r) => { let d = r * 180 / Math.PI; d = ((d + 180) % 360 + 360) % 360 - 180; if (d <= -180) d += 360; return d; };
+    const fmtDeg = (d) => `${d > 0 ? "+" : ""}${minus(nf(0).format(d))}°`;
+    const rowR = (q, sub, med, mhs) => `<tr><td class="q">${q}${sub ? `<span>${sub}</span>` : ""}</td><td class="v">${med}</td><td class="v">${mhs}</td></tr>`;
+    let html = `<thead><tr><th>Relação</th><th>Medido</th><th>MHS</th></tr></thead><tbody>` +
+      rowR("ω", "frequência dominante", `${fmtSig(w, 4)} rad/s`, `f = ${fmtSig(w / (2 * Math.PI), 4)} Hz`);
+    if (H.x && H.v) {
+      html += rowR("A<sub>v</sub>/A<sub>x</sub>", "razão das amplitudes", `${fmtSig(H.v.R / H.x.R, 3)} s⁻¹`, `ω = ${fmtSig(w, 3)} s⁻¹`);
+      html += rowR("φ<sub>v</sub> − φ<sub>x</sub>", "fase da velocidade", fmtDeg(deg(H.v.psi - H.x.psi)), "+90° (adiantada)");
+    }
+    if (H.x && H.a) {
+      html += rowR("A<sub>a</sub>/A<sub>x</sub>", "razão das amplitudes", `${fmtSig(H.a.R / H.x.R, 3)} s⁻²`, `ω² = ${fmtSig(w * w, 3)} s⁻²`);
+      const da = deg(H.a.psi - H.x.psi);
+      html += rowR("φ<sub>a</sub> − φ<sub>x</sub>", "fase da aceleração", fmtDeg(da), "±180° (oposição)");
+    }
+    if (H.v && H.a && !H.x) html += rowR("φ<sub>a</sub> − φ<sub>v</sub>", "fase da aceleração", fmtDeg(deg(H.a.psi - H.v.psi)), "+90° (adiantada)");
+    tb.innerHTML = html + `</tbody>`;
+    st.className = "status ok";
+    st.textContent = `Calculadas com ${rp.length} pontos, de t = ${fmtSig(rp[0][0], 4)} s a ${fmtSig(rp[rp.length - 1][0], 4)} s.`;
+  }
+  function mRender() {
+    MD = mSeries();
+    const has = !!(MD && MD.t.length);
+    el("mSrc").textContent = M.raw && mCols.length ? `${M.src || "Dados colados"} · ${mCols[M.ti] ? mCols[M.ti].values.filter(v => v != null).length : 0} instantes` : "Nenhum arquivo importado ainda.";
+    const opt = (sel, extra) => extra + mCols.map((c, j) => `<option value="${j}"${j === sel ? " selected" : ""}>${c.name.replace(/[&<>"]/g, "")}</option>`).join("");
+    const o = (v, val, label) => `<option value="${v}"${val === v ? " selected" : ""}>${label}</option>`;
+    el("mT").innerHTML = opt(M.ti, "");
+    el("mXc").innerHTML = opt(M.xi, mCols.length ? o(NONE, M.xi, "nenhuma") : "");
+    el("mVc").innerHTML = opt(M.vi, mCols.length ? o(NONE, M.vi, "nenhuma") + o(DER, M.vi, "calcular por derivada numérica") : "");
+    el("mAc").innerHTML = opt(M.ai, mCols.length ? o(NONE, M.ai, "nenhuma") + o(DER, M.ai, "calcular por derivada numérica") : "");
+    el("mLen").value = M.unit; el("mCenter").checked = !!M.center; el("mDots").checked = !!M.dots;
+    ["x", "v", "a"].forEach(k => { el("mShow" + k.toUpperCase()).checked = M.show[k] !== false; });
+    if (document.activeElement !== el("mT1")) el("mT1").value = M.t1 !== "" ? M.t1 : (has ? fmtIn(MD.lo, 5) : "");
+    if (document.activeElement !== el("mT2")) el("mT2").value = M.t2 !== "" ? M.t2 : (has ? fmtIn(MD.hi, 5) : "");
+    const badR = !!(MD && MD.bad); el("mT1").classList.toggle("bad", badR); el("mT2").classList.toggle("bad", badR);
+    const stack = M.mode === "stack" && has;
+    el("mOverWrap").hidden = stack; el("mStack").hidden = !stack;
+    document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === M.mode)));
+    el("mEmpty").hidden = has;
+    el("mModeNote").textContent = M.mode === "stack"
+      ? "Cada curva no seu gráfico e nas suas unidades, com o mesmo eixo de tempo. Arrastar ou dar zoom em um deles move os três."
+      : "Cada curva está dividida pelo seu maior valor em módulo, indicado na legenda, para as três caberem na mesma escala. A leitura abaixo do gráfico mostra os valores reais.";
+    const u = mUnits();
+    SER.forEach(([k]) => {
+      const m = MD && MD[k] ? MD["m" + k] : 0;
+      el("mScale" + k.toUpperCase()).textContent = MD && MD[k] && M.mode === "over" && m > 0 ? `÷ ${fmtSig(m, 3)} ${u[k]}` : (MD && !MD[k] ? "(sem dados)" : "");
+    });
+    if (badR) { el("mRelStatus").className = "status bad"; el("mRelStatus").textContent = "O início do intervalo precisa ser menor que o fim."; el("mRel").innerHTML = ""; }
+    else if (has) mRelations(MD);
+    else { el("mRelStatus").className = "status"; el("mRelStatus").textContent = "Importe um arquivo para ver as relações."; el("mRel").innerHTML = ""; }
+    schedule();
+  }
+  const mX = { min: 0, max: 10 };
+  const mSet = (x) => { mTrace = x; scheduleTrace(); };
+  function mLineLayer(k, norm) {
+    if (!MD || !MD[k] || M.show[k] === false) return null;
+    const [, , color] = SER.find(s => s[0] === k), m = MD["m" + k];
+    return { type: "line", xs: MD.t, ys: norm ? MD[k].map(y => y == null || !(m > 0) ? null : y / m) : MD[k], color, width: 2, dots: !!M.dots, trace: true };
+  }
+  const mOverPlot = new Plot(el("mOver"), { xv: mX, panY: true, layers: () => [...SER.map(([k]) => mLineLayer(k, true)).filter(Boolean)], getTrace: () => mTrace, setTrace: mSet, xTitle: () => "t (s)", yTitle: () => "valor ÷ |máximo|" });
+  const mStackPlots = SER.map(([k, name], i) => new Plot(el(["mX", "mV", "mA"][i]), { xv: mX, panY: true, compact: true,
+    layers: () => { const L = mLineLayer(k, false); return L ? [L] : []; }, getTrace: () => mTrace, setTrace: mSet,
+    xTitle: () => "t (s)", yTitle: () => `${name}${k === "x" && M.center ? " − média" : ""} (${mUnits()[k]})` }));
+  function frameM() {
+    if (MD && MD.t.length) { const lo = MD.t[0], hi = MD.t[MD.t.length - 1], pad = (hi - lo) * 0.02 || 1; mX.min = lo - pad; mX.max = hi + pad; }
+    mOverPlot.yAuto = true; mStackPlots.forEach(pl => { pl.yAuto = true; });
+  }
+  function mReadout() {
+    const box = el("mReadout");
+    if (mTrace == null || !MD || !MD.t.length) { box.innerHTML = "<span>Passe o cursor ou toque no gráfico para ler os valores.</span>"; return; }
+    const u = mUnits(), parts = [`<b>t = ${fmtSig(mTrace, 4)} s</b>`];
+    SER.forEach(([k, name]) => {
+      if (!MD[k] || M.show[k] === false) return;
+      const y = interpAt(MD.t, MD[k], mTrace);
+      parts.push(`<span>${name}${k === "x" && M.center ? " − média" : ""}: ${fmtSig(y, 4)} ${u[k]}</span>`);
+    });
+    box.innerHTML = parts.join("");
+  }
+  let mT = null;
+  function mRefresh(reframe = false, delay = 0) { clearTimeout(mT); mT = setTimeout(() => { mRender(); if (reframe) { frameM(); schedule(); } save(); }, delay); }
+  function mUse(text, name) {
+    const msg = el("mMsg"); msg.hidden = true;
+    try {
+      const c = parseTable(text);
+      mCols = c; M.raw = text; M.src = name; M.t1 = M.t2 = "";
+      Object.assign(M, mGuess(mCols)); mTrace = null;
+      mRefresh(true); return true;
+    } catch (e) { msg.textContent = `${name}: ${e.message}`; msg.hidden = false; return false; }
+  }
+  el("mImport").addEventListener("click", () => el("mFile").click());
+  el("mFile").addEventListener("change", () => {
+    const f = el("mFile").files[0]; el("mFile").value = ""; if (!f) return;
+    if (f.size > 8e6) { el("mMsg").textContent = "O arquivo passa de 8 MB."; el("mMsg").hidden = false; return; }
+    const rd = new FileReader(); rd.onload = () => mUse(String(rd.result), f.name);
+    rd.onerror = () => { el("mMsg").textContent = `Não consegui ler ${f.name}.`; el("mMsg").hidden = false; };
+    rd.readAsText(f);
+  });
+  el("mPasteT").addEventListener("click", () => { const bx = el("mPasteBox"); bx.hidden = !bx.hidden; el("mPasteT").setAttribute("aria-expanded", String(!bx.hidden)); if (!bx.hidden) el("mPasteArea").focus(); });
+  el("mPasteUse").addEventListener("click", () => { const t = el("mPasteArea").value; if (!t.trim()) return; if (mUse(t, "Dados colados")) { el("mPasteBox").hidden = true; el("mPasteT").setAttribute("aria-expanded", "false"); } });
+  el("mFromA").addEventListener("click", () => {
+    if (!S.a.raw) { toast("Importe a trajetória na aba Análise da curva primeiro."); return; }
+    if (mUse(S.a.raw, S.a.src || "Trajetória da Análise da curva")) { M.unit = S.a.unitPos; mRefresh(); }
+  });
+  const mWrap = el("mOverWrap");
+  mWrap.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
+  mWrap.addEventListener("drop", (e) => { e.preventDefault(); const f = e.dataTransfer?.files?.[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => mUse(String(rd.result), f.name); rd.readAsText(f); });
+  [["mT", "ti"], ["mXc", "xi"], ["mVc", "vi"], ["mAc", "ai"]].forEach(([id, k]) => el(id).addEventListener("change", () => { M[k] = +el(id).value; if (k === "ti") M.t1 = M.t2 = ""; mRefresh(true); }));
+  el("mLen").addEventListener("change", () => { M.unit = el("mLen").value; mRefresh(); });
+  ["mT1", "mT2"].forEach(id => {
+    el(id).addEventListener("change", () => { M[id === "mT1" ? "t1" : "t2"] = el(id).value; mRefresh(true); });
+    el(id).addEventListener("keydown", (e) => { if (e.key === "Enter") el(id).blur(); });
+  });
+  el("mFull").addEventListener("click", () => { M.t1 = M.t2 = ""; mRefresh(true); });
+  el("mCenter").addEventListener("change", () => { M.center = el("mCenter").checked; mRefresh(true); });
+  el("mDots").addEventListener("change", () => { M.dots = el("mDots").checked; mRefresh(); });
+  ["x", "v", "a"].forEach(k => el("mShow" + k.toUpperCase()).addEventListener("change", (e) => { M.show[k] = e.target.checked; mOverPlot.yAuto = true; mRefresh(); }));
+  document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { M.mode = b.dataset.mode; mRefresh(true); }));
+  ["mFrame", "mFrame2"].forEach(id => el(id).addEventListener("click", () => { frameM(); schedule(); }));
+
+  // ================= abas e desenho =================
+  let tab = "analise";
+  function route() {
+    const h = location.hash.replace("#", "");
+    tab = ["explorar", "picos", "multi"].includes(h) ? h : "analise";
+    el("tab-analise").hidden = tab !== "analise"; el("tab-explorar").hidden = tab !== "explorar"; el("tab-picos").hidden = tab !== "picos"; el("tab-multi").hidden = tab !== "multi";
+    if (tab === "picos") renderPeaks();
+    document.querySelectorAll(".tabs a").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    schedule();
+  }
+  window.addEventListener("hashchange", route);
+  let frame = 0, dataVer = 0;
+  // schedule: algo mudou nos dados ou na vista; scheduleTrace: só a linha de leitura mudou
+  function schedule() { dataVer++; scheduleTrace(); }
+  function scheduleTrace() {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (tab === "analise") { aPlot.draw(); rPlot.draw(); aReadout(); }
+      else if (tab === "picos") { pPlot.draw(); pLnPlot.draw(); pReadout(); }
+      else if (tab === "multi") { if (M.mode === "stack" && MD && MD.t.length) mStackPlots.forEach(pl => pl.draw()); else mOverPlot.draw(); mReadout(); }
+      else { ePlot.draw(); enPlot.draw(); eReadout(); }
+    });
+  }
+  const retheme = () => { readColors(); schedule(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ================= início =================
+  readColors();
+  loadCols();
+  analyze(); frameA(); syncInputs(); renderAnalysis();
+  frameE(); syncE();
+  renderPeakTable(); renderPeaks(); frameP();
+  mLoad(); mRender(); frameM();
+
+  // ================= limpar tudo (com confirmação no próprio botão) =================
+  const emptyMeas = () => ({ m: "", sm: "", mu: "g", f: "", sf: "", A: "", sA: "", g: "", sg: "" });
+  function resetAll() {
+    S.a = { raw: null, src: "", ti: null, zi: null, unitPos: "m", meas: emptyMeas(), sz: "", t1: "", t2: "" };
+    cols = []; aTrace = null;
+    // P, M e E são referências fixas: o conteúdo é trocado no lugar
+    Object.keys(P).forEach(k => delete P[k]); Object.assign(P, { rows: Array.from({ length: 5 }, () => ({ t: "", A: "", s: "" })), unit: "m", sAll: "" }); pTrace = null;
+    Object.keys(M).forEach(k => delete M[k]); Object.assign(M, { raw: null, src: "", ti: null, xi: null, vi: null, ai: null, unit: "m", t1: "", t2: "", mode: "over", center: true, dots: false, show: { x: true, v: true, a: true } }); mCols = []; mTrace = null;
+    Object.assign(E, { m: 200, k: 20, b: 0.12, A: 0.05, dur: 10, compare: false }); eTrace = null;
+    ["pasteBox", "pPasteBox", "mPasteBox"].forEach(id => { el(id).hidden = true; });
+    ["pasteToggle", "pPasteT", "mPasteT"].forEach(id => el(id).setAttribute("aria-expanded", "false"));
+    ["pasteArea", "pPasteArea", "mPasteArea"].forEach(id => { el(id).value = ""; });
+    ["dataMsg", "pMsg", "mMsg"].forEach(id => { el(id).hidden = true; });
+    document.querySelectorAll("input.bad").forEach(i => i.classList.remove("bad"));
+    analyze(); frameA(); syncInputs(); renderAnalysis();
+    renderPeakTable(); renderPeaks(); frameP();
+    mRender(); frameM();
+    frameE(); syncE();
+    schedule(); save();
+    toast("Todos os dados foram apagados.");
+  }
+  let resetArmed = null;
+  el("resetAll").addEventListener("click", () => {
+    const btn = el("resetAll");
+    if (!resetArmed) {
+      btn.textContent = "Apagar tudo?"; btn.title = "Clique de novo para apagar os dados de todas as abas"; btn.classList.add("warn");
+      resetArmed = setTimeout(() => { resetArmed = null; btn.textContent = "Limpar tudo"; btn.title = "Apaga os dados de todas as abas"; btn.classList.remove("warn"); }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = null; btn.textContent = "Limpar tudo"; btn.title = "Apaga os dados de todas as abas"; btn.classList.remove("warn");
+    resetAll();
+  });
+  route();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+})();
+</script>
+</body>
+</html>
