@@ -313,7 +313,7 @@ details.help[open] summary { margin-bottom: 6px; }
           </div>
           <div class="row" style="margin-top:4px"><button class="btn ghost small" id="useG" type="button">Usar o γ da aba Ajuste dos picos</button></div>
         </div>
-        <p class="note">A amplitude cai como e<sup>−γt/2</sup>, a mesma convenção da aba Ajuste dos picos. Com f, A₀ e γ, a página traça a curva do modelo com os parâmetros medidos (passo 3). A massa entra no cálculo de b e k.</p>
+        <p class="note">Em todas as abas, γ = b/m e a amplitude cai como e<sup>−γt/2</sup>. Com f, A₀ e γ, a página traça a curva do modelo com os parâmetros medidos (passo 3). A massa entra no cálculo de b e k.</p>
       </section>
 
       <section class="block">
@@ -375,7 +375,7 @@ details.help[open] summary { margin-bottom: 6px; }
 
       <section class="block">
         <h2><span class="n">4</span>Ajuste livre</h2>
-        <p class="note">Todos os parâmetros livres: z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)</sup>·sen(ω(t−t₀) + φ), com t₀ no início do intervalo de ajuste. Aqui γ = b/(2m), a taxa de decaimento da amplitude. Mínimos quadrados (Levenberg–Marquardt).</p>
+        <p class="note">Todos os parâmetros livres: z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(ω(t−t₀) + φ), com γ = b/m e t₀ no início do intervalo de ajuste. Mínimos quadrados (Levenberg–Marquardt).</p>
         <p class="status" id="fitStatus"></p>
         <div class="tbl-wrap"><table class="res" id="fitTable"></table></div>
       </section>
@@ -439,7 +439,7 @@ details.help[open] summary { margin-bottom: 6px; }
       </section>
       <section class="block">
         <h2><span class="n">2</span>Ajuste</h2>
-        <p class="note">Modelo: A(t) = A₀·e<sup>−γt/2</sup>, por mínimos quadrados não lineares, ponderados por σ<sub>A</sub> quando todas as linhas têm incerteza. Nesta aba γ = b/m. Nas abas Análise da curva e Explorar, o parâmetro de amortecimento é b/(2m), que corresponde a γ/2 daqui.</p>
+        <p class="note">Modelo: A(t) = A₀·e<sup>−γt/2</sup>, por mínimos quadrados não lineares, ponderados por σ<sub>A</sub> quando todas as linhas têm incerteza. Aqui, como em todas as abas, γ = b/m.</p>
         <p class="status" id="pStatus"></p>
         <div class="tbl-wrap"><table class="res" id="pFitTable"></table></div>
       </section>
@@ -534,7 +534,7 @@ details.help[open] summary { margin-bottom: 6px; }
         <span style="--c:var(--fit)" class="cmpLeg" hidden><i class="sw-c"></i>crítico (b = b<sub>c</sub>)</span>
         <span style="--c:var(--c3)" class="cmpLeg" hidden><i class="sw-c"></i>supercrítico (b = 2b<sub>c</sub>)</span>
         <span style="--c:var(--c4)"><i class="sw-c"></i>energia E(t)</span>
-        <span style="--c:var(--c4)"><i class="sw-cd"></i>E₀·e<sup>−2γt</sup></span>
+        <span style="--c:var(--c4)"><i class="sw-cd"></i>E₀·e<sup>−γt</sup></span>
       </div>
     </div>
     <div class="panel">
@@ -556,7 +556,7 @@ details.help[open] summary { margin-bottom: 6px; }
       </section>
       <section class="block">
         <h2>O que observar</h2>
-        <p class="note">No regime subcrítico, a amplitude cai como e<sup>−γt</sup> e a energia como e<sup>−2γt</sup>: em τ = 1/γ a amplitude cai a 37% e a energia a 14%. A frequência ω = √(ω₀² − γ²) quase não muda com amortecimento fraco. Com b = b<sub>c</sub> = 2√(mk), o sistema volta ao equilíbrio no menor tempo, sem oscilar.</p>
+        <p class="note">Com γ = b/m, no regime subcrítico a amplitude cai como e<sup>−γt/2</sup> e a energia como e<sup>−γt</sup>: em τ = 2/γ a amplitude cai a 37% e a energia a 14%. A frequência ω = √(ω₀² − γ²/4) quase não muda com amortecimento fraco. Com b = b<sub>c</sub> = 2√(mk), o sistema volta ao equilíbrio no menor tempo, sem oscilar.</p>
       </section>
     </div>
   </section>
@@ -755,11 +755,11 @@ details.help[open] summary { margin-bottom: 6px; }
     for (let j = 0; j < n; j++) { const e = new Array(n).fill(0); e[j] = 1; const col = solve(A, e); if (!col) return null; for (let i = 0; i < n; i++) out[i][j] = col[i]; }
     return out;
   }
-  // p = [ze, A, γ, ω, φ]
-  const model = (p, t, t0) => { const u = t - t0; return p[0] + p[1] * Math.exp(-p[2] * u) * Math.sin(p[3] * u + p[4]); };
+  // p = [ze, A, γ, ω, φ], com γ = b/m: a amplitude cai como e^(−γu/2)
+  const model = (p, t, t0) => { const u = t - t0; return p[0] + p[1] * Math.exp(-p[2] * u / 2) * Math.sin(p[3] * u + p[4]); };
   function grad(p, t, t0) {
-    const u = t - t0, e = Math.exp(-p[2] * u), s = Math.sin(p[3] * u + p[4]), c = Math.cos(p[3] * u + p[4]);
-    return [1, e * s, -p[1] * u * e * s, p[1] * e * c * u, p[1] * e * c];
+    const u = t - t0, e = Math.exp(-p[2] * u / 2), s = Math.sin(p[3] * u + p[4]), c = Math.cos(p[3] * u + p[4]);
+    return [1, e * s, -p[1] * u / 2 * e * s, p[1] * e * c * u, p[1] * e * c];
   }
   function sse(p, ts, zs, t0) { let s = 0; for (let i = 0; i < ts.length; i++) { const r = zs[i] - model(p, ts[i], t0); s += r * r; } return s; }
   function lm(ts, zs, p0, t0) {
@@ -903,7 +903,8 @@ details.help[open] summary { margin-bottom: 6px; }
     let zmin = Infinity, zmax = -Infinity; for (const z of zs) { if (z < zmin) zmin = z; if (z > zmax) zmax = z; }
     const A0 = AM > 0 ? AM : (A1 || (zmax - zmin) / 2);
     const span = ts[ts.length - 1] - t0 - T;
-    const g0 = gM > 0 ? gM / 2 : (A1 > 0 && A2 > 0 && span > 0 ? Math.max(0, Math.log(A1 / A2) / span) : 0);
+    // chute de γ = b/m: o medido, ou o dobro da taxa de queda da amplitude entre o primeiro e o último período
+    const g0 = gM > 0 ? gM : (A1 > 0 && A2 > 0 && span > 0 ? Math.max(0, 2 * Math.log(A1 / A2) / span) : 0);
     let bestP = null, bestS = Infinity;
     for (let k = 0; k < 24; k++) {
       const ph = -Math.PI + k * Math.PI / 12;
@@ -954,17 +955,18 @@ details.help[open] summary { margin-bottom: 6px; }
       let s2 = 0; for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) s2 += g[a] * C[a][b] * g[b];
       return { v, s: Math.sqrt(Math.max(0, s2)) };
     };
-    const w0f = (x) => Math.sqrt(x[3] * x[3] + x[2] * x[2]);
+    // γ = b/m: ω₀² = ω² + γ²/4, τ = 2/γ, Q = ω₀/γ, δ = γT/2, crítico em γ = 2ω₀
+    const w0f = (x) => Math.sqrt(x[3] * x[3] + x[2] * x[2] / 4);
     res.der = {
-      tau: prop(x => 1 / x[2]),
+      tau: prop(x => 2 / x[2]),
       f: prop(x => x[3] / (2 * Math.PI)),
       T: prop(x => 2 * Math.PI / x[3]),
       w0: prop(w0f),
-      dec: prop(x => x[2] * 2 * Math.PI / x[3]),
-      Q: prop(x => w0f(x) / (2 * x[2])),
-      ratio: prop(x => x[2] / w0f(x)),
-      b: hasM ? prop(x => 2 * x[5] * x[2]) : null,
-      k: hasM ? prop(x => x[5] * (x[3] * x[3] + x[2] * x[2])) : null,
+      dec: prop(x => x[2] * Math.PI / x[3]),
+      Q: prop(x => w0f(x) / x[2]),
+      ratio: prop(x => x[2] / (2 * w0f(x))),
+      b: hasM ? prop(x => x[5] * x[2]) : null,
+      k: hasM ? prop(x => x[5] * (x[3] * x[3] + x[2] * x[2] / 4)) : null,
       hasM
     };
     // comparação
@@ -987,8 +989,8 @@ details.help[open] summary { margin-bottom: 6px; }
       cmp.push({ name: "Amplitude inicial A₀", unit: S.a.unitPos, meas: AM, ms: isFinite(AS) ? Math.abs(AS) : 0, fit: p[1], fs: sig[1], hint });
     } else cmp.push({ name: "Amplitude inicial A₀", missing: true });
     const gS = parseNum(S.a.meas.sg);
-    if (gM > 0) cmp.push({ name: "Decaimento γ (= b/m)", unit: "s⁻¹", meas: gM, ms: isFinite(gS) ? Math.abs(gS) : 0, fit: 2 * p[2], fs: 2 * sig[2], fitLabel: "ajuste livre 2γ",
-      hint: near(gM / (2 * p[2]), 0.5, 0.1) ? "O valor medido parece ser b/(2m), a metade de γ. Nesta página, o γ do passo 1 é b/m (amplitude caindo como e^(−γt/2))." : near(gM / (2 * p[2]), 2, 0.1) ? "O valor medido é cerca do dobro do esperado. Confira se ele é b/m (amplitude caindo como e^(−γt/2))." : "" });
+    if (gM > 0) cmp.push({ name: "Decaimento γ (= b/m)", unit: "s⁻¹", meas: gM, ms: isFinite(gS) ? Math.abs(gS) : 0, fit: p[2], fs: sig[2],
+      hint: near(gM / p[2], 0.5, 0.1) ? "O valor medido parece ser b/(2m), a metade de γ. Nesta página, γ = b/m (amplitude caindo como e^(−γt/2))." : near(gM / p[2], 2, 0.1) ? "O valor medido é cerca do dobro do ajustado. Confira se ele é b/m (amplitude caindo como e^(−γt/2))." : "" });
     else cmp.push({ name: "Decaimento γ (= b/m)", missing: true });
     res.cmp = cmp;
     R = res;
@@ -1065,7 +1067,7 @@ details.help[open] summary { margin-bottom: 6px; }
     ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
       row("z<sub>e</sub>", "posição de equilíbrio", fmtUnc(p[0], s[0]), u) +
       row("A₀", `amplitude em t₀ = ${fmtSig(R.t0, 4)} s`, fmtUnc(p[1], s[1]), u) +
-      row("γ", "parâmetro de amortecimento", fmtUnc(p[2], s[2]), "s⁻¹") +
+      row("γ = b/m", "parâmetro de amortecimento", fmtUnc(p[2], s[2]), "s⁻¹") +
       row("ω", "frequência angular amortecida", fmtUnc(p[3], s[3]), "rad/s") +
       row("φ", "fase", fmtUnc(p[4], s[4]), "rad") +
       (R.hasSz
@@ -1081,14 +1083,14 @@ details.help[open] summary { margin-bottom: 6px; }
     const gPos = p[2] > 0;
     const undef = (q, un) => `<tr><td class="q">${q}</td><td class="v miss">não definido, pois γ ≤ 0</td><td class="u">${un}</td></tr>`;
     dt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
-      (gPos ? row("τ = 1/γ", "tempo de relaxação", fmtUnc(d.tau.v, d.tau.s), "s") : undef("τ = 1/γ", "s")) +
+      (gPos ? row("τ = 2/γ", "tempo para A cair a A₀/e", fmtUnc(d.tau.v, d.tau.s), "s") : undef("τ = 2/γ", "s")) +
       row("f = ω/2π", "frequência", fmtUnc(d.f.v, d.f.s), "Hz") +
       row("T = 2π/ω", "período", fmtUnc(d.T.v, d.T.s), "s") +
-      row("ω₀ = √(ω² + γ²)", "frequência natural", fmtUnc(d.w0.v, d.w0.s), "rad/s") +
-      (d.hasM ? row("b = 2mγ", "coeficiente de amortecimento", fmtUnc(d.b.v, d.b.s), "kg/s") : `<tr><td class="q">b = 2mγ</td>${miss}<td class="u">kg/s</td></tr>`) +
+      row("ω₀ = √(ω² + γ²/4)", "frequência natural", fmtUnc(d.w0.v, d.w0.s), "rad/s") +
+      (d.hasM ? row("b = m·γ", "coeficiente de amortecimento", fmtUnc(d.b.v, d.b.s), "kg/s") : `<tr><td class="q">b = m·γ</td>${miss}<td class="u">kg/s</td></tr>`) +
       (d.hasM ? row("k = m·ω₀²", "constante elástica", fmtUnc(d.k.v, d.k.s), "N/m") : `<tr><td class="q">k = m·ω₀²</td>${miss}<td class="u">N/m</td></tr>`) +
-      (gPos ? row("Q = ω₀/(2γ)", "fator de qualidade", fmtUnc(d.Q.v, d.Q.s), "") : undef("Q = ω₀/(2γ)", "")) +
-      row("δ = γT", "decremento logarítmico", fmtUnc(d.dec.v, d.dec.s), "") + `</tbody>`;
+      (gPos ? row("Q = ω₀/γ", "fator de qualidade", fmtUnc(d.Q.v, d.Q.s), "") : undef("Q = ω₀/γ", "")) +
+      row("δ = γT/2", "decremento logarítmico", fmtUnc(d.dec.v, d.dec.s), "") + `</tbody>`;
     const r = d.ratio.v, rs = d.ratio.s;
     let cls = "ok", txt = "Subcrítico";
     if (!R.gSig) { cls = "warn"; txt = "Amortecimento não significativo"; }
@@ -1096,8 +1098,8 @@ details.help[open] summary { margin-bottom: 6px; }
     const gNote = !R.gSig
       ? `<p class="note" style="margin-top:6px">γ não chega a 2σ acima de zero neste intervalo, então o amortecimento não foi medido com segurança e τ e Q ficam mal determinados. Use um intervalo mais longo, com mais oscilações.</p>`
       : "";
-    rg.innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/ω₀ = ${fmtUnc(r, rs)}${r < 1 && R.gSig ? " &lt; 1" : ""}</span></div>` + gNote +
-      `<p class="note" style="margin-top:6px">O modelo com seno já supõe o regime subcrítico (γ &lt; ω₀), então o ajuste confirma esse regime e mostra a folga γ/ω₀.</p>`;
+    rg.innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/(2ω₀) = ${fmtUnc(r, rs)}${r < 1 && R.gSig ? " &lt; 1" : ""}</span></div>` + gNote +
+      `<p class="note" style="margin-top:6px">O modelo com seno já supõe o regime subcrítico (γ &lt; 2ω₀), então o ajuste confirma esse regime e mostra a folga γ/(2ω₀).</p>`;
     cl.innerHTML = R.cmp.map(c => {
       if (c.missing) return `<div class="cmp-item"><span class="t">${c.name}</span><span class="chip info">sem medida direta</span><span class="d">Preencha o passo 1 para comparar.</span></div>`;
       const sc = Math.sqrt(c.ms ** 2 + c.fs ** 2);
@@ -1121,12 +1123,12 @@ details.help[open] summary { margin-bottom: 6px; }
     const fM = parseNum(S.a.meas.f), AM = parseNum(S.a.meas.A);
     if (fM > 0) add("f (medida)", fM, parseNum(S.a.meas.sf), "Hz");
     if (AM > 0) add("A0 (medida)", AM, parseNum(S.a.meas.sA), u);
-    add("ze", p[0], s[0], u); add("A0 (ajuste)", p[1], s[1], u); add("γ", p[2], s[2], "s^-1"); add("ω", p[3], s[3], "rad/s"); add("φ", p[4], s[4], "rad");
-    if (p[2] > 0) add("τ = 1/γ", d.tau.v, d.tau.s, "s");
+    add("ze", p[0], s[0], u); add("A0 (ajuste)", p[1], s[1], u); add("γ = b/m", p[2], s[2], "s^-1"); add("ω", p[3], s[3], "rad/s"); add("φ", p[4], s[4], "rad");
+    if (p[2] > 0) add("τ = 2/γ", d.tau.v, d.tau.s, "s");
     add("f (ajuste)", d.f.v, d.f.s, "Hz"); add("T", d.T.v, d.T.s, "s"); add("ω0", d.w0.v, d.w0.s, "rad/s");
-    if (d.hasM) { add("b = 2mγ", d.b.v, d.b.s, "kg/s"); add("k = m·ω0²", d.k.v, d.k.s, "N/m"); }
-    if (p[2] > 0) add("Q", d.Q.v, d.Q.s, "");
-    add("δ = γT", d.dec.v, d.dec.s, ""); add("γ/ω0", d.ratio.v, d.ratio.s, "");
+    if (d.hasM) { add("b = m·γ", d.b.v, d.b.s, "kg/s"); add("k = m·ω0²", d.k.v, d.k.s, "N/m"); }
+    if (p[2] > 0) add("Q = ω0/γ", d.Q.v, d.Q.s, "");
+    add("δ = γT/2", d.dec.v, d.dec.s, ""); add("γ/(2ω0)", d.ratio.v, d.ratio.s, "");
     lines.push(["N (pontos)", String(R.n), "", ""]);
     lines.push(["intervalo de ajuste", `${num(R.t1)} a ${num(R.t2)}`, "", "s"]);
     if (R.hasSz) lines.push(["χ²/ν", num(R.chi2red), "", ""]); else lines.push(["σ estimada dos pontos", num(R.sEst), "", u]);
@@ -1378,7 +1380,7 @@ details.help[open] summary { margin-bottom: 6px; }
     if (outT.length) L.push({ type: "pts", xs: outT, ys: outZ, color: "data", r: 2, alpha: 0.35 });
     const showFit = R.ok && S.a.showFit !== false, X = R.exp, showExp = X && X.ok && S.a.showExp !== false;
     const env = (ze, A, g, t0, col) => [1, -1].forEach(sg => L.push({ type: "fn", f: t => ze + sg * A * Math.exp(-g * (t - t0)), from: R.t1, to: R.t2, color: col, width: 1.25, dash: [6, 5], alpha: 0.8, noFit: true }));
-    if (showFit) { L.push({ type: "hline", y: R.p[0], color: "fit", dash: [2, 4], alpha: 0.7, from: R.t1, to: R.t2, noFit: true }); env(R.p[0], R.p[1], R.p[2], R.t0, "fit"); }
+    if (showFit) { L.push({ type: "hline", y: R.p[0], color: "fit", dash: [2, 4], alpha: 0.7, from: R.t1, to: R.t2, noFit: true }); env(R.p[0], R.p[1], R.p[2] / 2, R.t0, "fit"); }
     if (showExp) env(X.ze, X.A, X.gh, X.t0, "c3");
     L.push({ type: "pts", xs: inT, ys: inZ, color: "data", r: 2.25, trace: true });
     if (showExp) L.push({ type: "fn", f: X.f, from: R.t1, to: R.t2, color: "c3", width: 2, trace: true, noFit: true });
@@ -1568,16 +1570,16 @@ details.help[open] summary { margin-bottom: 6px; }
     const s = sys(E.b), bc = bCrit();
     const kv = [
       ["ω₀ = √(k/m)", `${fmtSig(s.w0, 4)} rad/s`],
-      ["γ = b/(2m)", `${fmtSig(s.g, 4)} s⁻¹`],
-      ["ω = √(ω₀² − γ²)", s.regime === "sub" ? `${fmtSig(s.w, 4)} rad/s` : "não oscila"],
+      ["γ = b/m", `${fmtSig(2 * s.g, 4)} s⁻¹`],
+      ["ω = √(ω₀² − γ²/4)", s.regime === "sub" ? `${fmtSig(s.w, 4)} rad/s` : "não oscila"],
       ["T = 2π/ω", s.regime === "sub" ? `${fmtSig(2 * Math.PI / s.w, 4)} s` : "—"],
-      ["τ = 1/γ", s.g > 0 ? `${fmtSig(1 / s.g, 4)} s` : "∞"],
-      ["Q = ω₀/(2γ)", s.g > 0 ? fmtSig(s.w0 / (2 * s.g), 4) : "∞"],
+      ["τ = 2/γ", s.g > 0 ? `${fmtSig(1 / s.g, 4)} s` : "∞"],
+      ["Q = ω₀/γ", s.g > 0 ? fmtSig(s.w0 / (2 * s.g), 4) : "∞"],
       ["b<sub>c</sub> = 2√(mk)", `${fmtSig(bc, 4)} kg/s`]
     ];
     el("eKV").innerHTML = kv.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
     const [cls, txt] = s.regime === "sub" ? (s.g === 0 ? ["info", "Sem amortecimento"] : ["ok", "Subcrítico"]) : s.regime === "crit" ? ["warn", "Crítico"] : ["bad", "Supercrítico"];
-    el("eRegime").innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/ω₀ = ${fmtSig(s.g / s.w0, 3)}</span></div>`;
+    el("eRegime").innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/(2ω₀) = ${fmtSig(s.g / s.w0, 3)}</span></div>`;
   }
   eCtl.forEach(([r, n, k]) => {
     el(r).addEventListener("input", () => { E[k] = +el(r).value; if (k === "dur") frameE(); else { ePlot.yAuto = true; enPlot.yAuto = true; } syncE(); schedule(); save(); });
@@ -1730,27 +1732,26 @@ details.help[open] summary { margin-bottom: 6px; }
       (PR.warn ? " " + PR.warn : "");
     ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
       row("A₀", "amplitude em t = 0", fmtUnc(PR.A0, PR.sA0), u) +
-      row("γ", "γ = b/m nesta aba", fmtUnc(PR.g, PR.sg), "s⁻¹") +
+      row("γ = b/m", "parâmetro de amortecimento", fmtUnc(PR.g, PR.sg), "s⁻¹") +
       (PR.weighted ? row("χ²/ν", `ν = N − 2 = ${PR.nu}`, fmtSig(PR.chi2red, 3), "") : row("σ estimada", "desvio dos picos em torno do ajuste", fmtSig(PR.sEst, 2), u)) + `</tbody>`;
     const gPos = PR.g > 0;
     const mk = massKg(), hasM = mk.v > 0;
     const bV = hasM ? mk.v * PR.g : NaN, bS = hasM ? Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2) : NaN;
     const mText = hasM ? `com m = ${fmtUnc(parseNum(S.a.meas.m), parseNum(S.a.meas.sm))} ${S.a.meas.mu} do passo 1 da análise` : "";
     dt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
-      row("γ/2 = b/(2m)", "parâmetro das outras abas", fmtUnc(PR.g / 2, PR.sg / 2), "s⁻¹") +
       (gPos ? row("τ = 2/γ", "tempo para A cair a A₀/e", fmtUnc(2 / PR.g, 2 * PR.sg / PR.g ** 2), "s") : `<tr><td class="q">τ = 2/γ</td><td class="v miss">não definido, pois γ ≤ 0</td><td class="u">s</td></tr>`) +
       (gPos ? row("t½ = 2·ln2/γ", "tempo para A cair à metade", fmtUnc(2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2), "s") : "") +
       (hasM ? row("b = m·γ", mText, fmtUnc(bV, bS), "kg/s") : `<tr><td class="q">b = m·γ</td><td class="v miss">informe a massa no passo 1 da Análise da curva</td><td class="u">kg/s</td></tr>`) + `</tbody>`;
     // comparação com o ajuste da curva completa
     if (R && R.ok && !R.noOsc) {
-      const a = PR.g / 2, sa = PR.sg / 2, c = R.p[2], sc = R.sig[2];
+      const a = PR.g, sa = PR.sg, c = R.p[2], sc = R.sig[2];
       const z = Math.abs(a - c) / Math.sqrt(sa * sa + sc * sc);
       const [k, lab] = z <= 2 ? ["ok", "compatíveis"] : z <= 3 ? ["warn", "discrepância moderada"] : ["bad", "incompatíveis"];
-      cm.innerHTML = `<div class="cmp-item"><span class="t">γ/2 dos picos × γ da curva completa</span><span class="chip ${k}">${lab}</span>` +
+      cm.innerHTML = `<div class="cmp-item"><span class="t">γ dos picos × γ da curva completa</span><span class="chip ${k}">${lab}</span>` +
         `<span class="d">picos ${fmtUnc(a, sa)} s⁻¹ · curva ${fmtUnc(c, sc)} s⁻¹ · |Δ| = ${fmtSig(z, 2)}σ</span>` +
-        `<span class="d" style="font-family:var(--font-ui)">Os dois métodos medem o mesmo amortecimento b/(2m): um usa só os picos, o outro usa a trajetória inteira.</span></div>`;
+        `<span class="d" style="font-family:var(--font-ui)">Os dois métodos medem o mesmo γ = b/m: um usa só os picos, o outro usa a trajetória inteira.</span></div>`;
     } else {
-      cm.innerHTML = `<div class="cmp-item"><span class="t">γ/2 dos picos × γ da curva completa</span><span class="chip info">sem ajuste da curva</span><span class="d" style="font-family:var(--font-ui)">Faça o ajuste na aba Análise da curva para comparar os dois métodos.</span></div>`;
+      cm.innerHTML = `<div class="cmp-item"><span class="t">γ dos picos × γ da curva completa</span><span class="chip info">sem ajuste da curva</span><span class="d" style="font-family:var(--font-ui)">Faça o ajuste na aba Análise da curva para comparar os dois métodos.</span></div>`;
     }
   }
   function peaksTSV() {
@@ -1759,7 +1760,7 @@ details.help[open] summary { margin-bottom: 6px; }
     const num = tsvNum;
     const add = (q, v, e, un) => { const [a, b] = tsvPair(v, e); L.push([q, a, b, un]); };
     L.push(["N (picos)", String(PR.n), "", ""]);
-    add("A0", PR.A0, PR.sA0, u); add("γ = b/m", PR.g, PR.sg, "s^-1"); add("γ/2 = b/(2m)", PR.g / 2, PR.sg / 2, "s^-1");
+    add("A0", PR.A0, PR.sA0, u); add("γ = b/m", PR.g, PR.sg, "s^-1");
     if (PR.g > 0) { add("τ = 2/γ", 2 / PR.g, 2 * PR.sg / PR.g ** 2, "s"); add("t1/2 = 2·ln2/γ", 2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2, "s"); }
     const mk = massKg(); if (mk.v > 0) add("b = m·γ", mk.v * PR.g, Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2), "kg/s");
     if (PR.weighted) L.push(["χ²/ν", num(PR.chi2red), "", ""]); else L.push(["σ estimada dos picos", num(PR.sEst), "", u]);
