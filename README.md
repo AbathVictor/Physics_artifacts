@@ -22,6 +22,5 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 **Notação**
 
-- Na aba Análise da curva (ajuste livre) e na aba Explorar, γ = b/(m): a amplitude cai como e^(−γt).
-- Nas medidas diretas e na aba Ajuste dos picos, γ = b/m: a amplitude cai como e^(−γt/2).
-- A página indica a conversão entre as duas sempre que compara valores.
+- Em todas as abas, γ = b/m: a amplitude cai como e^(−γt/2) e a energia mecânica como e^(−γt).
+- Com essa convenção: τ = 2/γ (tempo para a amplitude cair a A₀/e), ω₀ = √(ω² + γ²/4), Q = ω₀/γ, δ = γT/2, e o amortecimento crítico ocorre em γ = 2ω₀.
