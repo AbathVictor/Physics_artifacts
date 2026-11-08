@@ -16,12 +16,12 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 **Como usar**
 
-- Abra `laboratorio-oscilacoes/index.html` no navegador. Para isso, baixe o repositório ou o arquivo, ou use o endereço do GitHub Pages, se ele estiver ativado.
-- Exporte do Tracker a tabela de dados como texto ou CSV, ou copie a tabela e cole na página. A página reconhece vírgula ou ponto decimal, tabulação e ponto e vírgula, e as linhas de título do Tracker. Só não use a vírgula ao mesmo tempo como delimitador e como decimal.
+- Abra `laboratorio-oscilacoes/index.html` no navegador. Para isso, baixe o repositório ou o arquivo, ou clique [aqui](https://abathvictor.github.io/Physics_artifacts/laboratorio-oscilacoes/).
+- Exporte do Tracker a tabela de dados como texto ou CSV, ou copie a tabela e cole na página. A página reconhece vírgula ou ponto decimal, tabulação e ponto e vírgula, e as linhas de título do Tracker. NÃO USE A VÍRGULA SIMULTÂNEAMENTE COMO DELIMITADOR E SEPARADOR DECIMAL.
 - Os dados ficam salvos apenas no navegador de quem usa. Nada é enviado para servidor algum. O botão **Limpar tudo** apaga os dados de todas as abas.
 
 **Notação**
 
-- Na aba Análise da curva (ajuste livre) e na aba Explorar, γ = b/(2m): a amplitude cai como e^(−γt).
+- Na aba Análise da curva (ajuste livre) e na aba Explorar, γ = b/(m): a amplitude cai como e^(−γt).
 - Nas medidas diretas e na aba Ajuste dos picos, γ = b/m: a amplitude cai como e^(−γt/2).
 - A página indica a conversão entre as duas sempre que compara valores.
