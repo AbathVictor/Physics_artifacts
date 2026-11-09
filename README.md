@@ -24,3 +24,13 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 - Em todas as abas, γ = b/m: a amplitude cai como e^(−γt/2) e a energia mecânica como e^(−γt).
 - Com essa convenção: τ = 2/γ (tempo para a amplitude cair a A₀/e), ω₀ = √(ω² + γ²/4), Q = ω₀/γ, δ = γT/2, e o amortecimento crítico ocorre em γ = 2ω₀.
+
+### [Videoanálise Móvel](Tracker-mobile/) · em desenvolvimento
+
+Vídeo-análise quadro a quadro feita no próprio celular, inspirada no Tracker. O aluno grava o vídeo, define a escala e os eixos, informa a massa e marca a posição do objeto em cada quadro (à mão, com zoom de pinça, ou com o rastreamento automático). A tabela t, x, y sai copiada ou em CSV, no formato do Excel e Planilhas Google ou no internacional (Python), e abre direto no Laboratório de Oscilações.
+
+**Como usar**
+
+- No celular Android, abra no Chrome: [abathvictor.github.io/Physics_artifacts/Tracker-mobile](https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/). Por enquanto, iPhone não é suportado.
+- Grave com o celular apoiado e parado, de frente para o movimento, com uma régua no mesmo plano do objeto. Se a câmera oferecer HEVC (alta eficiência), grave em H.264.
+- O vídeo é processado no próprio aparelho; nada é enviado para servidor algum. As marcações ficam salvas no navegador de quem usa.
