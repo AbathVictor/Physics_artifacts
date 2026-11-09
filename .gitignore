@@ -1,0 +1,5 @@
+# Vídeos de teste gravados no celular (não vão para o repositório)
+/Test_videos/
+
+# Vídeos sintéticos gerados por tests/gerar_videos.py
+/Tracker-mobile/tests/videos/
