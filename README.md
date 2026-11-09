@@ -3,7 +3,7 @@ Esse é um repositório público e de código aberto aonde compartilharei ferram
 
 ## Ferramentas
 
-### [Laboratório de Oscilações](laboratorio-oscilacoes/)
+### [Laboratório de Oscilações](laboratorio-oscilacoes/OscLab.html)
 
 Página para analisar o oscilador amortecido (sistema massa-mola) a partir da vídeo-análise feita no [Tracker](https://physlets.org/tracker/). Tudo roda no navegador, em um único arquivo HTML, sem instalação.
 
@@ -16,7 +16,7 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 **Como usar**
 
-- Abra `laboratorio-oscilacoes/index.html` no navegador. Para isso, baixe o repositório ou o arquivo, ou clique [aqui](https://abathvictor.github.io/Physics_artifacts/laboratorio-oscilacoes/).
+- Abra `laboratorio-oscilacoes/OscLab.html` no navegador. Para isso, baixe o repositório ou o arquivo, ou clique [aqui](https://abathvictor.github.io/Physics_artifacts/laboratorio-oscilacoes/OscLab.html).
 - Exporte do Tracker a tabela de dados como texto ou CSV, ou copie a tabela e cole na página. A página reconhece vírgula ou ponto decimal, tabulação e ponto e vírgula, e as linhas de título do Tracker. NÃO USE A VÍRGULA SIMULTÂNEAMENTE COMO DELIMITADOR E SEPARADOR DECIMAL.
 - Os dados ficam salvos apenas no navegador de quem usa. Nada é enviado para servidor algum. O botão **Limpar tudo** apaga os dados de todas as abas.
 

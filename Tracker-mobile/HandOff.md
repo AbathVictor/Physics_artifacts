@@ -8,7 +8,7 @@ Uma página única (`index.html`) de vídeo-análise quadro a quadro no celular,
 [Tracker](https://github.com/OpenSourcePhysics/tracker) do Open Source Physics, para as atividades experimentais
 de Física Básica (sistema massa-mola, pêndulo). O aluno grava o vídeo no próprio celular, define o intervalo,
 calibra a escala e os eixos, informa a massa, marca a posição do objeto (à mão ou com rastreamento automático)
-e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/), numa planilha ou em Python.
+e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/OscLab.html), numa planilha ou em Python.
 
 - Público: alunos com celular **Android e Chrome**. iOS ainda não é alvo.
 - Tudo roda no navegador; o vídeo nunca sai do aparelho.

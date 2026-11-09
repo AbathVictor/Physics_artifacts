@@ -3,3 +3,6 @@
 
 # Vídeos sintéticos gerados por tests/gerar_videos.py
 /Tracker-mobile/tests/videos/
+
+# Logotipo da universidade: só serve de referência de cor, não é publicado
+/laboratorio-oscilacoes/rural_logo02.png
