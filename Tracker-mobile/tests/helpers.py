@@ -2,13 +2,16 @@
 
 O Chromium que vem com o Playwright não decodifica H.264; por isso os testes usam o Google Chrome instalado
 (channel="chrome"). Para apontar outro executável, defina CHROME_PATH.
-Se a máquina não alcançar o CDN, defina MP4BOX_LOCAL com o caminho de um mp4box.all.min.js 0.5.4.
+A página é servida por um servidor local (endereco()), porque módulos JavaScript não carregam de file://.
 A página expõe o estado em window.__va; os testes dependem dele.
 """
 import json
 import math
 import os
 import sys
+import threading
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PASTA = Path(__file__).resolve().parent
@@ -46,18 +49,32 @@ class Resultado:
         sys.exit(1 if self.falhas else 0)
 
 
+_servidor = None
+EXTERNOS = []
+
+
+def endereco():
+    """Serve a pasta da página num servidor local (módulos JavaScript não carregam de file://) e devolve o endereço."""
+    global _servidor
+    if _servidor is None:
+        class Silencioso(SimpleHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+        _servidor = ThreadingHTTPServer(("127.0.0.1", 0), partial(Silencioso, directory=str(PAGINA.parent)))
+        threading.Thread(target=_servidor.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{_servidor.server_address[1]}/"
+
+
 async def abrir(p):
     kw = {"executable_path": os.environ["CHROME_PATH"]} if os.environ.get("CHROME_PATH") else {"channel": "chrome"}
     nav = await p.chromium.launch(**kw)
     ctx = await nav.new_context(viewport={"width": 412, "height": 915}, device_scale_factor=2.6, is_mobile=True, has_touch=True)
-    local = os.environ.get("MP4BOX_LOCAL")
-    if local:
-        corpo = Path(local).read_text(encoding="utf-8")
-        await ctx.route("https://cdn.jsdelivr.net/**", lambda r: r.fulfill(body=corpo, content_type="application/javascript"))
+    # pedidos a outros endereços que não o servidor local (a página não deve depender de nenhum)
+    ctx.on("request", lambda r: EXTERNOS.append(r.url) if r.url.startswith("http") and not r.url.startswith(endereco()) else None)
     pagina = await ctx.new_page()
     erros = []
     pagina.on("pageerror", lambda e: erros.append(str(e)))
-    await pagina.goto(PAGINA.as_uri())
+    await pagina.goto(endereco())
     await pagina.wait_for_function("window.__va && __va.frames.length === 120 && __va.low.has(0)", timeout=30000)
     return nav, ctx, pagina, erros
 

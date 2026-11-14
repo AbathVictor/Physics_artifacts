@@ -73,7 +73,7 @@ def main():
         sys.exit("ffmpeg não encontrado no PATH.")
     PASTA.mkdir(exist_ok=True)
     h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p"]
-    # o vídeo de exemplo embutido no index.html (base64 em SAMPLE_B64) é este:
+    # o vídeo de exemplo embutido na página (base64 em SAMPLE_B64, js/video/exemplo.js) é este:
     gerar("exemplo.mp4", 360, 640, 120, 30, h264[:2] + ["-profile:v", "baseline"] + h264[2:] + ["-crf", "30", "-g", "30", "-movflags", "+faststart"])
     gerar("cfr_moovend.mp4", 640, 360, 150, 30, h264 + ["-g", "30"])  # índice no fim, como o Android grava
     gerar("bframes.mp4", 640, 360, 150, 30, h264 + ["-profile:v", "high", "-bf", "3", "-g", "60"])

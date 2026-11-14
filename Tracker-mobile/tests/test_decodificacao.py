@@ -67,4 +67,5 @@ async def main():
     R.encerrar()
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

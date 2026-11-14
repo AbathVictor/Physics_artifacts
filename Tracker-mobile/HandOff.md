@@ -4,14 +4,16 @@ Contexto para o Claude Code. Leia antes de mexer nesta pasta.
 
 ## O que é
 
-Uma página única (`index.html`) de vídeo-análise quadro a quadro no celular, inspirada no
+Uma página (`index.html` com módulos JavaScript em `js/`) de vídeo-análise quadro a quadro no celular, inspirada no
 [Tracker](https://github.com/OpenSourcePhysics/tracker) do Open Source Physics, para as atividades experimentais
 de Física Básica (sistema massa-mola, pêndulo). O aluno grava o vídeo no próprio celular, define o intervalo,
 calibra a escala e os eixos, informa a massa, marca a posição do objeto (à mão ou com rastreamento automático)
 e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/OscLab.html), numa planilha ou em Python.
 
 - Público: alunos com celular **Android e Chrome**. iOS ainda não é alvo.
-- Tudo roda no navegador; o vídeo nunca sai do aparelho.
+- Tudo roda no navegador; o vídeo nunca sai do aparelho. Nada para instalar.
+- Funciona **sem internet** depois de aberta: o aluno abre o link uma vez com conexão e a página continua
+  funcionando em modo avião, e até recarrega sem conexão (service worker, `sw.js`).
 - Publicada pelo GitHub Pages em `https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/`.
 
 ## Como trabalhar com o autor
@@ -22,7 +24,7 @@ e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio
   prefere trabalhar. Correções e ajustes pequenos podem ir direto.
 - O autor testa no próprio celular Android. Diga claramente o que você conseguiu verificar no computador e o que
   só dá para confirmar no aparelho (sensação do toque, desempenho, janela de download).
-- Rode os testes (seção **Testes**) antes de cada commit que mexa no `index.html`.
+- Rode os testes (seção **Testes**) antes de cada commit que mexa na página (`index.html`, `js/`, `css/`).
 - Textos da interface: curtos, diretos, escritos para o aluno; mensagens de erro dizem o que aconteceu e como resolver.
 
 ## Especificação decidida (não mude sem combinar)
@@ -30,7 +32,10 @@ e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio
 | Tema | Decisão |
 | --- | --- |
 | Plataforma | Android + Chrome primeiro; iOS fica para depois |
-| Forma | Página separada nesta pasta, arquivo único autocontido |
+| Forma | Página nesta pasta em **módulos JavaScript nativos, sem passo de montagem** (sem Node/npm para publicar): edita e publica. Decidido em 14/11/2026, substituiu o arquivo único (que existia só por causa do artefato do claude.ai, hoje obsoleto) |
+| Sem internet | uma vez aberta, a página **não pode perder nenhuma função sem conexão** (modo avião). Nada é carregado de fora: `mp4box.js` e as fontes são cópias locais; todos os módulos são importados no início (sem `import()` tardio); o `sw.js` guarda tudo para recarregar sem conexão |
+| Compatibilidade com o Tracker | princípio permanente: a versão móvel e o Tracker de computador **devem conversar sempre**. Os formatos e o modelo de dados seguem os do Tracker (objetos como os *point mass* dele, coordenadas em pixels da imagem, eixos, fita de calibração, intervalo do clipe), para que no futuro um trabalho feito no celular abra no Tracker e vice-versa (arquivo `.trk`) |
+| Várias massas | planejado: até **10 massas** no mesmo vídeo, rastreadas numa passada só de decodificação; CSV com várias massas **no estilo do Tracker** (uma tabela, colunas de cada objeto) |
 | Fluxo | vídeo (câmera ou galeria) → intervalo → escala → eixos → massa → marcação → tabela e gráfico |
 | Dados | apenas **t, x, y** por quadro, mais a **massa** (valor ± incerteza, g ou kg). Velocidade e aceleração ficaram de fora por decisão |
 | Saída | **Copiar tabela** (tabulação) e **Exportar CSV** em dois formatos que o aluno escolhe: *Excel/Planilhas Google* (`;` entre colunas, vírgula decimal, com marca UTF-8 no início) e *Internacional/Python* (`,` entre colunas, ponto decimal) |
@@ -48,20 +53,37 @@ abertura de vídeo da câmera ou da galeria, navegação, play, reprodução do 
 janela de download do CSV, fluidez. O rastreamento automático foi testado num vídeo real de pêndulo
 (1080p, massa de 28 px): funciona depois da medição automática do tamanho do alvo (ver armadilha 9).
 
-## Arquitetura do `index.html`
+## Arquitetura
 
-Um arquivo só: `<style>` com tokens de cor (temas claro e escuro), marcação HTML e um `<script>` em IIFE dividido
-em seções marcadas com `// ===== ... =====`:
+```
+index.html                 marcação da página; carrega vendor/mp4box.all.min.js e js/main.js (type="module")
+sw.js                      service worker: cópia local de todos os arquivos (lista ARQUIVOS, conferida por teste)
+css/app.css                estilos e tokens de cor (temas claro e escuro)
+css/fontes.css, fonts/     IBM Plex (cópia local, SIL OFL em fonts/OFL.txt)
+vendor/mp4box.all.min.js   mp4box.js 0.5.4 (BSD-3), globais MP4Box e DataStream
+js/main.js                 entrada: importa todos os módulos (vários só registram eventos), registra o sw.js e inicia
+js/util.js                 $, fmt, parseNum, LS, toast, clampF, dist (sem estado)
+js/estado.js               estado S, exposto em globalThis.__va (os testes dependem disso; não remova); orçamento de memória
+js/video/conteiner.js      MP4/MOV: topBoxes, openFile, buildIndex, computeDims
+js/video/decodificador.js  pump → nextJob → decodeGop; caches S.low e S.full; onFrame, copyFrame, putCache
+js/video/exemplo.js        vídeo de exemplo em base64 (SAMPLE_B64)
+js/analise.js              escala, eixos, phys(), predict(), salvamento por vídeo (persist)
+js/desenho.js              vista com zoom (S.view), drawMain, drawOverlays
+js/gestos.js               pinça, arrastar, toque
+js/rastreio/modelo.js      cálculo do rastreamento: recorte, máscara, correlação, subpixel, evolução com âncora
+js/rastreio/previsao.js    predictNext (pura: recebe as dimensões da imagem)
+js/rastreio/rastreador.js  TR, autoSizeAt, initTemplate, trackFrame, runTrack
+js/navegacao.js · ferramentas.js · paineis.js · dados.js · entradas.js · arquivos.js · diagnostico.js
+```
 
-1. **formatação pt-BR** (`fmt`, `parseNum`) e `localStorage` protegido (`LS`).
-2. **estado** `S`, exposto em `window.__va` (os testes dependem disso; não remova).
-3. **contêiner MP4/MOV**: `topBoxes`, `openFile`, `buildIndex`, `computeDims`.
-4. **decodificação**: `pump` → `nextJob` → `decodeGop`; caches `S.low` e `S.full`; `onFrame`, `copyFrame`, `putCache`.
-5. **análise**: escala, eixos, `phys()`, `predict()`, salvamento por vídeo (`persist`).
-6. **desenho**: vista com zoom (`S.view`), `drawMain`, `drawOverlays`.
-7. **interação**: gestos no vídeo (pinça, arrastar, toque).
-8. **rastreamento automático**: `TR`, `autoSizeAt`, `initTemplate`, `trackFrame`, `runTrack`.
-9. **navegação e reprodução**, **ferramentas** (`setMode`, `markPoint`), **painéis**, **dados** (`rows`, `exportText`), entradas, diagnóstico e início.
+Regras da estrutura:
+- Os módulos foram separados das antigas seções do arquivo único movendo o código **sem alterá-lo** (só `import` e
+  `export`); nenhum módulo altera variáveis de outro (só lê), e o estado compartilhado fica em `S`.
+- Código de cálculo (sem DOM ao carregar) fica em módulos que o Node consegue importar, para ter testes rápidos
+  (`tests/test_calculo.mjs`). `estado.js` usa `globalThis` por isso.
+- Arquivo novo na página: inclua em `ARQUIVOS` no `sw.js` e mude `VERSAO` (o `test_offline.py` confere a lista).
+- Abrir o `index.html` direto do disco não funciona mais (módulos exigem http). Para ver no computador:
+  `python -m http.server` dentro desta pasta e abra `http://localhost:8000/`.
 
 Coordenadas: toda posição (mira, marcas, escala, eixos) fica em **pixels da imagem exibida**, já girada e na
 resolução nativa (`S.dispW × S.dispH`). `phys()` converte para unidades físicas com o eixo y para cima e o ângulo
@@ -69,7 +91,7 @@ do eixo x medido no sentido anti-horário.
 
 ## Decisões técnicas e armadilhas (todas encontradas em testes)
 
-1. **WebCodecs + mp4box.js 0.5.4** (build UMD, globais `MP4Box` e `DataStream`, via cdn.jsdelivr.net).
+1. **WebCodecs + mp4box.js 0.5.4** (build UMD, globais `MP4Box` e `DataStream`, cópia local em `vendor/`).
    Só `ftyp` + `moov` vão para o mp4box; os dados (`mdat`) são lidos sob demanda com `File.slice`, por grupo de
    quadros. O `onReady` do mp4box exige `ftyp`; se o arquivo não tiver, um `ftyp` falso é usado.
 2. O **tempo de cada quadro vem do carimbo do arquivo** (`cts`), não de uma taxa fixa: vídeos de celular podem ter
@@ -104,16 +126,19 @@ do eixo x medido no sentido anti-horário.
    o rastreador segue o fundo parado com semelhança alta **e termina como se tivesse dado certo**. Foi o que
    aconteceu no vídeo real do pêndulo (massa de 28 px, quadrado padrão de 109 px). Mexer no tamanho à mão desliga
    a medição automática.
-10. **Artefato do claude.ai e GitHub Pages**: a mesma página também existe como artefato no claude.ai, onde ela vai
-    sem `<!doctype>`/`<head>` (a hospedagem acrescenta), o CSV é salvo pela capacidade `downloads`
-    (`window.claude.use("downloads")`) e o sandbox bloqueia downloads comuns. Fora do claude.ai, o CSV é baixado
-    por um `Blob`. **Este repositório é a fonte da verdade**; o artefato é uma cópia.
-11. O **vídeo de exemplo** está embutido como base64 (`SAMPLE_B64`) porque o artefato não pode buscar arquivos.
-    Ele é o `tests/videos/exemplo.mp4` gerado por `tests/gerar_videos.py`.
+10. **Artefato do claude.ai: obsoleto** (decisão do autor, 14/11/2026); só o GitHub Pages importa. Ainda resta no
+    código o caminho da capacidade `downloads` (`window.claude.use("downloads")`); fora do claude.ai, o CSV é baixado
+    por um `Blob`. Não remova esse caminho sem combinar.
+11. O **vídeo de exemplo** está embutido como base64 (`SAMPLE_B64`, em `js/video/exemplo.js`); é o
+    `tests/videos/exemplo.mp4` gerado por `tests/gerar_videos.py`.
+12. **Service worker com rede primeiro**: com conexão, cada arquivo vem da rede (o aluno recebe a versão publicada
+    sem precisar limpar cache) e a cópia é atualizada; sem conexão, ou sem resposta em 4 s, usa a cópia. O
+    `clients.claim()` faz o service worker atender a página já na primeira visita (inclui as fontes, que o navegador
+    só busca quando um caractere de cada subconjunto aparece).
 
 ## Testes
 
-Os testes abrem o `index.html` num **Google Chrome de verdade** (o Chromium do Playwright não decodifica H.264),
+Os testes abrem a página, servida por um servidor local que o próprio `helpers.py` sobe, num **Google Chrome de verdade** (o Chromium do Playwright não decodifica H.264),
 com tela de celular e toque simulado, e comparam o que a página mede com vídeos sintéticos cuja trajetória é
 conhecida (a equação está em `tests/gerar_videos.py`; o número de cada quadro está codificado em 12 quadradinhos
 no topo da imagem).
@@ -124,11 +149,12 @@ python tests/gerar_videos.py               # uma vez; precisa do ffmpeg no PATH 
 python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, HEVC
 python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos, recuperação
 python tests/test_rastreamento.py          # medição do alvo, precisão, perda do alvo, botão Parar
+python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
+node tests/test_calculo.mjs                # previsão, máscara e correlação, direto no Node (sem navegador)
 ```
 
 Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Variáveis opcionais: `CHROME_PATH`
-(outro executável do Chrome) e `MP4BOX_LOCAL` (caminho de um `mp4box.all.min.js` 0.5.4, se não houver acesso ao CDN).
-Os vídeos ficam em `tests/videos/`, fora do git.
+(outro executável do Chrome). Os vídeos ficam em `tests/videos/`, fora do git.
 
 Resultados de referência (computador, decodificação por software): tempo de cada quadro igual ao do arquivo
 (erro ≤ 6 µs, resolução do próprio arquivo); rastreamento com erro máximo de 0,4 px nos vídeos de 360 a
@@ -146,6 +172,15 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
 ## Pendências
 
 - Decididas para depois: **suporte a iOS** e **otimizar a sensibilidade do toque**.
-- Em aberto (sugestão técnica, ainda não decidida com o autor): dividir o `index.html` em módulos, o que pediria
-  um passo de montagem para continuar gerando o arquivo único usado no artefato do claude.ai.
-- O artefato no claude.ai precisa ser atualizado à mão a partir deste arquivo quando houver mudanças.
+- **Roteiro combinado em 14/11/2026** (fases em ordem):
+  0. ~~Dividir em módulos e usar cópias locais do mp4box e das fontes~~ (feito).
+  1. ~~Funcionamento sem internet (service worker)~~ (feito).
+  2. Memória e decodificação: travamentos em alguns vídeos no celular. Hipóteses e plano já levantados: grupos
+     longos lidos e enviados de uma vez ao decodificador (confirmado no computador: vídeo 4K com um só quadro-chave
+     leva 3 s por salto), memória de vídeo do Android dividida entre os caches e o decodificador por hardware, e dois
+     decodificadores abertos durante o rastreamento. O Tracker não guarda quadros (decodifica sob demanda; ver
+     `CVVideo`, `XuggleVideo` e `JSMovieVideo`). Antes de mudar, pedir ao autor o diagnóstico de um vídeo que trava.
+  3. Modelo de dados com vários objetos (ainda um na tela), no molde do Tracker, com migração do que os alunos já
+     salvaram. Antes, conferir no código do Tracker como ele exporta várias massas no CSV.
+  4. Interface para até 10 massas e rastreamento de todas numa passada.
+  5. Futuro: exportar e importar `.trk` (arquivo de projeto do Tracker).

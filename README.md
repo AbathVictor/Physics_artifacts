@@ -33,6 +33,7 @@ Vídeo-análise quadro a quadro feita no próprio celular, inspirada no Tracker.
 - No celular Android, abra no Chrome: [abathvictor.github.io/Physics_artifacts/Tracker-mobile](https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/). Por enquanto, iPhone não é suportado.
 - Grave com o celular apoiado e parado, de frente para o movimento, com uma referência métrica no mesmo plano do objeto.
 - O vídeo é processado no próprio aparelho; nada é enviado para servidor algum. As marcações ficam salvas no navegador de quem usa.
+- Depois de aberta uma vez com internet, a página funciona sem conexão (modo avião, por exemplo), e pode até ser recarregada sem internet.
 
 **Créditos**
 

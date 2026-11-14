@@ -1,0 +1,101 @@
+// Painéis: linha de situação do vídeo (setSrc), liberar os controles, leitura do quadro atual, informações da
+// escala e atualização dos painéis dos passos (renderPanels).
+
+import { inInterval, unitPerPx } from "./analise.js";
+import { renderData } from "./dados.js";
+import { ctx, cv } from "./desenho.js";
+import { renderTrR } from "./entradas.js";
+import { S } from "./estado.js";
+import { renderHint, setMode } from "./ferramentas.js";
+import { stopPlay } from "./navegacao.js";
+import { stopTrack } from "./rastreio/rastreador.js";
+import { $, dist, fmt, kv, parseNum } from "./util.js";
+
+export function setSrc(msg, bad) { const el = $("srcLine"); el.textContent = msg; el.classList.toggle("bad", !!bad); }
+export function setControls(on) {
+  ["bM10", "bM1", "bPlay", "bP1", "bP10", "seek", "bInt"].forEach((id) => { $(id).disabled = !on; });
+  document.querySelectorAll("[data-mode]").forEach((b) => { b.disabled = !on; });
+  const n = S.frames.length;
+  $("seek").max = Math.max(0, n - 1);
+  $("rTot").textContent = n ? String(n - 1) : "—";
+}
+export function updateReadout() {
+  const f = S.frames[S.cur]; if (!f) return;
+  $("rN").textContent = String(S.cur);
+  $("rT").textContent = fmt(f.t - S.frames[S.start].t, 4);
+  $("seek").value = String(S.cur);
+  const tag = $("rTag");
+  if (!inInterval(S.cur)) { tag.hidden = false; tag.className = "tag out"; tag.textContent = "fora do intervalo"; }
+  else if (S.marks.has(S.cur)) { tag.hidden = false; tag.className = "tag on"; tag.textContent = "ponto marcado"; }
+  else tag.hidden = true;
+  $("bDel").disabled = !S.marks.has(S.cur);
+  $("bMark").disabled = !inInterval(S.cur);
+  if (S.mode === "marcar") renderHint();
+}
+export function resetVideo() {
+  stopTrack(); stopPlay();
+  for (const v of S.low.values()) { try { v.bmp.close(); } catch {} }
+  for (const v of S.full.values()) { try { v.bmp.close(); } catch {} }
+  S.low.clear(); S.full.clear(); S.lowBytes = S.fullBytes = 0; S.lastBmp = null;
+  if (S.decoder && S.decoder.state !== "closed") { try { S.decoder.close(); } catch {} }
+  S.decoder = null; S.frames = []; S.samples = []; S.track = null; S.timing = null;
+  S.failed = new Set(); S.failedFull = new Set();
+  S.gopMs = []; S.gopFrames = []; S.tsMismatch = 0; S.countErr = 0; S.restarts = 0; S.lastErr = "";
+  S.cur = 0; S.hw = null; S.err = null; S.fw = S.fh = 0; S.dispW = S.dispH = 0; S.rot = 0; S.marks = new Map(); S.view = { z: 1, vx: 0, vy: 0 };
+  setControls(false); setMode("nav");
+  ["rN", "rT"].forEach((id) => { $(id).textContent = "—"; });
+  $("rTag").hidden = true;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  $("viewer").style.minHeight = "";
+  $("empty").hidden = false; $("empty").innerHTML = "<p><b>Abrindo o vídeo…</b></p>";
+  $("restoreLine").hidden = true;
+  renderData();
+}
+export function renderScaleInfo() {
+  const k = unitPerPx(), d = dist(S.scale.p1, S.scale.p2);
+  const st = $("stScale");
+  if (k > 0) {
+    st.className = "st ok"; st.textContent = "definida";
+    $("scaleInfo").textContent = `${fmt(d, 1)} px no vídeo · 1 px = ${fmt(k, sigDec(k))} ${S.scale.unit}`;
+  } else {
+    st.className = "st todo"; st.textContent = "a definir";
+    $("scaleInfo").textContent = parseNum(S.scale.len) > 0 ? "Afaste mais as duas pontas no vídeo." : "Digite a distância real entre as pontas.";
+  }
+}
+const sigDec = (v) => Math.max(0, Math.min(8, 2 - Math.floor(Math.log10(Math.abs(v)))));
+export function renderPanels() {
+  if (!S.frames.length) return;
+  // intervalo
+  const f0 = S.frames[S.start], f1 = S.frames[S.end];
+  kv($("kvInt"), [
+    ["início", `quadro ${S.start} · ${fmt(f0.t, 3)} s do vídeo`],
+    ["fim", `quadro ${S.end} · ${fmt(f1.t, 3)} s do vídeo`],
+    ["duração", `${fmt(f1.t - f0.t, 3)} s · ${S.end - S.start + 1} quadros`],
+  ]);
+  $("stInt").textContent = S.start === 0 && S.end === S.frames.length - 1 ? "vídeo inteiro" : "definido";
+  // escala
+  if (document.activeElement !== $("scaleLen")) $("scaleLen").value = S.scale.len;
+  $("scaleUnit").value = S.scale.unit;
+  renderScaleInfo();
+  // eixos
+  if (document.activeElement !== $("axAng")) $("axAng").value = fmt(S.axes.ang * 180 / Math.PI, 1);
+  const isDef = Math.abs(S.axes.o.x - S.dispW / 2) < 0.5 && Math.abs(S.axes.o.y - S.dispH / 2) < 0.5 && S.axes.ang === 0;
+  $("stAxes").className = isDef ? "st def" : "st ok"; $("stAxes").textContent = isDef ? "padrão: origem no centro" : "definidos";
+  // massa
+  if (document.activeElement !== $("mVal")) $("mVal").value = S.mass.val;
+  if (document.activeElement !== $("mSig")) $("mSig").value = S.mass.sig;
+  $("mUnit").value = S.mass.unit;
+  const mv = parseNum(S.mass.val);
+  $("stMass").className = mv > 0 ? "st ok" : "st todo"; $("stMass").textContent = mv > 0 ? "informada" : "a informar";
+  $("mVal").classList.toggle("bad", S.mass.val !== "" && !(mv > 0));
+  $("mSig").classList.toggle("bad", S.mass.sig !== "" && !(parseNum(S.mass.sig) >= 0));
+  // marcação
+  $("every").value = String(S.every);
+  $("trR").max = String(Math.max(10, Math.round(0.2 * Math.min(S.dispW, S.dispH))));
+  renderTrR(); $("trAuto").checked = S.trAuto;
+  $("trThr").value = String(S.trThr);
+  $("trail").checked = S.trail;
+  document.querySelectorAll("[data-plot]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.plot === S.plotVar)));
+  document.querySelectorAll("input[name=fmt]").forEach((r) => { r.checked = r.value === S.fmt; });
+  renderData();
+}
