@@ -64,6 +64,10 @@ button, input, select { font: inherit; color: inherit; }
 .top h1 { font-family: var(--font-display); font-weight: 600; font-size: 1.45rem; letter-spacing: 0.01em; margin: 0; line-height: 1.2; text-wrap: balance; }
 .top .sub { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); }
 
+.credits { max-width: 1300px; margin: 20px auto 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 0.78rem; color: var(--ink-soft); }
+.credits p { margin: 0; max-width: 90ch; }
+.credits a { color: var(--accent); }
+
 .app { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; max-width: 1300px; margin: 0 auto; align-items: start; }
 @media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } }
 .stage { display: flex; flex-direction: column; gap: 8px; min-width: 0; position: sticky; top: calc(12px + env(safe-area-inset-top, 0px)); }
@@ -322,6 +326,9 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
     </section>
   </aside>
 </main>
+<footer class="credits">
+  <p>Inspirada no <a href="https://physlets.org/tracker/" target="_blank" rel="noopener">Tracker</a>, software livre de vídeo-análise de Douglas Brown, Wolfgang Christian e Robert M. Hanson, do projeto <a href="https://www.opensourcephysics.org/" target="_blank" rel="noopener">Open Source Physics</a>. Esta página é uma implementação independente, sem vínculo oficial com o Tracker.</p>
+</footer>
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.4/dist/mp4box.all.min.js"></script>

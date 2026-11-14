@@ -33,3 +33,11 @@ Vídeo-análise quadro a quadro feita no próprio celular, inspirada no Tracker.
 - No celular Android, abra no Chrome: [abathvictor.github.io/Physics_artifacts/Tracker-mobile](https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/). Por enquanto, iPhone não é suportado.
 - Grave com o celular apoiado e parado, de frente para o movimento, com uma referência métrica no mesmo plano do objeto.
 - O vídeo é processado no próprio aparelho; nada é enviado para servidor algum. As marcações ficam salvas no navegador de quem usa.
+
+**Créditos**
+
+A Videoanálise Móvel é inspirada no [Tracker](https://physlets.org/tracker/), software livre de vídeo-análise e modelagem criado por **Douglas Brown**, **Wolfgang Christian** e **Robert M. Hanson**, construído sobre o framework [Open Source Physics](https://www.opensourcephysics.org/) (OSP). O código-fonte do Tracker está em [OpenSourcePhysics/tracker](https://github.com/OpenSourcePhysics/tracker), e a biblioteca OSP em [OpenSourcePhysics/osp](https://github.com/OpenSourcePhysics/osp), ambos sob a licença GNU GPL.
+
+- O fluxo de trabalho (escala, eixos, massa e marcação quadro a quadro) e a estrutura do CSV exportado seguem os do Tracker.
+- O rastreamento automático segue as ideias do *autotracker* do Tracker: busca de um modelo da imagem do objeto em cada quadro, com evolução gradual do modelo ancorada no modelo original, máscara circular (a elipse do Tracker) e previsão da posição por aceleração ou velocidade constante.
+- Nenhum código do Tracker foi copiado: a Videoanálise Móvel é uma implementação independente, escrita do zero em JavaScript para rodar no navegador do celular. Ela não tem vínculo oficial com o projeto Tracker nem com o Open Source Physics.
