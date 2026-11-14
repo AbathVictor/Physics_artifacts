@@ -89,11 +89,17 @@ do eixo x medido no sentido anti-horário.
    e na hora quando a aba é escondida ou fechada (`visibilitychange`/`pagehide`).
 8. **Rastreamento**: correlação normalizada nas cores (RGB) em dois níveis: grosso (modelo com ~25 px de lado,
    busca ampla) e fino (resolução cheia até raio 60 px; acima disso, versão reduzida com no máximo 121 px de lado),
-   com subpixel por parábola. Previsão por velocidade constante a partir dos dois últimos pontos; se a semelhança
+   com subpixel por parábola. O modelo tem **máscara circular** (os cantos do quadrado, quase sempre fundo, ficam
+   fora da correlação), como a elipse do autotracker do Tracker. **Previsão** como a do Tracker (`predictNext`): com
+   os até 4 últimos pontos e o tempo real de cada quadro, em cada eixo usa aceleração constante quando a aceleração
+   é consistente, senão velocidade constante, senão fica parado (num pêndulo sintético a 30 quadros/s, o erro médio
+   da previsão caiu de 2,5 px para 0,4 px em relação à velocidade constante). Se a semelhança
    ficar abaixo da exigência (0,55 / 0,7 / 0,85), uma segunda busca 2,5× maior; se ainda falhar, para no quadro e
    deixa a mira na posição prevista. O modelo evolui 20% por quadro, **recortado na posição exata com fração de
-   pixel**: recortar no pixel inteiro acumulava deriva (erro de 15 px num vídeo 1080p). Durante o rastreamento,
-   ele usa um decodificador próprio e o `pump` fica parado.
+   pixel** (recortar no pixel inteiro acumulava deriva: erro de 15 px num vídeo 1080p), e é **ancorado 5% no modelo
+   original** a cada quadro, como no Tracker, para não virar fundo num rastreamento longo. Durante o rastreamento,
+   ele usa um decodificador próprio e o `pump` fica parado. Referência: `TemplateMatcher` (biblioteca osp) e
+   `AutoTracker` (repositório tracker), GPL: só ideias, nenhum código copiado.
 9. **Tamanho do alvo**: medido sozinho ao tocar na massa (`autoSizeAt`). Se o quadrado tiver mais fundo que objeto,
    o rastreador segue o fundo parado com semelhança alta **e termina como se tivesse dado certo**. Foi o que
    aconteceu no vídeo real do pêndulo (massa de 28 px, quadrado padrão de 109 px). Mexer no tamanho à mão desliga
@@ -125,8 +131,12 @@ Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Var
 Os vídeos ficam em `tests/videos/`, fora do git.
 
 Resultados de referência (computador, decodificação por software): tempo de cada quadro igual ao do arquivo
-(erro ≤ 6 µs, resolução do próprio arquivo); rastreamento com erro máximo de 0,4 a 0,6 px nos vídeos de 360 a
-720 px e 1,6 px no 1080p com massa de 230 px; de 14 a 35 quadros/s.
+(erro ≤ 6 µs, resolução do próprio arquivo); rastreamento com erro máximo de 0,4 px nos vídeos de 360 a
+720 px e 0,64 px no 1080p com massa de 230 px (antes da âncora, da máscara circular e da previsão por aceleração
+eram 3,0 px nesse vídeo); de 69 a 119 quadros/s (medido em 14/11/2026).
+
+No Windows, rode os testes com `PYTHONIOENCODING=utf-8`: sem isso, o console não imprime caracteres como "₁" e
+o teste para com `UnicodeEncodeError`.
 
 ## Desempenho medido no celular do autor
 
