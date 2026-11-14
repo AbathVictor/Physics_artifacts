@@ -72,6 +72,7 @@ button, input, select { font: inherit; color: inherit; }
 .viewer { position: relative; background: var(--stage); border-radius: var(--radius); display: grid; place-items: center; min-height: 220px; overflow: hidden; }
 .viewer canvas#cv { display: block; max-width: 100%; touch-action: pan-y; }
 .viewer.tool canvas#cv { touch-action: none; cursor: crosshair; }
+.viewer.zoomed canvas#cv { touch-action: none; }
 .busy { position: absolute; bottom: 8px; left: 8px; font-family: var(--font-mono); font-size: 0.76rem; color: #e2eaed; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 5px; }
 .empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #c9d4d8; font-size: 0.9rem; }
 .empty b { display: block; color: #ffffff; margin-bottom: 4px; }
@@ -819,6 +820,8 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
       ? "Pince o vídeo com dois dedos para aproximar."
       : `Zoom ×${fmt(S.view.z, 1)}${S.viewNeedsFull ? " · carregando a imagem em resolução cheia" : ""}`;
     $("zoomReset").disabled = S.view.z <= 1.001;
+    // com zoom, um dedo arrasta a imagem também em Navegar; sem zoom, um dedo continua rolando a página
+    $("viewer").classList.toggle("zoomed", S.view.z > 1.001);
   }
   function stroke2(g, color, w, path) {
     g.lineCap = "round"; g.lineJoin = "round";
@@ -911,6 +914,7 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
   // ================= interação no vídeo =================
   // Dois dedos: pinça para aproximar e mover. Um dedo: arrasta a imagem, ou a ponta da escala e os eixos quando
   // começa sobre eles. Um toque curto, na ferramenta Marcar, põe a mira exatamente onde o dedo tocou.
+  // Em Navegar, a pinça e o arrasto mexem só na vista e não interrompem o play.
   const ptrs = new Map();
   let gest = null;
   function canvasXY(cx, cy) { const r = cv.getBoundingClientRect(); return { x: cx - r.left, y: cy - r.top }; }
@@ -931,8 +935,9 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
     clampView(); render();
   }
   cv.addEventListener("pointerdown", (e) => {
-    if (!S.frames.length || S.mode === "nav") return;
-    e.preventDefault(); stopTrack(); stopPlay();
+    if (!S.frames.length) return;
+    e.preventDefault();
+    if (S.mode !== "nav") { stopTrack(); stopPlay(); }
     try { cv.setPointerCapture(e.pointerId); } catch {}
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 2) { startPinch(); render(); return; }
@@ -991,7 +996,8 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
   cv.addEventListener("pointercancel", endPointer);
   // no computador: roda do mouse aproxima e afasta em torno do cursor
   cv.addEventListener("wheel", (e) => {
-    if (!S.frames.length || S.mode === "nav") return;
+    // em Navegar, a roda sozinha continua rolando a página; Ctrl + roda (ou pinça no touchpad) aproxima
+    if (!S.frames.length || (S.mode === "nav" && !e.ctrlKey)) return;
     e.preventDefault();
     const q = canvasXY(e.clientX, e.clientY);
     zoomAt(q.x, q.y, S.view.z * Math.exp(-e.deltaY * 0.0015));
@@ -1385,7 +1391,7 @@ textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono
 
   // ================= ferramentas =================
   const HINTS = {
-    nav: "Use o play e os botões para achar o trecho do movimento. Escolha uma ferramenta para calibrar e marcar.",
+    nav: "Use o play e os botões para achar o trecho do movimento. Pince o vídeo com dois dedos para aproximar. Escolha uma ferramenta para calibrar e marcar.",
     escala: "Pince com dois dedos para aproximar a régua. Arraste cada ponta amarela até uma marca da régua e digite a distância no passo 3.",
     eixos: "Pince para aproximar. Arraste o círculo da origem até o ponto de referência; para girar os eixos, arraste o círculo na ponta do eixo x.",
     marcar: "Pince com dois dedos para aproximar e arraste com um dedo para mover a imagem. Toque no centro da massa para pôr a mira ali e depois em Marcar ponto.",
