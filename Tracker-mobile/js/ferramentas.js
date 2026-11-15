@@ -30,6 +30,8 @@ export function setMode(m) {
     ensureVisible(S.cross);
   }
   renderHint(); render(); pump();
+  // a etapa da diagramação deitada acompanha a ferramenta
+  document.dispatchEvent(new Event("va:modo"));
 }
 export function renderHint() {
   const el = $("modeHint");
@@ -38,6 +40,8 @@ export function renderHint() {
   if (S.mode === "marcar" && !ativoEhMassa()) { txt = `O ${objAtivo().nome} é calculado a partir das massas que você escolheu para ele (logo abaixo dos botões dos objetos). Para marcar, escolha uma massa nesses botões.`; warn = true; }
   else if (S.mode === "marcar" && !inInterval(S.cur)) { txt = "Este quadro está fora do intervalo de análise. Vá para um quadro entre o início e o fim, ou ajuste o intervalo no passo 2."; warn = true; }
   el.textContent = txt; el.classList.toggle("warn", warn);
+  // com o celular deitado, a escolha das massas do cm já está à vista no painel: este aviso fica só em pé
+  el.classList.toggle("cm", S.mode === "marcar" && !ativoEhMassa());
 }
 document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { if (S.frames.length) setMode(b.dataset.mode); }));
 document.querySelectorAll("[data-goto-mode]").forEach((b) => b.addEventListener("click", () => {

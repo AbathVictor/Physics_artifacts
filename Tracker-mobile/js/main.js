@@ -20,6 +20,8 @@ import "./entradas.js";
 import "./arquivos.js";
 import "./diagnostico.js";
 import "./gaveta.js";
+import "./barra.js";
+import "./paisagem.js";
 import { sampleFile } from "./arquivos.js";
 import { drawPlot, renderData } from "./dados.js";
 import { readOV, render } from "./desenho.js";

@@ -6,12 +6,13 @@
 //
 // Ao criar, renomear ou apagar um arquivo da página, atualize a lista ARQUIVOS (o teste test_offline.py confere)
 // e mude VERSAO, para que a cópia antiga seja descartada.
-const VERSAO = "videoanalise-4";
+const VERSAO = "videoanalise-5";
 const ARQUIVOS = [
   "./",
   "index.html",
   "css/app.css",
   "css/fontes.css",
+  "css/paisagem.css",
   "fonts/OFL.txt",
   "fonts/ibm-plex-mono-400-latin-ext.woff2",
   "fonts/ibm-plex-mono-400-latin.woff2",
@@ -32,6 +33,7 @@ const ARQUIVOS = [
   "fonts/ibm-plex-sans-condensed-600-latin.woff2",
   "js/analise.js",
   "js/arquivos.js",
+  "js/barra.js",
   "js/dados.js",
   "js/desenho.js",
   "js/diagnostico.js",
@@ -46,6 +48,7 @@ const ARQUIVOS = [
   "js/navegacao.js",
   "js/objetos.js",
   "js/paineis.js",
+  "js/paisagem.js",
   "js/rastreio/modelo.js",
   "js/rastreio/previsao.js",
   "js/rastreio/rastreador.js",

@@ -17,9 +17,11 @@ const bolinha = (cor) => `<i class="dot" style="background:${cor}"></i>`;
 
 export function renderObjs() {
   const on = S.frames.length ? "" : " disabled", nm = massasDe(S.objs).length, nc = cmsDe(S.objs).length;
-  $("objs").innerHTML = S.objs.map((o, i) => `<button type="button" data-obj="${i}" aria-pressed="${i === S.ativo}"${on}>${bolinha(o.cor)}${esc(o.nome)}</button>`).join("")
-    + (nm < MAX_MASSAS ? `<button type="button" class="add" id="addMass"${on}>+ massa</button>` : "")
-    + (nm >= 2 && nc < MAX_CMS ? `<button type="button" class="add" id="addCm"${on}>+ centro de massa</button>` : "");
+  // com o celular deitado, os botões ficam compactos (bolinha e letra; "cm A"): o trecho "massa " some pelo CSS
+  const rot = (o) => o.tipo === "massa" ? `<span class="pre">massa </span>${o.letra}` : esc(o.nome);
+  $("objs").innerHTML = S.objs.map((o, i) => `<button type="button" data-obj="${i}" aria-pressed="${i === S.ativo}" aria-label="${esc(o.nome)}"${on}>${bolinha(o.cor)}${rot(o)}</button>`).join("")
+    + (nm < MAX_MASSAS ? `<button type="button" class="add" id="addMass" aria-label="Nova massa"${on}>+ massa</button>` : "")
+    + (nm >= 2 && nc < MAX_CMS ? `<button type="button" class="add" id="addCm" aria-label="Novo centro de massa"${on}>+ <span class="longo">centro de massa</span><span class="curto">cm</span></button>` : "");
   const o = objAtivo();
   // cor do objeto ativo: botão Marcar ponto e linha da tabela no quadro atual
   if (o) document.documentElement.style.setProperty("--obj", o.cor);
@@ -28,7 +30,8 @@ export function renderObjs() {
   $("cmSel").hidden = !cm;
   if (cm) {
     $("cmSelT").textContent = `Massas que formam o ${cm.nome} (toque para incluir ou tirar):`;
-    $("cmSelM").innerHTML = massasDe(S.objs).map((m) => `<button type="button" data-sel="${esc(m.nome)}" aria-pressed="${cm.massas.includes(m.nome)}">${bolinha(m.cor)}${esc(m.nome)}</button>`).join("");
+    $("cmSelTc").textContent = `Massas do ${cm.nome}:`;
+    $("cmSelM").innerHTML = massasDe(S.objs).map((m) => `<button type="button" data-sel="${esc(m.nome)}" aria-pressed="${cm.massas.includes(m.nome)}" aria-label="${esc(m.nome)}">${bolinha(m.cor)}<span class="pre">massa </span>${m.letra}</button>`).join("");
     const b = $("delCm");
     if (!b.classList.contains("arm")) b.textContent = `Excluir o ${cm.nome}`;
   }

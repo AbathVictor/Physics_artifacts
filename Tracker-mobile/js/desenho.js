@@ -18,16 +18,19 @@ export function readOV() {
   OV = { scale: g("--ov-scale"), axis: g("--ov-axis"), dark: g("--ov-dark"), edge: g("--ov-edge"), line: g("--line"), amber: g("--amber"), mono: g("--font-mono") };
 }
 export function layout() {
-  const box = $("viewer");
+  // a diagramação deitada (paisagem.js) se ajusta antes de o vídeo ser medido
+  document.dispatchEvent(new Event("va:antes-layout"));
+  const box = $("viewer"), deitado = document.body.classList.contains("paisagem");
   const aspect = (S.dispW || 16) / (S.dispH || 9);
   const availW = box.clientWidth;
-  const maxH = Math.min(window.innerHeight * 0.6, 760);
+  // deitado, o vídeo ocupa a altura toda da área dele; em pé, até 60% da altura da tela
+  const maxH = deitado ? box.clientHeight : Math.min(window.innerHeight * 0.6, 760);
   const h = Math.min(availW / aspect, maxH), w = h * aspect;
   cssW = Math.max(1, Math.floor(w)); cssH = Math.max(1, Math.floor(h));
   dpr = Math.min(3, window.devicePixelRatio || 1);
   cv.style.width = cssW + "px"; cv.style.height = cssH + "px";
   cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
-  box.style.minHeight = S.frames.length ? cssH + "px" : "";
+  box.style.minHeight = S.frames.length && !deitado ? cssH + "px" : "";
   clampView();
   render();
 }

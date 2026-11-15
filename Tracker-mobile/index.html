@@ -11,6 +11,7 @@
 <script>try { var t = JSON.parse(localStorage.getItem("va-tema")); if (t === "claro" || t === "escuro") document.documentElement.dataset.theme = t === "escuro" ? "dark" : "light"; } catch (e) {}</script>
 <link rel="stylesheet" href="css/fontes.css">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/paisagem.css">
 </head>
 <body>
 <header class="top">
@@ -35,7 +36,7 @@
       <button type="button" data-mode="marcar" aria-pressed="false">Marcar</button>
     </div>
     <p class="modehint" id="modeHint"></p>
-    <div class="readout" aria-live="polite">
+    <div class="readout" id="readout" aria-live="polite">
       <span>quadro <b id="rN">—</b> de <span id="rTot">—</span></span>
       <span>t = <b id="rT">—</b> s</span>
       <span class="tag" id="rTag" hidden></span>
@@ -48,22 +49,23 @@
       <button type="button" id="bP1" disabled aria-label="Avançar 1 quadro">+1</button>
       <button type="button" id="bP10" disabled aria-label="Avançar 10 quadros">+10</button>
     </div>
-    <div class="introw">
+    <div class="introw" id="introw">
       <button type="button" class="btn ghost small" id="bInt" disabled>▶ Reproduzir do início ao fim</button>
       <label class="check"><input type="checkbox" id="loopInt"> Repetir</label>
     </div>
     <div class="markbar" id="markbar" hidden>
-      <button type="button" id="bDel">Apagar ponto</button>
+      <button type="button" id="bDel">Apagar<span class="longo"> ponto</span></button>
       <button type="button" id="bMark">Marcar ponto ▸</button>
     </div>
     <div class="trackrow" id="trackRow" hidden>
-      <button type="button" class="btn soft" id="bTrack">Rastrear automaticamente ▸▸</button>
+      <button type="button" class="btn soft" id="bTrack">Rastrear<span class="longo"> automaticamente ▸▸</span></button>
       <button type="button" class="btn danger arm" id="bTrackStop" hidden>Parar o rastreamento</button>
     </div>
     <p class="status" id="trackMsg" hidden></p>
     <div class="objs" id="objs" role="group" aria-label="Objeto: massa a marcar ou centro de massa"></div>
     <div class="cmsel" id="cmSel" hidden>
       <p class="note" id="cmSelT"></p>
+      <p class="note curto" id="cmSelTc"></p>
       <div class="objs" id="cmSelM" role="group" aria-label="Massas que formam o centro de massa"></div>
       <div class="row"><button class="btn danger small" id="delCm" type="button">Excluir o centro de massa</button></div>
     </div>
@@ -74,7 +76,7 @@
   </section>
 
   <aside class="panel">
-    <section class="block">
+    <section class="block" data-etapa="intervalo">
       <h2><span class="n">1</span>Vídeo</h2>
       <div class="row">
         <span class="filebtn btn" id="pick">Escolher vídeo<input type="file" id="fileIn" accept="video/*" aria-label="Escolher vídeo: gravar com a câmera ou abrir da galeria"></span>
@@ -85,7 +87,7 @@
       <p class="note">Para a análise sair boa: celular apoiado e parado, de frente para o movimento, com a régua no mesmo plano da massa e boa iluminação. Grave em H.264 se a câmera oferecer HEVC.</p>
     </section>
 
-    <section class="block">
+    <section class="block" id="blocoInt" data-etapa="intervalo">
       <h2><span class="n">2</span>Intervalo de análise<span class="st def" id="stInt"></span></h2>
       <dl class="kv" id="kvInt"></dl>
       <div class="row">
@@ -96,7 +98,7 @@
       <p class="note">O tempo t = 0 fica no quadro de início. Use o play para achar o instante em que a massa é solta e marque ali o início.</p>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="escala">
       <h2><span class="n">3</span>Escala<span class="st todo" id="stScale">a definir</span></h2>
       <p class="note">Na ferramenta Escala, pince para aproximar e arraste as duas pontas amarelas até duas marcas da régua do vídeo. Depois digite a distância real entre elas.</p>
       <div class="grid2">
@@ -107,7 +109,7 @@
       <div class="row"><button class="btn ghost small" data-goto-mode="escala" type="button">Ajustar a escala no vídeo</button></div>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="eixos">
       <h2><span class="n">4</span>Eixos<span class="st def" id="stAxes">padrão</span></h2>
       <p class="note">Na ferramenta Eixos, arraste o círculo da origem até o ponto de referência, por exemplo a posição de equilíbrio. Gire os eixos pelo círculo na ponta do eixo x. O eixo y aponta para cima.</p>
       <div class="grid2">
@@ -117,7 +119,7 @@
       <div class="row"><button class="btn ghost small" data-goto-mode="eixos" type="button">Ajustar os eixos no vídeo</button></div>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="massas">
       <h2><span class="n">5</span>Massas<span class="st def" id="stMass">1 u.a. cada</span></h2>
       <div class="masslist" id="massList"></div>
       <div class="grid2">
@@ -128,7 +130,7 @@
       <p class="note">Para analisar mais de uma massa, toque em <b>+ massa</b> nos botões logo abaixo dos controles do vídeo. Com duas ou mais, <b>+ centro de massa</b> cria um centro de massa vazio: escolha as massas que o formam logo abaixo dos botões. Pode haver vários centros de massa, cada um com as suas massas. Toque na bolinha de uma massa para trocar a cor dela. As massas vão no cabeçalho da tabela copiada e do arquivo exportado.</p>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="marcar">
       <h2><span class="n">6</span>Marcação<span class="st def" id="stMarks">0 pontos</span></h2>
       <p class="note">Na ferramenta Marcar, pince o vídeo com dois dedos para aproximar e toque no centro da massa: a mira vai exatamente para onde você tocou. Toque em <b>Marcar ponto</b>: o ponto é gravado e o vídeo avança. A mira já aparece onde a massa deve estar no quadro seguinte, e a imagem acompanha a massa quando ela se afasta.</p>
       <div class="grid2">
@@ -147,17 +149,17 @@
       <div class="row"><button class="btn ghost small" data-goto-mode="marcar" type="button">Começar a marcar</button><button class="btn danger small" id="clearMarks" type="button">Apagar as marcações da massa A</button></div>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="dados">
       <h2><span class="n">7</span>Dados<span class="objtag" id="dataObj"></span></h2>
       <p class="status" id="objNote" hidden></p>
-      <div class="row">
+      <div class="row" id="plotSeg">
         <div class="seg" role="group" aria-label="Grandeza no gráfico">
           <button type="button" data-plot="y" aria-pressed="true">y(t)</button>
           <button type="button" data-plot="x" aria-pressed="false">x(t)</button>
         </div>
       </div>
-      <div class="plotbox"><canvas id="plot" aria-label="Gráfico da posição em função do tempo"></canvas><div class="plotempty" id="plotEmpty">Os pontos marcados aparecem aqui.</div></div>
-      <div class="tbl-wrap"><table class="data" id="table"></table></div>
+      <div class="plotbox" id="plotBox"><canvas id="plot" aria-label="Gráfico da posição em função do tempo"></canvas><div class="plotempty" id="plotEmpty">Os pontos marcados aparecem aqui.</div></div>
+      <div class="tbl-wrap" id="tblWrap"><table class="data" id="table"></table></div>
       <p class="note" id="outsideNote" hidden></p>
       <div class="radio" role="radiogroup" aria-label="Formato da tabela">
         <label><input type="radio" name="fmt" value="excel" checked><span>Excel e Planilhas Google<small>ponto e vírgula entre colunas, vírgula decimal</small></span></label>
@@ -171,7 +173,7 @@
       <textarea class="fallback" id="copyFallback" hidden readonly aria-label="Tabela para copiar"></textarea>
     </section>
 
-    <section class="block">
+    <section class="block" data-etapa="nenhuma">
       <details class="diag" id="diag">
         <summary>Diagnóstico do aparelho</summary>
         <div>
@@ -185,6 +187,57 @@
 <footer class="credits">
   <p>Inspirada no <a href="https://physlets.org/tracker/" target="_blank" rel="noopener">Tracker</a>, software livre de vídeo-análise de Douglas Brown, Wolfgang Christian e Robert M. Hanson, do projeto <a href="https://www.opensourcephysics.org/" target="_blank" rel="noopener">Open Source Physics</a>. Esta página é uma implementação independente, sem vínculo oficial com o Tracker.</p>
 </footer>
+<!-- celular deitado (js/paisagem.js e css/paisagem.css): contêineres para onde os elementos da página são movidos -->
+<div class="pais" id="pais" hidden>
+  <nav class="etapas" id="etapas" aria-label="Etapas da análise"></nav>
+  <div class="pcentro" id="pCentro">
+    <div class="pmeio">
+      <div class="pvideo" id="pVideo"></div>
+      <div class="pgrafb" id="pGrafB"><p class="objnome"></p></div>
+    </div>
+    <div class="pbarra" id="pBarra">
+      <button type="button" class="ctl prim" id="lPlay" aria-label="Reproduzir" disabled></button>
+      <button type="button" class="ctl" id="lInicio" aria-label="Voltar ao início do intervalo" disabled></button>
+      <div class="pbarra-meio">
+        <div class="pinfo" id="pInfo"></div>
+        <div class="fbar off" id="fbar" role="group" aria-label="Quadros do vídeo e intervalo de análise">
+          <div class="fbar-trilho" id="fbarTrilho">
+            <div class="fbar-faixa"></div>
+            <div class="fbar-alca ini" data-alca="ini" role="slider" tabindex="0" aria-label="Início do intervalo"></div>
+            <div class="fbar-alca fim" data-alca="fim" role="slider" tabindex="0" aria-label="Fim do intervalo"></div>
+            <div class="fbar-atual" id="fbarAtual" role="slider" tabindex="0" aria-label="Quadro atual"></div>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="ctl" id="lM1" aria-label="Voltar 1 quadro" disabled>−1</button>
+      <button type="button" class="ctl" id="lP1" aria-label="Avançar 1 quadro" disabled>+1</button>
+    </div>
+  </div>
+  <section class="ppainel" id="pPainel" aria-label="Painel">
+    <div class="pobjs" id="pObjs"></div>
+    <div class="pabas" id="pAbas">
+      <div class="seg pseg" role="group" aria-label="Conteúdo do painel">
+        <button type="button" data-aba="param" aria-pressed="true">Parâmetros</button>
+        <button type="button" data-aba="graf" aria-pressed="false">Gráfico</button>
+        <button type="button" data-aba="tab" aria-pressed="false">Tabela</button>
+      </div>
+      <span class="pabas-btns" id="pAbasBtns"><button type="button" class="iconbtn" id="btnTela" aria-label="Tela cheia"></button></span>
+      <button type="button" class="iconbtn" id="pFechaPainel" aria-label="Fechar o painel"></button>
+    </div>
+    <div class="pconteudo" id="pConteudo">
+      <div class="pavisos" id="pAvisos"></div>
+      <div class="ppane" id="pParam"></div>
+      <div class="ppane pgraf" id="pGraf"><p class="objnome"></p></div>
+      <div class="ppane ptab" id="pTab"><p class="objnome"></p></div>
+    </div>
+  </section>
+  <div class="prodape" id="pRodape"></div>
+  <div class="ptopo" id="pTopo"><button type="button" class="pindic" id="pIndic" aria-label="Objeto ativo: abrir o painel"></button></div>
+  <div class="pmini" id="pMini">
+    <button type="button" class="pmini-cab" id="pMiniCab" aria-expanded="true">Gráfico</button>
+    <div class="pmini-corpo" id="pMiniCorpo"><p class="objnome"></p></div>
+  </div>
+</div>
 <!-- gaveta ≡ (js/gaveta.js) -->
 <div class="gaveta-fundo" id="gavetaFundo"></div>
 <aside class="gaveta" id="gaveta" role="dialog" aria-modal="true" aria-labelledby="gavetaT" aria-hidden="true" inert>

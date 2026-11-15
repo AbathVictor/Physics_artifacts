@@ -6,6 +6,7 @@ import { ensureVisible, render } from "./desenho.js";
 import { S } from "./estado.js";
 import { deletePoint, markPoint } from "./ferramentas.js";
 import { stopTrack } from "./rastreio/rastreador.js";
+import { IC } from "./icones.js";
 import { $ } from "./util.js";
 import { busyUI, pump } from "./video/decodificador.js";
 
@@ -21,18 +22,24 @@ export async function show(i) {
 const step = (n) => { stopTrack(); stopPlay(); show(S.cur + n); };
 let raf = 0;
 function playEnd() { return S.cur <= S.end ? S.end : S.frames.length - 1; }
-function startPlay() {
+// ícone dos dois botões de play (em pé e deitado)
+function iconePlay() {
+  $("icPlay").hidden = S.playing; $("icPause").hidden = !S.playing;
+  for (const id of ["bPlay", "lPlay"]) $(id).setAttribute("aria-label", S.playing ? "Pausar" : "Reproduzir");
+  $("lPlay").innerHTML = S.playing ? IC.pausa : IC.play;
+}
+export function startPlay() {
   if (!S.frames.length || S.playing || S.tracking) return;
   let endI = playEnd();
   if (S.cur >= endI) { S.cur = S.cur > S.end ? S.cur : S.start; endI = playEnd(); if (S.cur >= endI) return; }
   S.playing = true; S.playEnd = endI;
   S.wall0 = performance.now(); S.t0 = S.frames[S.cur].t; S.lastShownPlay = S.cur;
-  $("icPlay").hidden = true; $("icPause").hidden = false; $("bPlay").setAttribute("aria-label", "Pausar");
+  iconePlay();
   raf = requestAnimationFrame(tick);
 }
 // reprodução automática do intervalo: vai ao quadro de início, espera o quadro ficar pronto e toca até o fim
 let intRun = 0;
-async function playInterval() {
+export async function playInterval() {
   if (!S.frames.length || S.end <= S.start) return;
   stopPlay();
   const run = ++intRun;
@@ -51,7 +58,7 @@ export function stopPlay() {
   S.intervalPlay = false;
   if (!S.playing) return;
   S.playing = false; cancelAnimationFrame(raf);
-  $("icPlay").hidden = false; $("icPause").hidden = true; $("bPlay").setAttribute("aria-label", "Reproduzir");
+  iconePlay();
   render(); pump();
 }
 export function tick(now) {
@@ -74,7 +81,8 @@ export function tick(now) {
   }
   raf = requestAnimationFrame(tick);
 }
-function holdable(id, n) {
+// botão que repete enquanto está pressionado (−1, +1, −10, +10)
+export function holdable(id, n) {
   const b = $(id); let t1 = null, t2 = null;
   const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
   b.addEventListener("pointerdown", (e) => {

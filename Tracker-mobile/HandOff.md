@@ -81,6 +81,10 @@ js/tema.js                 tema automático, claro ou escuro (data-theme no <htm
 js/gaveta.js               gaveta ≡ montada da lista MENU (grupo → itens com rótulo, ícone e ação); as ações chamam as
                            funções exportadas por arquivos.js, dados.js, diagnostico.js e tema.js (sem lógica copiada)
 js/icones.js               ícones em SVG embutido (IC.menu, IC.camera…)
+js/paisagem.js             celular deitado: move os elementos da página para os contêineres de #pais (e os devolve
+                           ao girar); etapas, abas do painel, variações B (vídeo em pé) e C (tela cheia)
+js/barra.js                barra de quadros deitada: trilho, trecho do intervalo, alças do início e do fim, quadro atual
+css/paisagem.css           estilos da diagramação deitada (só valem com a classe "paisagem" no body)
 js/analise.js              escala (real ou genérica, 1 px = 1 u.a.), eixos, phys(), predict(), salvamento por vídeo (persist)
 js/desenho.js              vista com zoom (S.view), drawMain, drawOverlays
 js/gestos.js               pinça, arrastar, toque
@@ -167,6 +171,14 @@ do eixo x medido no sentido anti-horário.
     `history.go(-nível)` e o `popstate` atualiza a tela. Assim o Voltar do Android fecha a gaveta em vez de sair da
     página. Com a gaveta aberta, `header`, `main` e `footer` ficam `inert`; antes de uma ação que abre o seletor de
     arquivo, a página deixa de ser inerte (o campo `fileIn` está dentro do `main`).
+17. **Celular deitado: mover, não recriar**. `paisagem.js` move os elementos que já existem (mesmos ids e
+    eventos) para os contêineres de `#pais` e deixa um comentário no lugar de origem de cada um; ao girar para em pé,
+    cada elemento volta para o comentário dele. Só move quando a diagramação muda (A, B, C ou em pé), porque mover
+    tira o foco de um campo em edição. A condição é `(orientation: landscape) and (max-height: 500px)`; o Chrome
+    a partir da versão 108 não muda o tamanho da página quando o teclado abre, então digitar não troca a diagramação.
+    Os outros módulos avisam a paisagem por eventos (`va:antes-layout` em `layout()`, `va:paineis` em `renderData()`,
+    `va:modo` em `setMode()`), sem importá-la, para evitar importações circulares no carregamento. Um vídeo 16:9 na
+    coluna do centro bate na largura antes de ocupar a altura toda (limite da geometria com o painel a 37%).
 
 ## Testes
 
@@ -184,6 +196,7 @@ python tests/test_rastreamento.py          # medição do alvo, precisão, perda
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
+python tests/test_paisagem.py              # deitado (915 × 412): etapas, barra e alças, pinça, pior caso 10 massas + 2 cm, girar, B, C, gaveta, temas
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 ```
@@ -224,6 +237,7 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      2. ~~gaveta ≡~~ (feito: Vídeo, Dados, Ferramentas, com Diagnóstico, Tema e Ajuda, também em pé, sem tirar os
      botões de onde estão; Voltar do Android fecha; a Ajuda é montada com as notas de cada passo da página, até o
      autor escrever o texto próprio);
+     3, 5 e 6. ~~paisagem A, variação B e tela cheia C~~ (feitas juntas: as três dividem o mesmo módulo);
      3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
      painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
      letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e

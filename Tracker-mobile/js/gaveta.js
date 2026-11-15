@@ -67,7 +67,7 @@ const itemPorId = (id) => MENU.flatMap((g) => g.itens).find((i) => i.id === id);
 
 // nível: 0 fechada, 1 lista, 2 página. Cada nível tem uma entrada no histórico (pushState), para o Voltar do Android
 let nivel = 0, pagina = null, quemAbriu = null;
-const FORA = ["header.top", "main.app", "footer.credits"];
+const FORA = ["header.top", "main.app", "footer.credits", "#pais"];
 function mostrar() {
   const aberta = nivel > 0, g = $("gaveta");
   document.body.classList.toggle("gaveta-aberta", aberta);

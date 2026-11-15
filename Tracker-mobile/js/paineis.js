@@ -2,6 +2,7 @@
 // escala e atualização dos painéis dos passos (renderPanels).
 
 import { UA, escalaReal, inInterval } from "./analise.js";
+import { atualizarBarra } from "./barra.js";
 import { renderData } from "./dados.js";
 import { ctx, cv } from "./desenho.js";
 import { renderTrR } from "./entradas.js";
@@ -15,7 +16,8 @@ import { $, dist, fmt, kv, parseNum } from "./util.js";
 
 export function setSrc(msg, bad) { const el = $("srcLine"); el.textContent = msg; el.classList.toggle("bad", !!bad); }
 export function setControls(on) {
-  ["bM10", "bM1", "bPlay", "bP1", "bP10", "seek", "bInt"].forEach((id) => { $(id).disabled = !on; });
+  ["bM10", "bM1", "bPlay", "bP1", "bP10", "seek", "bInt", "lPlay", "lInicio", "lM1", "lP1"].forEach((id) => { $(id).disabled = !on; });
+  $("fbar").classList.toggle("off", !on);
   document.querySelectorAll("[data-mode]").forEach((b) => { b.disabled = !on; });
   const n = S.frames.length;
   $("seek").max = Math.max(0, n - 1);
@@ -34,6 +36,7 @@ export function updateReadout() {
   $("bDel").disabled = !ativoEhMassa() || !S.marks.has(S.cur);
   $("bMark").disabled = !ativoEhMassa() || !inInterval(S.cur);
   if (S.mode === "marcar") renderHint();
+  atualizarBarra();
 }
 export function resetVideo() {
   stopTrack(); stopPlay();

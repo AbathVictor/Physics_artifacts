@@ -28,6 +28,9 @@ export function renderData() {
   $("dataObj").innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i>${esc(o.nome)}` : "";
   const sc = o && o.tipo === "cm" ? situacaoCm(o) : null, note = $("objNote");
   note.hidden = !sc; note.textContent = sc ? sc.txt : ""; note.className = "status" + (sc && sc.bad ? " bad" : "");
+  // celular deitado: nome e cor do objeto ativo no topo do gráfico e da tabela, com o aviso do centro de massa
+  const topo = (o ? `<span class="nome"><i class="dot" style="background:${o.cor}"></i>${esc(o.nome)}</span>` : "") + (sc && sc.bad ? `<span class="status bad">${esc(sc.txt)}</span>` : "");
+  document.querySelectorAll(".objnome").forEach((e) => { e.innerHTML = topo; });
   // o aviso do centro de massa aparece uma vez só, acima do gráfico
   const vazio = sc && sc.bad ? "O centro de massa ainda não tem posições." : sc ? "Nenhum quadro com todas as massas do sistema marcadas." : "Nenhum ponto marcado ainda.";
   const head = `<thead><tr><th>quadro</th><th>t (s)</th><th>x (${u})</th><th>y (${u})</th></tr></thead>`;
@@ -41,6 +44,8 @@ export function renderData() {
     ? `No Python: <code>pd.read_csv(arquivo, skiprows=${cabecalho(exp).length - 1})</code> pula as linhas das massas, das unidades e dos nomes; as colunas de cada objeto ficam x, y, x.1, y.1… na ordem dos nomes.`
     : "No Python: <code>pd.read_csv(arquivo, skiprows=3)</code> pula as linhas da massa, das unidades e do nome do objeto.";
   drawPlot();
+  // a coluna das etapas (celular deitado) atualiza os selos: renderData roda depois de toda mudança de dados
+  document.dispatchEvent(new Event("va:paineis"));
 }
 export function renderTableCursor() {
   const tb = $("table");
