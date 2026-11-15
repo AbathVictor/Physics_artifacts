@@ -158,14 +158,20 @@ function exportText(kind) {
   return lines.join("\r\n") + "\r\n";
 }
 function baseName() { return S.isSample ? "exemplo" : S.file.name.replace(/\.[^.]+$/, "").replace(/[^\w\-]+/g, "_").slice(0, 60) || "video"; }
-$("copyTable").addEventListener("click", () => {
+// há dados para copiar ou exportar (usado também pela gaveta ≡)
+export const temDados = () => S.frames.length > 0 && exportaveis().length > 0;
+// copiar a tabela no formato escolhido no passo 7 (botão Copiar tabela e gaveta ≡)
+export function copiarTabela() {
+  if (!temDados()) return;
   const txt = exportText(S.fmt === "intl" ? "intl" : "tsv"), fb = $("copyFallback");
-  const fallback = () => { fb.hidden = false; fb.value = txt; fb.focus(); fb.select(); toast("Selecionei a tabela: copie pelo menu do sistema."); };
+  const fallback = () => { fb.hidden = false; fb.value = txt; fb.scrollIntoView({ block: "center" }); fb.focus(); fb.select(); toast("Selecionei a tabela: copie pelo menu do sistema."); };
   try { navigator.clipboard.writeText(txt).then(() => { fb.hidden = true; toast("Tabela copiada"); }, fallback); } catch { fallback(); }
-});
-$("exportCsv").addEventListener("click", async () => {
-  if (!S.dl) return;
-  const kind = S.fmt === "intl" ? "intl" : "excel";
+}
+$("copyTable").addEventListener("click", copiarTabela);
+// exportar o CSV: kind "excel" (Excel e Planilhas Google) ou "intl" (Python); sem kind, o formato escolhido no passo 7
+export async function exportarCsv(kind) {
+  if (!S.dl || !temDados()) return;
+  kind = kind || (S.fmt === "intl" ? "intl" : "excel");
   const txt = exportText(kind);
   // o Excel só reconhece acentos e "±" num CSV com a marca UTF-8 no começo
   const data = kind === "excel" ? "﻿" + txt : txt;
@@ -178,6 +184,7 @@ $("exportCsv").addEventListener("click", async () => {
     if (code === "rate_limited") { toast("Já há uma confirmação aberta. Responda a ela e tente de novo."); return; }
     toast("Não foi possível salvar o arquivo aqui. Use Copiar tabela.");
   }
-});
+}
+$("exportCsv").addEventListener("click", () => exportarCsv());
 document.querySelectorAll("input[name=fmt]").forEach((r) => r.addEventListener("change", () => { S.fmt = r.value; persist(); }));
 document.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => { S.plotVar = b.dataset.plot; persist(); renderPanels(); }));

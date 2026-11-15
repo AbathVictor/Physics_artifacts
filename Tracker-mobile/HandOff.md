@@ -78,6 +78,9 @@ js/massas.js               interface dos objetos: fileira de botões (ativo, + m
                            massas do cm ativo e passo 5 (cor, valor e incerteza de cada massa; situação de cada cm)
 js/tema.js                 tema automático, claro ou escuro (data-theme no <html>) e meta theme-color; um script curto
                            no <head> do index.html aplica a escolha antes de a página aparecer
+js/gaveta.js               gaveta ≡ montada da lista MENU (grupo → itens com rótulo, ícone e ação); as ações chamam as
+                           funções exportadas por arquivos.js, dados.js, diagnostico.js e tema.js (sem lógica copiada)
+js/icones.js               ícones em SVG embutido (IC.menu, IC.camera…)
 js/analise.js              escala (real ou genérica, 1 px = 1 u.a.), eixos, phys(), predict(), salvamento por vídeo (persist)
 js/desenho.js              vista com zoom (S.view), drawMain, drawOverlays
 js/gestos.js               pinça, arrastar, toque
@@ -160,6 +163,10 @@ do eixo x medido no sentido anti-horário.
 15. **Cores lidas do CSS pelo JavaScript**: o desenho sobre o vídeo e o gráfico leem os tokens (`--amber`, `--line`,
     `--ov-edge`…) com `getComputedStyle` (`readOV` em `desenho.js`, `drawPlot` em `dados.js`) e redesenham quando o
     tema muda (`main.js` observa `data-theme` e `prefers-color-scheme`). Token novo usado no canvas: leia-o ali.
+16. **Gaveta e histórico**: cada nível da gaveta (menu, página) faz `history.pushState`; fechar volta com
+    `history.go(-nível)` e o `popstate` atualiza a tela. Assim o Voltar do Android fecha a gaveta em vez de sair da
+    página. Com a gaveta aberta, `header`, `main` e `footer` ficam `inert`; antes de uma ação que abre o seletor de
+    arquivo, a página deixa de ser inerte (o campo `fileIn` está dentro do `main`).
 
 ## Testes
 
@@ -176,6 +183,7 @@ python tests/test_marcacao.py              # play, intervalo, pinça, marcação
 python tests/test_rastreamento.py          # medição do alvo, precisão, perda do alvo, botão Parar
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
+python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 ```
@@ -212,9 +220,10 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      massa e a escala genérica).
   4. Rastrear todas as massas numa passada só de decodificação (hoje o rastreamento é da massa ativa).
   4a. **Celular deitado e cores** (plano aprovado pelo autor em 14/11/2026, etapas em ordem, uma por vez, testada no
-     celular entre elas): 1. ~~cores e temas~~ (feito; a escolha manual do tema aparece na gaveta, etapa 2);
-     2. gaveta ≡ (Vídeo, Dados, Ferramentas, com Diagnóstico, Tema e Ajuda), também em pé, sem tirar os botões de onde
-     estão; Voltar do Android fecha; Ajuda começa com as dicas de cada etapa (o autor vai escrever o texto depois);
+     celular entre elas; o autor pediu commit e push ao fim de cada etapa): 1. ~~cores e temas~~ (feito);
+     2. ~~gaveta ≡~~ (feito: Vídeo, Dados, Ferramentas, com Diagnóstico, Tema e Ajuda, também em pé, sem tirar os
+     botões de onde estão; Voltar do Android fecha; a Ajuda é montada com as notas de cada passo da página, até o
+     autor escrever o texto próprio);
      3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
      painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
      letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e

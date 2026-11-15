@@ -4,7 +4,7 @@ import { S } from "./estado.js";
 import { $, fmt, fmtBytes, kv, toast } from "./util.js";
 import { friendlyCodec } from "./video/conteiner.js";
 
-function diagPairs() {
+export function diagPairs() {
   const T = S.timing, vt = T ? S.track : null;
   const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
   const ua = navigator.userAgent, m = ua.match(/Android [^;)]+(?:;\s*([^;)]+))?/), cr = ua.match(/Chrome\/([\d.]+)/);
@@ -28,10 +28,12 @@ function diagPairs() {
   ];
 }
 $("diag").addEventListener("toggle", () => { if ($("diag").open) kv($("kvDiag"), diagPairs()); });
-$("copyDiag").addEventListener("click", () => {
+// copiar o diagnóstico (botão do bloco Diagnóstico e gaveta ≡)
+export function copiarDiagnostico() {
   const txt = "Videoanálise Móvel · diagnóstico\n" + diagPairs().map(([k, v]) => `${k}: ${v}`).join("\n") + "\nuser agent: " + navigator.userAgent;
   kv($("kvDiag"), diagPairs());
   const fb = $("copyFallback");
-  const fallback = () => { fb.hidden = false; fb.value = txt; fb.focus(); fb.select(); toast("Selecionei o texto: copie pelo menu do sistema."); };
+  const fallback = () => { fb.hidden = false; fb.value = txt; fb.scrollIntoView({ block: "center" }); fb.focus(); fb.select(); toast("Selecionei o texto: copie pelo menu do sistema."); };
   try { navigator.clipboard.writeText(txt).then(() => toast("Diagnóstico copiado"), fallback); } catch { fallback(); }
-});
+}
+$("copyDiag").addEventListener("click", copiarDiagnostico);

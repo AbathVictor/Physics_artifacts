@@ -90,6 +90,7 @@ $("bPlay").addEventListener("click", () => { S.playing ? stopPlay() : startPlay(
 $("bInt").addEventListener("click", () => playInterval());
 $("seek").addEventListener("input", (e) => { stopTrack(); stopPlay(); show(Number(e.target.value)); });
 document.addEventListener("keydown", (e) => {
+  if (document.body.classList.contains("gaveta-aberta")) return;
   const tag = document.activeElement?.tagName || "";
   if (!S.frames.length || ((tag === "INPUT" && document.activeElement.type !== "range") || tag === "TEXTAREA" || tag === "SELECT")) return;
   if (e.key === "ArrowRight") { e.preventDefault(); step(e.shiftKey ? 10 : 1); }

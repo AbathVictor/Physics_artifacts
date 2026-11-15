@@ -14,8 +14,11 @@
 </head>
 <body>
 <header class="top">
-  <h1>Videoanálise Móvel</h1>
-  <span class="sub">vídeo → posição de cada quadro → x(t), y(t)</span>
+  <div class="tit">
+    <h1>Videoanálise Móvel</h1>
+    <span class="sub">vídeo → posição de cada quadro → x(t), y(t)</span>
+  </div>
+  <button type="button" class="iconbtn" id="menuBtn" aria-label="Menu" aria-haspopup="dialog" aria-controls="gaveta" aria-expanded="false"></button>
 </header>
 
 <main class="app">
@@ -182,6 +185,18 @@
 <footer class="credits">
   <p>Inspirada no <a href="https://physlets.org/tracker/" target="_blank" rel="noopener">Tracker</a>, software livre de vídeo-análise de Douglas Brown, Wolfgang Christian e Robert M. Hanson, do projeto <a href="https://www.opensourcephysics.org/" target="_blank" rel="noopener">Open Source Physics</a>. Esta página é uma implementação independente, sem vínculo oficial com o Tracker.</p>
 </footer>
+<!-- gaveta ≡ (js/gaveta.js) -->
+<div class="gaveta-fundo" id="gavetaFundo"></div>
+<aside class="gaveta" id="gaveta" role="dialog" aria-modal="true" aria-labelledby="gavetaT" aria-hidden="true" inert>
+  <div class="gcab">
+    <button type="button" class="iconbtn" id="gavetaVolta" aria-label="Voltar ao menu" hidden></button>
+    <h2 id="gavetaT">Menu</h2>
+    <button type="button" class="iconbtn" id="gavetaFecha" aria-label="Fechar o menu"></button>
+  </div>
+  <div class="gaveta-corpo" id="gavetaCorpo"></div>
+</aside>
+<!-- gravar com a câmera direto (capture), usado pela gaveta; a escolha comum fica no passo 1 (fileIn) -->
+<input type="file" class="oculto" id="camIn" accept="video/*" capture="environment" tabindex="-1" aria-hidden="true">
 <div class="toast" id="toast" hidden></div>
 
 <!-- biblioteca de leitura de MP4 (cópia local, para funcionar sem internet); expõe MP4Box e DataStream -->
