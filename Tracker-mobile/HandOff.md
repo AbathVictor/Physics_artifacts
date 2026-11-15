@@ -48,6 +48,7 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Descartado | botão "Enviar para o Laboratório de Oscilações" |
 | Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir** |
 | Marcação | **zoom de pinça** no próprio vídeo + **toque posiciona a mira** (substituiu uma lupa lateral, que o autor achou pior) |
+| Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
 | Rastreamento | automático no estilo do autotracker do Tracker (ver abaixo) |
 | Toque | sensibilidade "aceitável"; otimizar no futuro |
 
@@ -85,6 +86,7 @@ js/paisagem.js             celular deitado: move os elementos da página para os
                            ao girar); etapas, abas do painel, variações B (vídeo em pé) e C (tela cheia)
 js/barra.js                barra de quadros deitada: trilho, trecho do intervalo, alças do início e do fim, quadro atual
 css/paisagem.css           estilos da diagramação deitada (só valem com a classe "paisagem" no body)
+js/lupa.js                 lupa da escala: canvas fixo na tela, desenhado por render() ao arrastar uma ponta da fita
 js/analise.js              escala (real ou genérica, 1 px = 1 u.a.), eixos, phys(), predict(), salvamento por vídeo (persist)
 js/desenho.js              vista com zoom (S.view), drawMain, drawOverlays
 js/gestos.js               pinça, arrastar, toque
@@ -179,6 +181,9 @@ do eixo x medido no sentido anti-horário.
     Os outros módulos avisam a paisagem por eventos (`va:antes-layout` em `layout()`, `va:paineis` em `renderData()`,
     `va:modo` em `setMode()`), sem importá-la, para evitar importações circulares no carregamento. Um vídeo 16:9 na
     coluna do centro bate na largura antes de ocupar a altura toda (limite da geometria com o painel a 37%).
+18. **Desenho juntado num quadro de tela**: os gestos (pinça, arrastar a imagem, as pontas da escala e os eixos)
+    chamam `agendarRender()`, que redesenha uma vez por `requestAnimationFrame`; `render()` direto cancela o
+    pedido pendente. A lupa é desenhada dentro de `render()`, no mesmo ciclo do vídeo.
 
 ## Testes
 
@@ -197,6 +202,7 @@ python tests/test_massas.py                # escala genérica, duas massas, cm v
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412): etapas, barra e alças, pinça, pior caso 10 massas + 2 cm, girar, B, C, gaveta, temas
+python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 ```
@@ -238,6 +244,8 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      botões de onde estão; Voltar do Android fecha; a Ajuda é montada com as notas de cada passo da página, até o
      autor escrever o texto próprio);
      3, 5 e 6. ~~paisagem A, variação B e tela cheia C~~ (feitas juntas: as três dividem o mesmo módulo);
+     4. ~~lupa da escala e desenho juntado num quadro de tela~~ (feito). Todas as etapas do plano estão feitas; falta
+     o autor conferir no celular.
      3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
      painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
      letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e

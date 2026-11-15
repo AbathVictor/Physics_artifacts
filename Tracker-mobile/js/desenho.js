@@ -4,6 +4,7 @@
 import { axisHandle, escalaReal, handleLen, inInterval } from "./analise.js";
 import { drawPlot } from "./dados.js";
 import { S } from "./estado.js";
+import { desenharLupa, esconderLupa } from "./lupa.js";
 import { ativoEhMassa, objAtivo, pontosDe } from "./objetos.js";
 import { updateReadout } from "./paineis.js";
 import { $, clampF, fmt, parseNum } from "./util.js";
@@ -60,9 +61,14 @@ export function ensureVisible(p) {
   if (rx < 0.2 || rx > 0.8 || ry < 0.2 || ry > 0.8) { S.view.vx = p.x - vw / 2; S.view.vy = p.y - vh / 2; clampView(); }
 }
 export function render() {
+  if (rafR) { cancelAnimationFrame(rafR); rafR = 0; }
   if (!S.frames.length) return;
   drawMain(); updateReadout(); updateZoomRow();
 }
+// redesenho juntado num quadro de tela: os gestos chamam isto a cada movimento do dedo (o celular manda mais
+// movimentos por segundo do que a tela mostra); o vídeo e a lupa são desenhados uma vez só, no mesmo ciclo
+let rafR = 0;
+export function agendarRender() { if (!rafR) rafR = requestAnimationFrame(() => { rafR = 0; render(); }); }
 function drawMain() {
   const g = ctx, v = S.view, k = viewK();
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -83,6 +89,9 @@ function drawMain() {
     catch { if (src === S.lastBmp) S.lastBmp = null; }
   }
   drawOverlays(g, { k, ox: -v.vx * k, oy: -v.vy * k });
+  // lupa: só ao arrastar uma ponta da escala
+  if (S.lupa && (S.grab === "p1" || S.grab === "p2") && S.mode === "escala") desenharLupa(S.scale[S.grab], S.lupa.x, S.lupa.y, k);
+  else esconderLupa();
 }
 function updateZoomRow() {
   const row = $("zoomRow");

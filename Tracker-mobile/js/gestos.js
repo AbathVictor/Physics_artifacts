@@ -1,7 +1,7 @@
 // Gestos no vídeo: pinça para aproximar, arrastar a imagem ou as alças da escala e dos eixos, toque para pôr a mira.
 
 import { axisHandle, persist } from "./analise.js";
-import { clampView, cv, maxZoom, render, resetView, viewK, zoomAt } from "./desenho.js";
+import { agendarRender, clampView, cv, maxZoom, render, resetView, viewK, zoomAt } from "./desenho.js";
 import { renderTrR } from "./entradas.js";
 import { S } from "./estado.js";
 import { stopPlay } from "./navegacao.js";
@@ -21,7 +21,7 @@ function startPinch() {
   const [a, b] = [...ptrs.values()];
   const m = canvasXY((a.x + b.x) / 2, (a.y + b.y) / 2), k = viewK();
   if (gest && gest.type === "handle") { persist(); renderPanels(); }
-  S.grab = null;
+  S.grab = null; S.lupa = null;
   gest = { type: "pinch", d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: S.view.z, ix: S.view.vx + m.x / k, iy: S.view.vy + m.y / k };
 }
 function updatePinch() {
@@ -30,7 +30,7 @@ function updatePinch() {
   S.view.z = clampF(gest.z0 * d / gest.d0, 1, maxZoom());
   const k = viewK();
   S.view.vx = gest.ix - m.x / k; S.view.vy = gest.iy - m.y / k;
-  clampView(); render();
+  clampView(); agendarRender();
 }
 cv.addEventListener("pointerdown", (e) => {
   if (!S.frames.length) return;
@@ -50,7 +50,12 @@ cv.addEventListener("pointerdown", (e) => {
     if (Math.min(d0, da) < R) grab = d0 <= da ? "o" : "a";
   }
   gest = { type: grab ? "handle" : "pending", grab, id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now(), multi: false, start: p, hp: grab === "a" ? axisHandle() : null };
-  if (grab) { S.grab = grab; S.lastGrab = grab; render(); }
+  if (grab) {
+    S.grab = grab; S.lastGrab = grab;
+    // a lupa acompanha o dedo ao arrastar uma ponta da escala
+    if (grab === "p1" || grab === "p2") S.lupa = { x: e.clientX, y: e.clientY };
+    render();
+  }
 });
 cv.addEventListener("pointermove", (e) => {
   if (!ptrs.has(e.pointerId)) return;
@@ -64,11 +69,11 @@ cv.addEventListener("pointermove", (e) => {
   const clampP = (q) => { q.x = clampF(q.x, 0, S.dispW); q.y = clampF(q.y, 0, S.dispH); };
   if (gest.type === "pan") { S.view.vx -= dx; S.view.vy -= dy; clampView(); }
   else if (gest.type === "handle") {
-    if (gest.grab === "p1" || gest.grab === "p2") { const q = S.scale[gest.grab]; q.x += dx; q.y += dy; clampP(q); renderScaleInfo(); }
+    if (gest.grab === "p1" || gest.grab === "p2") { const q = S.scale[gest.grab]; q.x += dx; q.y += dy; clampP(q); renderScaleInfo(); S.lupa = { x: e.clientX, y: e.clientY }; }
     else if (gest.grab === "o") { S.axes.o.x += dx; S.axes.o.y += dy; clampP(S.axes.o); }
     else if (gest.grab === "a") { gest.hp.x += dx; gest.hp.y += dy; S.axes.ang = Math.atan2(-(gest.hp.y - S.axes.o.y), gest.hp.x - S.axes.o.x); $("axAng").value = fmt(S.axes.ang * 180 / Math.PI, 1); }
   } else return;
-  render();
+  agendarRender();
 });
 function endPointer(e) {
   if (!ptrs.has(e.pointerId)) return;
@@ -87,7 +92,7 @@ function endPointer(e) {
     S.cross = { x: clampF(g.start.x, 0, S.dispW), y: clampF(g.start.y, 0, S.dispH) };
     if (S.trAuto && autoSizeAt(S.cross)) { renderTrR(); persist(); }
   }
-  if (g.type === "handle") { S.grab = null; persist(); renderPanels(); }
+  if (g.type === "handle") { S.grab = null; S.lupa = null; persist(); renderPanels(); }
   render();
 }
 cv.addEventListener("pointerup", endPointer);

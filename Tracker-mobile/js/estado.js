@@ -12,6 +12,8 @@ export const S = {
   mode: "nav", start: 0, end: 0, every: 1, trail: true, zoom: 4, plotVar: "y", fmt: "excel",
   trR: 20, trThr: 0.7, trAuto: true, objR: 0, tracking: false,
   scale: null, axes: null, cross: null, grab: null, lastGrab: null,
+  // posição do dedo (px da tela) enquanto arrasta uma ponta da escala: a lupa aparece só com ela (lupa.js)
+  lupa: null,
   // objetos (massas e centro de massa, ver objetos.js), unidade das massas e contador de alterações; S.marks
   // (pontos do objeto ativo) é definido em objetos.js
   objs: [], ativo: 0, massUnit: "g", ver: 0,

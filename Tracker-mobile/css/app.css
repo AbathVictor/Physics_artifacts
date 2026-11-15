@@ -185,6 +185,8 @@ details.diag[open] summary { margin-bottom: 10px; }
 details.diag > div { display: flex; flex-direction: column; gap: 10px; }
 textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); padding: 8px; color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.86rem; z-index: 50; max-width: calc(100% - 32px); text-align: center; }
+/* lupa da escala: canvas fixo na tela, acima de tudo menos da gaveta; não recebe toques */
+.lupa { position: fixed; left: 0; top: 0; z-index: 25; pointer-events: none; border-radius: 50%; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
 .oculto { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; left: 0; top: 0; }
 
 /* botão só com ícone (≡, ✕, ‹, ⤢): área de toque de 48 px */
