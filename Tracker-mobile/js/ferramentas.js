@@ -1,8 +1,9 @@
 // Ferramentas (Navegar, Escala, Eixos, Marcar), textos de ajuda e marcar ou apagar pontos.
 
-import { inInterval, persist, predict, unitPerPx } from "./analise.js";
+import { inInterval, persist, predict } from "./analise.js";
 import { ensureVisible, render } from "./desenho.js";
 import { S } from "./estado.js";
+import { ativoEhMassa, objAtivo } from "./objetos.js";
 import { show, stopPlay } from "./navegacao.js";
 import { renderPanels } from "./paineis.js";
 import { stopTrack, trackMsg } from "./rastreio/rastreador.js";
@@ -33,8 +34,9 @@ export function setMode(m) {
 export function renderHint() {
   const el = $("modeHint");
   let txt = HINTS[S.mode], warn = false;
-  if (S.mode === "marcar" && !(unitPerPx() > 0)) { txt += " A escala ainda não foi definida: os pontos ficam guardados, e as posições aparecem quando você definir a escala."; warn = true; }
-  if (S.mode === "marcar" && !inInterval(S.cur)) { txt = "Este quadro está fora do intervalo de análise. Vá para um quadro entre o início e o fim, ou ajuste o intervalo no passo 2."; warn = true; }
+  if (S.mode === "marcar" && S.objs.length > 1 && ativoEhMassa()) txt = `Marcando a ${objAtivo().nome}. ` + txt;
+  if (S.mode === "marcar" && !ativoEhMassa()) { txt = `O ${objAtivo().nome} é calculado a partir das massas que você escolheu para ele (logo abaixo dos botões dos objetos). Para marcar, escolha uma massa nesses botões.`; warn = true; }
+  else if (S.mode === "marcar" && !inInterval(S.cur)) { txt = "Este quadro está fora do intervalo de análise. Vá para um quadro entre o início e o fim, ou ajuste o intervalo no passo 2."; warn = true; }
   el.textContent = txt; el.classList.toggle("warn", warn);
 }
 document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { if (S.frames.length) setMode(b.dataset.mode); }));
@@ -45,6 +47,7 @@ document.querySelectorAll("[data-goto-mode]").forEach((b) => b.addEventListener(
 }));
 export function markPoint() {
   if (!S.frames.length || !S.cross || S.tracking) return;
+  if (!ativoEhMassa()) { toast("Escolha uma massa para marcar: o centro de massa é calculado."); return; }
   stopPlay();
   if (!inInterval(S.cur)) { toast("Este quadro está fora do intervalo de análise."); return; }
   S.marks.set(S.cur, { x: S.cross.x, y: S.cross.y });
@@ -61,7 +64,7 @@ export function markPoint() {
   }
 }
 export function deletePoint() {
-  if (!S.marks.has(S.cur)) return;
+  if (!ativoEhMassa() || !S.marks.has(S.cur)) return;
   S.marks.delete(S.cur); persist(); renderPanels(); render();
 }
 $("bMark").addEventListener("click", markPoint);

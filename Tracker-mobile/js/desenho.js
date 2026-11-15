@@ -1,8 +1,10 @@
-// Desenho: vista com zoom (S.view), imagem do quadro e sobreposições (escala, eixos, trilha, mira, alvo).
+// Desenho: vista com zoom (S.view), imagem do quadro e sobreposições (escala, eixos, trilhas e pontos de cada
+// objeto, mira, alvo).
 
-import { axisHandle, handleLen, inInterval, unitPerPx } from "./analise.js";
+import { axisHandle, escalaReal, handleLen, inInterval } from "./analise.js";
 import { drawPlot } from "./dados.js";
 import { S } from "./estado.js";
+import { ativoEhMassa, objAtivo, pontosDe } from "./objetos.js";
 import { updateReadout } from "./paineis.js";
 import { $, clampF, fmt, parseNum } from "./util.js";
 
@@ -11,7 +13,9 @@ export const cv = $("cv"), ctx = cv.getContext("2d");
 let cssW = 0, cssH = 0, dpr = 1, OV = null;
 export function readOV() {
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-  OV = { mark: g("--ov-mark"), scale: g("--ov-scale"), axis: g("--ov-axis"), cross: g("--ov-cross"), dark: g("--ov-dark"), mono: g("--font-mono") };
+  // edge: contorno fino das marcas e pontos (escuro no tema claro, claro no escuro); line: cor de borda do tema,
+  // usada nos pontos fora do intervalo ou futuros; amber: a mira
+  OV = { scale: g("--ov-scale"), axis: g("--ov-axis"), dark: g("--ov-dark"), edge: g("--ov-edge"), line: g("--line"), amber: g("--amber"), mono: g("--font-mono") };
 }
 export function layout() {
   const box = $("viewer");
@@ -87,14 +91,15 @@ function updateZoomRow() {
   // com zoom, um dedo arrasta a imagem também em Navegar; sem zoom, um dedo continua rolando a página
   $("viewer").classList.toggle("zoomed", S.view.z > 1.001);
 }
-function stroke2(g, color, w, path) {
+// traço com contorno: escuro e mais grosso (escala, eixos, mira) ou fino na cor do tema (marcas e pontos, edge)
+function stroke2(g, color, w, path, edge) {
   g.lineCap = "round"; g.lineJoin = "round";
-  g.strokeStyle = OV.dark; g.lineWidth = w + 2.5; path(); g.stroke();
+  g.strokeStyle = edge || OV.dark; g.lineWidth = w + (edge ? 2 : 2.5); path(); g.stroke();
   g.strokeStyle = color; g.lineWidth = w; path(); g.stroke();
 }
-function circle(g, x, y, r, color, fill) {
-  if (fill) { g.fillStyle = OV.dark; g.beginPath(); g.arc(x, y, r + 1.5, 0, 2 * Math.PI); g.fill(); g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); }
-  else stroke2(g, color, 2, () => { g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); });
+function circle(g, x, y, r, color, fill, edge) {
+  if (fill) { g.fillStyle = edge || OV.dark; g.beginPath(); g.arc(x, y, r + (edge ? 1 : 1.5), 0, 2 * Math.PI); g.fill(); g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); }
+  else stroke2(g, color, 2, () => { g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); }, edge);
 }
 function label(g, text, x, y, color) {
   g.font = "500 11px " + OV.mono; g.textAlign = "center"; g.textBaseline = "middle";
@@ -124,7 +129,7 @@ function drawOverlays(g, T) {
     if (S.grab === "a") circle(g, hx, hy, 3, OV.axis, true);
   }
   // escala
-  if (S.mode === "escala" || unitPerPx() > 0) {
+  if (S.mode === "escala" || escalaReal() > 0) {
     g.globalAlpha = S.mode === "escala" ? 1 : 0.6;
     const p1 = P(S.scale.p1), p2 = P(S.scale.p2);
     const dx = p2[0] - p1[0], dy = p2[1] - p1[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L * 8, ny = dx / L * 8;
@@ -142,33 +147,49 @@ function drawOverlays(g, T) {
     label(g, Lv > 0 ? `${fmt(Lv, decOf(S.scale.len))} ${S.scale.unit}` : "digite a distância", (p1[0] + p2[0]) / 2 + nx * 2.4, (p1[1] + p2[1]) / 2 + ny * 2.4, OV.scale);
     g.globalAlpha = 1;
   }
-  // trajetória e ponto do quadro atual
-  if (S.trail || S.mode === "marcar") {
-    for (const [i, p] of S.marks) {
-      if (i === S.cur) continue;
-      const [x, y] = P(p);
-      if (x < -10 || y < -10 || x > cssW + 10 || y > cssH + 10) continue;
-      g.globalAlpha = inInterval(i) ? 0.95 : 0.35;
-      circle(g, x, y, 2.4, OV.mark, true);
+  // trajetórias e pontos do quadro atual de todos os objetos, cada um na sua cor, com o objeto ativo por cima;
+  // com mais de um objeto, cada ponto do quadro atual leva a letra da massa (ou o nome do centro de massa, "cm A").
+  // Pontos fora do intervalo de análise ou futuros (depois do quadro atual) ficam na cor de borda do tema.
+  const ativo = objAtivo(), varios = S.objs.length > 1;
+  const ordem = S.objs.filter((o) => o !== ativo); if (ativo) ordem.push(ativo);
+  for (const o of ordem) {
+    const pts = pontosDe(o), eh = o === ativo;
+    if (S.trail || (eh && S.mode === "marcar")) {
+      const r = eh ? 2.4 : 1.8;
+      for (const [i, p] of pts) {
+        if (i === S.cur) continue;
+        const [x, y] = P(p);
+        if (x < -10 || y < -10 || x > cssW + 10 || y > cssH + 10) continue;
+        const cinza = i > S.cur || !inInterval(i);
+        g.globalAlpha = eh ? 0.95 : 0.7;
+        circle(g, x, y, r, cinza ? OV.line : o.cor, true, OV.edge);
+      }
+      g.globalAlpha = 1;
     }
-    g.globalAlpha = 1;
+    const m = pts.get(S.cur);
+    if (!m) continue;
+    const [x, y] = P(m), r = eh ? 7 : 5;
+    circle(g, x, y, r, o.cor, false, OV.edge);
+    if (o.tipo === "cm") stroke2(g, o.cor, 1.6, () => { g.beginPath(); g.moveTo(x - r - 4, y); g.lineTo(x + r + 4, y); g.moveTo(x, y - r - 4); g.lineTo(x, y + r + 4); }, OV.edge);
+    else circle(g, x, y, 1.8, o.cor, true, OV.edge);
+    if (varios) label(g, o.tipo === "cm" ? o.nome : o.letra, x + 16, y - 16, o.cor);
   }
-  const m = S.marks.get(S.cur);
-  if (m) { const [x, y] = P(m); circle(g, x, y, 7, OV.mark, false); circle(g, x, y, 1.8, OV.mark, true); }
-  // mira: o centro fica vazio e há um ponto fino no meio, para ver o alvo por baixo
-  if (S.mode === "marcar" && S.cross) {
-    const [x, y] = P(S.cross), r = 7, arm = 16;
-    stroke2(g, OV.cross, 1.4, () => {
-      g.beginPath();
-      g.moveTo(x - r - arm, y); g.lineTo(x - r, y); g.moveTo(x + r, y); g.lineTo(x + r + arm, y);
-      g.moveTo(x, y - r - arm); g.lineTo(x, y - r); g.moveTo(x, y + r); g.lineTo(x, y + r + arm);
+  // mira (âmbar): um anel com contorno escuro e quatro traços para fora, com o centro vazio e um ponto fino no
+  // meio, para ver o alvo por baixo. A forma de anel a distingue das marcas mesmo com uma massa de cor parecida.
+  // Só aparece para marcar uma massa (o centro de massa não se marca).
+  if (S.mode === "marcar" && S.cross && ativoEhMassa()) {
+    const [x, y] = P(S.cross), r = 9, arm = 12;
+    stroke2(g, OV.amber, 2, () => {
+      g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI);
+      g.moveTo(x - r - arm, y); g.lineTo(x - r - 2, y); g.moveTo(x + r + 2, y); g.lineTo(x + r + arm, y);
+      g.moveTo(x, y - r - arm); g.lineTo(x, y - r - 2); g.moveTo(x, y + r + 2); g.lineTo(x, y + r + arm);
     });
     g.fillStyle = OV.dark; g.fillRect(x - 1.5, y - 1.5, 3, 3);
-    g.fillStyle = OV.cross; g.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
+    g.fillStyle = OV.amber; g.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
     // círculo do alvo do rastreamento automático (a parte do modelo que entra na comparação)
     const half = (Math.round(S.trR) + 0.5) * T.k;
     g.setLineDash([5, 4]);
-    stroke2(g, OV.cross, 1, () => { g.beginPath(); g.arc(x, y, half, 0, 2 * Math.PI); });
+    stroke2(g, OV.amber, 1, () => { g.beginPath(); g.arc(x, y, half, 0, 2 * Math.PI); });
     g.setLineDash([]);
   }
 }

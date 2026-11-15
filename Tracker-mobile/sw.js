@@ -6,7 +6,7 @@
 //
 // Ao criar, renomear ou apagar um arquivo da página, atualize a lista ARQUIVOS (o teste test_offline.py confere)
 // e mude VERSAO, para que a cópia antiga seja descartada.
-const VERSAO = "videoanalise-1";
+const VERSAO = "videoanalise-3";
 const ARQUIVOS = [
   "./",
   "index.html",
@@ -40,11 +40,14 @@ const ARQUIVOS = [
   "js/ferramentas.js",
   "js/gestos.js",
   "js/main.js",
+  "js/massas.js",
   "js/navegacao.js",
+  "js/objetos.js",
   "js/paineis.js",
   "js/rastreio/modelo.js",
   "js/rastreio/previsao.js",
   "js/rastreio/rastreador.js",
+  "js/tema.js",
   "js/util.js",
   "js/video/conteiner.js",
   "js/video/decodificador.js",

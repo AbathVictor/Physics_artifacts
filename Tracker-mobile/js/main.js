@@ -2,7 +2,9 @@
 // Importa todos os módulos na ordem das antigas seções do arquivo único: vários deles só registram os eventos
 // da página ao carregar (botões, gestos, teclado), então precisam ser importados mesmo sem nada usado daqui.
 import "./util.js";
+import "./tema.js";
 import "./estado.js";
+import "./objetos.js";
 import "./video/conteiner.js";
 import "./video/decodificador.js";
 import "./analise.js";
@@ -12,6 +14,7 @@ import "./rastreio/rastreador.js";
 import "./navegacao.js";
 import "./ferramentas.js";
 import "./paineis.js";
+import "./massas.js";
 import "./dados.js";
 import "./entradas.js";
 import "./arquivos.js";

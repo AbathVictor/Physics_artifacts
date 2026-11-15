@@ -69,7 +69,8 @@ function resizeSource(w, h) {
   if (S.scale) { sc(S.scale.p1); sc(S.scale.p2); }
   if (S.axes) sc(S.axes.o);
   sc(S.cross);
-  for (const p of S.marks.values()) sc(p);
+  for (const o of S.objs) if (o.marks) for (const p of o.marks.values()) sc(p);
+  S.ver++;
   S.view = { z: 1, vx: 0, vy: 0 };
   S.needLayout = true;
 }

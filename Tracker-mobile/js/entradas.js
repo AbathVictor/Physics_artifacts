@@ -1,10 +1,11 @@
-// Entradas dos passos: liga ao estado os campos e botões de intervalo, escala, eixos, massa, passo, trilha,
-// rastreamento e Apagar todas as marcações.
+// Entradas dos passos: liga ao estado os campos e botões de intervalo, escala, eixos, passo, trilha,
+// rastreamento e Apagar as marcações da massa ativa (as massas ficam em massas.js).
 
 import { persist } from "./analise.js";
 import { renderData } from "./dados.js";
 import { render } from "./desenho.js";
 import { S } from "./estado.js";
+import { ativoEhMassa, objAtivo } from "./objetos.js";
 import { renderPanels, renderScaleInfo } from "./paineis.js";
 import { autoSizeAt } from "./rastreio/rastreador.js";
 import { $, parseNum, toast } from "./util.js";
@@ -17,8 +18,6 @@ $("scaleLen").addEventListener("input", (e) => { if (!S.scale) return; S.scale.l
 $("scaleUnit").addEventListener("change", (e) => { if (!S.scale) return; S.scale.unit = e.target.value; persist(); renderPanels(); render(); });
 $("axAng").addEventListener("change", (e) => { if (!S.axes) return; const v = parseNum(e.target.value); if (Number.isFinite(v)) { S.axes.ang = v * Math.PI / 180; persist(); } renderPanels(); render(); });
 $("axZero").addEventListener("click", () => { if (!S.axes) return; S.axes.ang = 0; persist(); renderPanels(); render(); });
-["mVal", "mSig"].forEach((id) => $(id).addEventListener("input", (e) => { S.mass[id === "mVal" ? "val" : "sig"] = e.target.value; persist(); renderPanels(); }));
-$("mUnit").addEventListener("change", (e) => { S.mass.unit = e.target.value; persist(); });
 $("every").addEventListener("change", (e) => { S.every = Number(e.target.value); persist(); pump(); });
 $("trail").addEventListener("change", (e) => { S.trail = e.target.checked; persist(); render(); });
 export function renderTrR() {
@@ -33,8 +32,10 @@ $("trThr").addEventListener("change", (e) => { S.trThr = Number(e.target.value);
 let armTimer = null;
 $("clearMarks").addEventListener("click", () => {
   const b = $("clearMarks");
-  if (!S.marks.size) { toast("Não há pontos marcados."); return; }
-  if (!b.classList.contains("arm")) { b.classList.add("arm"); b.textContent = `Toque de novo para apagar ${S.marks.size} pontos`; armTimer = setTimeout(() => { b.classList.remove("arm"); b.textContent = "Apagar todas as marcações"; }, 3500); return; }
-  clearTimeout(armTimer); b.classList.remove("arm"); b.textContent = "Apagar todas as marcações";
-  S.marks.clear(); persist(); renderPanels(); render(); toast("Marcações apagadas");
+  if (!ativoEhMassa()) return;
+  const o = objAtivo();
+  if (!o.marks.size) { toast(`Não há pontos marcados na ${o.nome}.`); return; }
+  if (!b.classList.contains("arm")) { b.classList.add("arm"); b.textContent = `Toque de novo para apagar ${o.marks.size} pontos`; armTimer = setTimeout(() => { b.classList.remove("arm"); renderPanels(); }, 3500); return; }
+  clearTimeout(armTimer); b.classList.remove("arm");
+  o.marks.clear(); persist(); renderPanels(); render(); toast(`Marcações da ${o.nome} apagadas`);
 });

@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Vídeo-análise quadro a quadro no celular: escala, eixos, massa, marcação com zoom de pinça, rastreamento automático, play em velocidade real, gráfico e tabela exportável em CSV.">
+<meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121619" media="(prefers-color-scheme: dark)">
 <title>Videoanálise Móvel</title>
+<!-- tema escolhido à mão (js/tema.js), aplicado antes de a página aparecer para não piscar no tema errado -->
+<script>try { var t = JSON.parse(localStorage.getItem("va-tema")); if (t === "claro" || t === "escuro") document.documentElement.dataset.theme = t === "escuro" ? "dark" : "light"; } catch (e) {}</script>
 <link rel="stylesheet" href="css/fontes.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
@@ -50,10 +54,16 @@
       <button type="button" id="bMark">Marcar ponto ▸</button>
     </div>
     <div class="trackrow" id="trackRow" hidden>
-      <button type="button" class="btn" id="bTrack">Rastrear automaticamente ▸▸</button>
+      <button type="button" class="btn soft" id="bTrack">Rastrear automaticamente ▸▸</button>
       <button type="button" class="btn danger arm" id="bTrackStop" hidden>Parar o rastreamento</button>
     </div>
     <p class="status" id="trackMsg" hidden></p>
+    <div class="objs" id="objs" role="group" aria-label="Objeto: massa a marcar ou centro de massa"></div>
+    <div class="cmsel" id="cmSel" hidden>
+      <p class="note" id="cmSelT"></p>
+      <div class="objs" id="cmSelM" role="group" aria-label="Massas que formam o centro de massa"></div>
+      <div class="row"><button class="btn danger small" id="delCm" type="button">Excluir o centro de massa</button></div>
+    </div>
     <div class="zoomrow" id="zoomRow" hidden>
       <span id="zoomTxt"></span>
       <button class="btn ghost small" id="zoomReset" type="button">Ver tudo</button>
@@ -105,14 +115,14 @@
     </section>
 
     <section class="block">
-      <h2><span class="n">5</span>Massa<span class="st todo" id="stMass">a informar</span></h2>
-      <div class="meas-row">
-        <input class="num" id="mVal" inputmode="decimal" autocomplete="off" placeholder="valor" aria-label="Massa do objeto">
-        <span class="pm">±</span>
-        <input class="num" id="mSig" inputmode="decimal" autocomplete="off" placeholder="incerteza" aria-label="Incerteza da massa">
-        <select class="sel" id="mUnit" aria-label="Unidade da massa"><option value="g">g</option><option value="kg">kg</option></select>
+      <h2><span class="n">5</span>Massas<span class="st def" id="stMass">1 u.a. cada</span></h2>
+      <div class="masslist" id="massList"></div>
+      <div class="grid2">
+        <div class="field"><label for="mUnit">Unidade das massas</label><select class="sel" id="mUnit"><option value="g">g</option><option value="kg">kg</option></select></div>
       </div>
-      <p class="note">A massa vai no cabeçalho da tabela copiada e do arquivo exportado.</p>
+      <p class="status" id="massInfo" hidden>Sem valor, cada massa vale 1 u.a. (unidade arbitrária), como no Tracker.</p>
+      <div class="cmresumo" id="cmResumo"></div>
+      <p class="note">Para analisar mais de uma massa, toque em <b>+ massa</b> nos botões logo abaixo dos controles do vídeo. Com duas ou mais, <b>+ centro de massa</b> cria um centro de massa vazio: escolha as massas que o formam logo abaixo dos botões. Pode haver vários centros de massa, cada um com as suas massas. Toque na bolinha de uma massa para trocar a cor dela. As massas vão no cabeçalho da tabela copiada e do arquivo exportado.</p>
     </section>
 
     <section class="block">
@@ -131,11 +141,12 @@
         <div class="field"><label for="trThr">Exigência do rastreamento</label><select class="sel" id="trThr"><option value="0.55">baixa</option><option value="0.7">média</option><option value="0.85">alta</option></select></div>
       </div>
       <p class="note">Rastreamento automático: no quadro de início, toque no centro da massa. A página mede a massa e ajusta o círculo tracejado para cobri-la com um pouco de fundo em volta; confira no vídeo e corrija o tamanho se precisar. O círculo não deve ser muito maior que a massa: se tiver mais fundo que massa, o rastreamento acaba seguindo o fundo. Toque em <b>Rastrear automaticamente</b>: a página procura a massa nos quadros seguintes e marca cada um. Se não tiver certeza em algum quadro, ela para ali para você corrigir a mira e continuar. Com exigência alta, ela para antes, ao menor sinal de dúvida.</p>
-      <div class="row"><button class="btn ghost small" data-goto-mode="marcar" type="button">Começar a marcar</button><button class="btn danger small" id="clearMarks" type="button">Apagar todas as marcações</button></div>
+      <div class="row"><button class="btn ghost small" data-goto-mode="marcar" type="button">Começar a marcar</button><button class="btn danger small" id="clearMarks" type="button">Apagar as marcações da massa A</button></div>
     </section>
 
     <section class="block">
-      <h2><span class="n">7</span>Dados</h2>
+      <h2><span class="n">7</span>Dados<span class="objtag" id="dataObj"></span></h2>
+      <p class="status" id="objNote" hidden></p>
       <div class="row">
         <div class="seg" role="group" aria-label="Grandeza no gráfico">
           <button type="button" data-plot="y" aria-pressed="true">y(t)</button>

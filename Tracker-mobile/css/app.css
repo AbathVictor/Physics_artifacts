@@ -8,19 +8,22 @@ img { max-width: 100%; }
 
 /* Layout: bancada de vídeo-análise — vídeo, ferramenta ativa e navegação em cima (área do polegar); os passos do experimento em sequência abaixo, ou à direita em tela larga */
 :root {
-  --bg: #e9eeed;
-  --paper: #fbfcfb;
-  --surface: #ffffff;
-  --ink: #17232a;
-  --ink-soft: #566871;
-  --line: #d4dddc;
-  --accent: #0c6b6b;
-  --accent-ink: #ffffff;
-  --ok: #17784a; --warn: #9a6400; --bad: #b3261e;
-  --plot: #1f63c6; --plot-hi: #cf4520; --grid: #e3eae8;
-  --stage: #1b2529;
-  /* cores desenhadas sobre o vídeo: iguais nos dois temas, sempre com contorno escuro */
-  --ov-mark: #ff6a2b; --ov-scale: #ffd23f; --ov-axis: #3fd6ff; --ov-cross: #ffffff; --ov-dark: rgba(0, 0, 0, 0.75);
+  /* tema claro (padrão). Contraste de todo texto com o fundo ≥ 4,5:1 (conferido no teste test_tema.py) */
+  --bg: #F5F6F8;          /* fundo da página */
+  --surface: #FFFFFF;     /* painéis e cartões */
+  --paper: #F5F6F8;       /* campos e fundo do gráfico, dentro dos cartões */
+  --ink: #1F2933;         /* texto principal */
+  --ink-soft: #52606D;    /* texto secundário */
+  --line: #DDE1E6;        /* bordas; também os pontos fora do intervalo ou futuros */
+  --accent: #0F766E; --accent-ink: #FFFFFF;   /* botão principal */
+  --soft: #E6F2F1; --soft-ink: #0F766E;       /* botão suave */
+  --amber: #D97706;       /* só a mira, o indicador do quadro atual e as alças do intervalo (nunca em botão de texto) */
+  --stage: #1E2228;       /* fundo da área do vídeo */
+  --ok: #17784a; --warn: #8a5a00; --bad: #b3261e;
+  --grid: #E1E5EA;
+  /* cores desenhadas sobre o vídeo (escala, eixos e fundo dos rótulos), iguais nos dois temas; o contorno das
+     marcas e dos pontos segue o tema: escuro no claro, claro no escuro */
+  --ov-scale: #ffd23f; --ov-axis: #3fd6ff; --ov-dark: rgba(0, 0, 0, 0.75); --ov-edge: rgba(17, 24, 32, 0.85);
   --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -28,16 +31,16 @@ img { max-width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d1316; --paper: #121a1e; --surface: #172025; --ink: #e2eaed; --ink-soft: #92a3ab;
-    --line: #26343a; --accent: #4cbfbf; --accent-ink: #0b1517;
-    --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80; --plot: #63a4ff; --plot-hi: #ff7b55; --grid: #1f2b30; --stage: #070b0d;
+    --bg: #121619; --surface: #1A1F24; --paper: #121619; --ink: #E6EAEE; --ink-soft: #9AA5B1; --line: #2E363E;
+    --accent: #2DD4BF; --accent-ink: #06201D; --soft: #17302E; --soft-ink: #5EEAD4; --amber: #F59E0B; --stage: #0B0D10;
+    --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80; --grid: #262D34; --ov-edge: rgba(240, 244, 248, 0.9);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0d1316; --paper: #121a1e; --surface: #172025; --ink: #e2eaed; --ink-soft: #92a3ab;
-  --line: #26343a; --accent: #4cbfbf; --accent-ink: #0b1517;
-  --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80; --plot: #63a4ff; --plot-hi: #ff7b55; --grid: #1f2b30; --stage: #070b0d;
+  --bg: #121619; --surface: #1A1F24; --paper: #121619; --ink: #E6EAEE; --ink-soft: #9AA5B1; --line: #2E363E;
+  --accent: #2DD4BF; --accent-ink: #06201D; --soft: #17302E; --soft-ink: #5EEAD4; --amber: #F59E0B; --stage: #0B0D10;
+  --ok: #4fd08f; --warn: #f0b72f; --bad: #ff8a80; --grid: #262D34; --ov-edge: rgba(240, 244, 248, 0.9);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -83,6 +86,7 @@ button, input, select { font: inherit; color: inherit; }
 .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
 .tag.on { color: var(--ok); } .tag.out { color: var(--ink-soft); }
 input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; height: 30px; }
+#seek { accent-color: var(--amber); }
 .nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .nav button, .markbar button { height: 48px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-family: var(--font-mono); font-size: 1rem; font-weight: 500; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .nav button:active { background: var(--paper); border-color: var(--accent); }
@@ -90,7 +94,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; heigh
 .nav #bPlay { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .nav svg { width: 18px; height: 18px; fill: currentColor; }
 .markbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 8px; }
-.markbar #bMark { background: var(--ov-mark); border-color: var(--ov-mark); color: #1a0d05; font-family: var(--font-ui); font-weight: 600; }
+.markbar #bMark { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-family: var(--font-ui); font-weight: 600; }
+.markbar #bMark::before { content: ""; width: 0.75em; height: 0.75em; border-radius: 50%; background: var(--obj, transparent); box-shadow: 0 0 0 1.5px var(--accent-ink); flex: none; }
 .markbar #bDel { font-family: var(--font-ui); font-size: 0.9rem; }
 .trackrow { display: grid; grid-template-columns: minmax(0, 1fr); }
 .trackrow .btn { height: 44px; font-size: 0.95rem; }
@@ -108,7 +113,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; heigh
 .st.ok { color: var(--ok); } .st.todo { color: var(--warn); } .st.def { color: var(--ink-soft); }
 .btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); border-radius: 6px; padding: 8px 14px; font-weight: 500; cursor: pointer; }
 .btn:hover { filter: brightness(1.08); }
-.btn.ghost { background: none; color: var(--accent); }
+.btn.ghost, .btn.soft { background: var(--soft); border-color: var(--soft); color: var(--soft-ink); }
 .btn.small { padding: 5px 10px; font-size: 0.82rem; }
 .btn.danger { border-color: var(--bad); color: var(--bad); background: none; }
 .btn.danger.arm { background: var(--bad); color: var(--accent-ink); }
@@ -130,9 +135,33 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; heigh
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
 .meas-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.8fr) 64px; gap: 6px; align-items: center; }
 .meas-row .pm { font-family: var(--font-mono); color: var(--ink-soft); }
+/* objetos: bolinha da cor de cada massa (e do centro de massa) */
+.dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; margin-right: 0.4em; vertical-align: -0.05em; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); flex: none; }
+/* os botões quebram linha em vez de rolar para o lado (com rolagem, alguns ficavam escondidos) */
+.objs { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 1px 4px; }
+.objs button { flex: none; display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); font: 500 0.86rem var(--font-ui); cursor: pointer; touch-action: manipulation; white-space: nowrap; }
+.objs button[aria-pressed="true"] { background: var(--soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--soft-ink); }
+.objs button.add { border-style: dashed; color: var(--ink-soft); }
+.objs button:disabled { opacity: 0.4; cursor: default; }
+.masslist { display: grid; gap: 8px; }
+.mrow { display: grid; grid-template-columns: 6.6em minmax(0, 1fr) auto minmax(0, 0.8fr) auto; gap: 6px; align-items: center; }
+.mrow .oname { display: inline-flex; align-items: center; font-weight: 500; white-space: nowrap; }
+.corbtn { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; margin: -6px 0 -6px -6px; border-radius: 50%; cursor: pointer; flex: none; }
+.corbtn .dot { width: 16px; height: 16px; margin: 0; }
+.corbtn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.corbtn:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 0; }
+.mrow .pm { font-family: var(--font-mono); color: var(--ink-soft); }
+.mrow .del { padding-left: 8px; padding-right: 8px; }
+.cmsel { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.cmsel .note { margin: 0; }
+.cmsel .objs button[aria-pressed="true"] { background: color-mix(in srgb, var(--ok) 22%, var(--surface)); border-color: var(--ok); color: var(--ink); }
+.cmresumo .status { margin: 4px 0 0; }
+.block h2 .objtag { margin-left: auto; display: inline-flex; align-items: center; font-family: var(--font-ui); letter-spacing: 0; text-transform: none; font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 input.num, select.sel { font-family: var(--font-mono); font-size: 16px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); width: 100%; min-width: 0; }
 select.sel { font-size: 14px; padding: 6px; }
 input.num.bad { border-color: var(--bad); }
+/* o cinza padrão do Chrome para o texto de exemplo não chega a 4,5:1 de contraste */
+::placeholder { color: var(--ink-soft); opacity: 1; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer; }
 .check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
 .plotbox { position: relative; height: 200px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
@@ -142,7 +171,8 @@ input.num.bad { border-color: var(--bad); }
 table.data { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 table.data th { position: sticky; top: 0; background: var(--paper); text-align: right; font-weight: 500; color: var(--ink-soft); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.data td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; cursor: pointer; }
-table.data tr.cur td { background: color-mix(in srgb, var(--ov-mark) 18%, transparent); }
+table.data tr.cur td { background: color-mix(in srgb, var(--amber) 16%, var(--surface)); }
+table.data tr.cur td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
 table.data tr:last-child td { border-bottom: none; }
 .radio { display: flex; flex-direction: column; gap: 6px; }
 .radio label { display: flex; gap: 8px; align-items: flex-start; font-size: 0.86rem; cursor: pointer; }

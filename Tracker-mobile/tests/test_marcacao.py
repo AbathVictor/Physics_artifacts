@@ -63,6 +63,9 @@ async def main():
         R.conferir(await pg.evaluate("__va.view.z") == 1, "Restaurar vista volta ao zoom ×1")
         await pg.click("#bPlay")
         await pg.wait_for_function("__va.playing", timeout=8000)
+        # clicar no play pode rolar a página: centraliza o vídeo de novo e mede o centro
+        await pg.evaluate("document.getElementById('cv').scrollIntoView({ block: 'center' })")
+        bx, by = await pg.evaluate("(() => { const r = document.getElementById('cv').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()")
         await pinca(cdp, bx, by, 40, 120)
         R.conferir(await pg.evaluate("__va.playing && __va.view.z > 2"), "Navegar: a pinça aproxima durante o play sem interrompê-lo")
         await pg.wait_for_function("!__va.playing", timeout=10000)
@@ -71,6 +74,7 @@ async def main():
         print("zoom e marcação")
         await pg.click("[data-mode=marcar]")
         await ir_para(pg, 0)
+        await pg.evaluate("document.getElementById('cv').scrollIntoView({ block: 'center' })")
         x0, y0 = verdade(W, H, 0)
         cx, cy = await tela(pg, x0, y0)
         mira = await pg.evaluate("JSON.stringify(__va.cross)")

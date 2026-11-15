@@ -7,8 +7,8 @@ Contexto para o Claude Code. Leia antes de mexer nesta pasta.
 Uma página (`index.html` com módulos JavaScript em `js/`) de vídeo-análise quadro a quadro no celular, inspirada no
 [Tracker](https://github.com/OpenSourcePhysics/tracker) do Open Source Physics, para as atividades experimentais
 de Física Básica (sistema massa-mola, pêndulo). O aluno grava o vídeo no próprio celular, define o intervalo,
-calibra a escala e os eixos, informa a massa, marca a posição do objeto (à mão ou com rastreamento automático)
-e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/OscLab.html), numa planilha ou em Python.
+calibra a escala e os eixos, informa as massas, marca a posição de cada objeto (à mão ou com rastreamento
+automático; até 10 massas e centros de massa formados pelas massas que ele escolher) e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/OscLab.html), numa planilha ou em Python.
 
 - Público: alunos com celular **Android e Chrome**. iOS ainda não é alvo.
 - Tudo roda no navegador; o vídeo nunca sai do aparelho. Nada para instalar.
@@ -35,11 +35,16 @@ e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio
 | Forma | Página nesta pasta em **módulos JavaScript nativos, sem passo de montagem** (sem Node/npm para publicar): edita e publica. Decidido em 14/11/2026, substituiu o arquivo único (que existia só por causa do artefato do claude.ai, hoje obsoleto) |
 | Sem internet | uma vez aberta, a página **não pode perder nenhuma função sem conexão** (modo avião). Nada é carregado de fora: `mp4box.js` e as fontes são cópias locais; todos os módulos são importados no início (sem `import()` tardio); o `sw.js` guarda tudo para recarregar sem conexão |
 | Compatibilidade com o Tracker | princípio permanente: a versão móvel e o Tracker de computador **devem conversar sempre**. Os formatos e o modelo de dados seguem os do Tracker (objetos como os *point mass* dele, coordenadas em pixels da imagem, eixos, fita de calibração, intervalo do clipe), para que no futuro um trabalho feito no celular abra no Tracker e vice-versa (arquivo `.trk`) |
-| Várias massas | planejado: até **10 massas** no mesmo vídeo, rastreadas numa passada só de decodificação; CSV com várias massas **no estilo do Tracker** (uma tabela, colunas de cada objeto) |
+| Várias massas | até **10 massas** no mesmo vídeo (massa A a massa J, cores do Tracker em A a D) e **centros de massa** (cm A a cm J), como o `CenterOfMass` do Tracker: cada um **nasce vazio** e é formado pelas massas que o usuário escolher (nunca entram sozinhas; pedido do autor), e pode haver vários, cada um com as suas massas. Posição: média das posições ponderada pelas massas, calculada em pixels, só nos quadros em que todas as massas do sistema têm ponto. A escolha das massas fica logo abaixo dos botões dos objetos, quando o cm está ativo (no Tracker é a janela `CenterOfMassInspector`). Todos na cor verde do Tracker; o nome os distingue. Feito em 14/11/2026. Falta rastrear todas numa passada só de decodificação |
+| Cores das massas | A a D com as cores do Tracker; E a J escolhidas para não confundir (E azul `#1791cf` e J framboesa `#c2185b`, longe do âmbar da mira). O usuário pode **trocar a cor de cada massa** tocando na bolinha dela no passo 5 (pedido do autor); a cor trocada vai no salvamento |
+| Cores e temas | tokens combinados com o autor em 14/11/2026 (tabela em `css/app.css`): fundo `#F5F6F8`/`#121619`, cartões `#FFFFFF`/`#1A1F24`, texto `#1F2933`/`#E6EAEE`, texto secundário `#52606D`/`#9AA5B1`, bordas `#DDE1E6`/`#2E363E`, botão principal `#0F766E` (texto branco) / `#2DD4BF` (texto `#06201D`), botão suave `#E6F2F1`/`#0F766E` e `#17302E`/`#5EEAD4`, âmbar `#D97706`/`#F59E0B`, área do vídeo `#1E2228`/`#0B0D10`. Tema automático (segue o sistema) ou escolhido à mão, guardado em `localStorage` (`va-tema`) fora do salvamento por vídeo. **Âmbar só** na mira (anel com contorno escuro), no indicador do quadro atual e nas alças do intervalo, nunca em botão de texto. Cor de objeto só em bolinha ou borda (o botão Marcar ponto é verde-petróleo, com a bolinha da massa ativa); objeto ativo com fundo suave e borda. Marcas e pontos com contorno fino (escuro no claro, claro no escuro); pontos fora do intervalo ou futuros (depois do quadro atual) na cor de borda, no vídeo e no gráfico. Todo texto com contraste ≥ 4,5:1 (conferido pelo `test_tema.py`) |
+| Sem escala | como no Tracker, **1 px = 1 u.a.** (unidade arbitrária), a partir da origem dos eixos. A tabela, o gráfico e o CSV funcionam sem escala; digitar a distância real converte tudo na hora (os pontos ficam sempre em pixels) |
+| Massas sem valor | **nenhuma** informada: massas iguais, 1 u.a. cada (a massa padrão do Tracker é 1). **Todas**: valores reais, numa unidade só para todas (g ou kg), como no Tracker. **Só parte**: o centro de massa fica sem posição, com o aviso **"massa B faltante"** (texto pedido pelo autor) |
+| Tabela e gráfico | de **um objeto por vez**, o ativo, como no Tracker (uma tabela por trilha). Copiar e CSV levam todos os objetos com pontos |
 | Fluxo | vídeo (câmera ou galeria) → intervalo → escala → eixos → massa → marcação → tabela e gráfico |
-| Dados | apenas **t, x, y** por quadro, mais a **massa** (valor ± incerteza, g ou kg). Velocidade e aceleração ficaram de fora por decisão |
+| Dados | apenas **t, x, y** por quadro de cada objeto, mais a **massa** de cada um (valor ± incerteza, g ou kg). Velocidade e aceleração ficaram de fora por decisão |
 | Saída | **Copiar tabela** (tabulação) e **Exportar CSV** em dois formatos que o aluno escolhe: *Excel/Planilhas Google* (`;` entre colunas, vírgula decimal, com marca UTF-8 no início) e *Internacional/Python* (`,` entre colunas, ponto decimal) |
-| Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=3)`. O Laboratório de Oscilações lê os dois formatos (testado) |
+| Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=3)`. O Laboratório de Oscilações lê os dois formatos (testado) | Com vários objetos, o formato de várias trilhas do Tracker (`ExportDataDialog`): uma linha por massa (`massa A: …`), uma linha por centro de massa (`cm A: massa A + massa B · …`), `unidades`, `#multi:`, a linha dos nomes `;massa A;;massa B;;cm A;;`, o cabeçalho `t;x;y;x;y;x;y;` e os dados (célula vazia no quadro em que o objeto não tem ponto). Com um objeto só, o formato continua o de antes |
 | Descartado | botão "Enviar para o Laboratório de Oscilações" |
 | Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir** |
 | Marcação | **zoom de pinça** no próprio vídeo + **toque posiciona a mira** (substituiu uma lupa lateral, que o autor achou pior) |
@@ -67,7 +72,13 @@ js/estado.js               estado S, exposto em globalThis.__va (os testes depen
 js/video/conteiner.js      MP4/MOV: topBoxes, openFile, buildIndex, computeDims
 js/video/decodificador.js  pump → nextJob → decodeGop; caches S.low e S.full; onFrame, copyFrame, putCache
 js/video/exemplo.js        vídeo de exemplo em base64 (SAMPLE_B64)
-js/analise.js              escala, eixos, phys(), predict(), salvamento por vídeo (persist)
+js/objetos.js              objetos no molde do Tracker: massas (nome, cor, valor, pontos) e centros de massa (nomes das
+                           massas do sistema); pesos, pontos do cm, salvar e reabrir. Sem DOM (testado no Node)
+js/massas.js               interface dos objetos: fileira de botões (ativo, + massa, + centro de massa), escolha das
+                           massas do cm ativo e passo 5 (cor, valor e incerteza de cada massa; situação de cada cm)
+js/tema.js                 tema automático, claro ou escuro (data-theme no <html>) e meta theme-color; um script curto
+                           no <head> do index.html aplica a escolha antes de a página aparecer
+js/analise.js              escala (real ou genérica, 1 px = 1 u.a.), eixos, phys(), predict(), salvamento por vídeo (persist)
 js/desenho.js              vista com zoom (S.view), drawMain, drawOverlays
 js/gestos.js               pinça, arrastar, toque
 js/rastreio/modelo.js      cálculo do rastreamento: recorte, máscara, correlação, subpixel, evolução com âncora
@@ -82,6 +93,10 @@ Regras da estrutura:
 - Código de cálculo (sem DOM ao carregar) fica em módulos que o Node consegue importar, para ter testes rápidos
   (`tests/test_calculo.mjs`). `estado.js` usa `globalThis` por isso.
 - Arquivo novo na página: inclua em `ARQUIVOS` no `sw.js` e mude `VERSAO` (o `test_offline.py` confere a lista).
+- Objetos: `S.objs` (massas e cm) e `S.ativo` (índice do objeto ativo). `S.marks` é um *getter* definido em
+  `objetos.js`: os pontos do objeto ativo (para o cm, os calculados). Escreva pontos só em `objeto.marks` de uma
+  massa. Toda alteração de pontos, massas ou sistema passa por `persist()`, que aumenta `S.ver`; é o `S.ver` que
+  manda recalcular o centro de massa (o rastreamento também aumenta `S.ver` a cada ponto).
 - Abrir o `index.html` direto do disco não funciona mais (módulos exigem http). Para ver no computador:
   `python -m http.server` dentro desta pasta e abra `http://localhost:8000/`.
 
@@ -135,6 +150,16 @@ do eixo x medido no sentido anti-horário.
     sem precisar limpar cache) e a cópia é atualizada; sem conexão, ou sem resposta em 4 s, usa a cópia. O
     `clients.claim()` faz o service worker atender a página já na primeira visita (inclui as fontes, que o navegador
     só busca quando um caractere de cada subconjunto aparece).
+13. **Fileira de objetos abaixo de Marcar ponto e Rastrear**: posta logo abaixo das ferramentas, ela empurrava
+    *Marcar ponto* para fora da tela num celular de 412 × 915, e o aluno teria de rolar a página entre tocar no
+    vídeo e marcar. Cuidado ao pôr qualquer coisa entre o vídeo e a barra de marcação. Os botões quebram linha:
+    com rolagem para o lado, alguns ficavam escondidos.
+14. **Salvamento no formato 2** (`v: 2`, com `objs`, `ativo` e `massUnit`). O formato 1 (uma massa, `marks` e `mass`)
+    ainda é lido e vira a massa A; não remova essa leitura enquanto houver alunos com dados antigos. A cor de uma
+    massa só é guardada (campo opcional `cor`) quando o usuário a trocou; sem o campo, vale a cor padrão da letra.
+15. **Cores lidas do CSS pelo JavaScript**: o desenho sobre o vídeo e o gráfico leem os tokens (`--amber`, `--line`,
+    `--ov-edge`…) com `getComputedStyle` (`readOV` em `desenho.js`, `drawPlot` em `dados.js`) e redesenham quando o
+    tema muda (`main.js` observa `data-theme` e `prefers-color-scheme`). Token novo usado no canvas: leia-o ali.
 
 ## Testes
 
@@ -149,8 +174,10 @@ python tests/gerar_videos.py               # uma vez; precisa do ffmpeg no PATH 
 python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, HEVC
 python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos, recuperação
 python tests/test_rastreamento.py          # medição do alvo, precisão, perda do alvo, botão Parar
+python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
+python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
-node tests/test_calculo.mjs                # previsão, máscara e correlação, direto no Node (sem navegador)
+node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 ```
 
 Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Variáveis opcionais: `CHROME_PATH`
@@ -180,7 +207,18 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      leva 3 s por salto), memória de vídeo do Android dividida entre os caches e o decodificador por hardware, e dois
      decodificadores abertos durante o rastreamento. O Tracker não guarda quadros (decodifica sob demanda; ver
      `CVVideo`, `XuggleVideo` e `JSMovieVideo`). Antes de mudar, pedir ao autor o diagnóstico de um vídeo que trava.
-  3. Modelo de dados com vários objetos (ainda um na tela), no molde do Tracker, com migração do que os alunos já
-     salvaram. Antes, conferir no código do Tracker como ele exporta várias massas no CSV.
-  4. Interface para até 10 massas e rastreamento de todas numa passada.
+  3. ~~Modelo de dados com vários objetos, no molde do Tracker, com migração do que os alunos já salvaram~~ (feito
+     em 14/11/2026, antes da fase 2, a pedido do autor; junto vieram a interface para até 10 massas, o centro de
+     massa e a escala genérica).
+  4. Rastrear todas as massas numa passada só de decodificação (hoje o rastreamento é da massa ativa).
+  4a. **Celular deitado e cores** (plano aprovado pelo autor em 14/11/2026, etapas em ordem, uma por vez, testada no
+     celular entre elas): 1. ~~cores e temas~~ (feito; a escolha manual do tema aparece na gaveta, etapa 2);
+     2. gaveta ≡ (Vídeo, Dados, Ferramentas, com Diagnóstico, Tema e Ajuda), também em pé, sem tirar os botões de onde
+     estão; Voltar do Android fecha; Ajuda começa com as dicas de cada etapa (o autor vai escrever o texto depois);
+     3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
+     painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
+     letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e
+     "do início ao fim" é voltar ao início + play; 4. **lupa só na escala** (pontas da fita), acima do dedo, trocando
+     para baixo perto do topo e de lado perto das bordas; sem lupa na mira; desenho juntado em um por quadro de tela
+     (requestAnimationFrame); 5. variação B (vídeo em pé); 6. variação C (tela cheia).
   5. Futuro: exportar e importar `.trk` (arquivo de projeto do Tracker).

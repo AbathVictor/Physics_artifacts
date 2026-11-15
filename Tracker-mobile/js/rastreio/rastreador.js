@@ -4,6 +4,7 @@
 import { inInterval, persist } from "../analise.js";
 import { ensureVisible, render } from "../desenho.js";
 import { S } from "../estado.js";
+import { objAtivo } from "../objetos.js";
 import { show, stopPlay, tick } from "../navegacao.js";
 import { renderPanels, updateReadout } from "../paineis.js";
 import { cropRGBA, evolve, nccSearch, subpixel, templateFrom } from "./modelo.js";
@@ -144,6 +145,10 @@ export function trackMsg(txt, kind) { const el = $("trackMsg"); el.hidden = !txt
 export function stopTrack() { if (TR.running) { TR.stop = true; TR.userStop = true; } }
 async function runTrack() {
   if (TR.running || !S.frames.length) return;
+  const alvo = objAtivo();
+  if (!alvo || alvo.tipo !== "massa") { trackMsg("Escolha uma massa para rastrear: o centro de massa é calculado a partir delas.", "bad"); return; }
+  // os pontos vão para a massa ativa no início (trocar de objeto para o rastreamento antes)
+  const marks = alvo.marks;
   if (!S.cross) { trackMsg("Toque na massa para pôr a mira nela antes de rastrear.", "bad"); return; }
   if (!inInterval(S.cur)) { trackMsg("Este quadro está fora do intervalo de análise.", "bad"); return; }
   const startI = S.cur, endI = S.end, every = S.every;
@@ -163,7 +168,7 @@ async function runTrack() {
         if (k === startI) {
           const p = st.hist[0].p;
           if (!initTemplate(f, p)) { st.err = new Error(TR.initErr); TR.stop = true; return; }
-          S.marks.set(k, { x: p.x, y: p.y });
+          marks.set(k, { x: p.x, y: p.y }); S.ver++;
           return;
         }
         if (k < startI || k > endI || (k - startI) % every || !TR.tf) return;
@@ -176,7 +181,7 @@ async function runTrack() {
         Sr = Math.min(Sr, 0.5 * Math.min(S.dispW, S.dispH));
         const res = trackFrame(f, pq, Sr);
         if (res.lost) { st.lost = { k, q: { x: clampF(pq.x, 0, S.dispW), y: clampF(pq.y, 0, S.dispH) }, score: res.score }; TR.stop = true; return; }
-        S.marks.set(k, res.pos);
+        marks.set(k, res.pos); S.ver++;
         H.push({ p: res.pos, t: tk }); if (H.length > 4) H.shift();
         st.last = k; st.n++;
         st.score = res.score; st.minScore = Math.min(st.minScore, res.score);

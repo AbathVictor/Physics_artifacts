@@ -26,7 +26,7 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 ### [Videoanálise Móvel](Tracker-mobile/) · em desenvolvimento
 
-Vídeo-análise quadro a quadro feita no próprio celular, inspirada no Tracker. O aluno grava o vídeo, define a escala e os eixos, informa a massa e marca a posição do objeto em cada quadro (à mão, com zoom de pinça, ou com o rastreamento automático). A tabela t, x, y sai copiada ou em CSV, no formato do Excel e Planilhas Google ou no internacional (Python), e abre direto no Laboratório de Oscilações.
+Vídeo-análise quadro a quadro feita no próprio celular, inspirada no Tracker. O aluno grava o vídeo, define a escala e os eixos, informa a massa e marca a posição do objeto em cada quadro (à mão, com zoom de pinça, ou com o rastreamento automático). Dá para analisar até 10 massas no mesmo vídeo e obter centros de massa, cada um formado pelas massas que o aluno escolher; sem escala, as posições ficam em pixels (1 px = 1 u.a., como no Tracker). A tabela t, x, y sai copiada ou em CSV (com várias massas, no formato de várias trilhas do Tracker), no formato do Excel e Planilhas Google ou no internacional (Python), e abre direto no Laboratório de Oscilações.
 
 **Como usar**
 

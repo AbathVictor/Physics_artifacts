@@ -11,7 +11,10 @@ export const S = {
   // análise
   mode: "nav", start: 0, end: 0, every: 1, trail: true, zoom: 4, plotVar: "y", fmt: "excel",
   trR: 20, trThr: 0.7, trAuto: true, objR: 0, tracking: false,
-  scale: null, axes: null, mass: { val: "", sig: "", unit: "g" }, marks: new Map(), cross: null, grab: null, lastGrab: null,
+  scale: null, axes: null, cross: null, grab: null, lastGrab: null,
+  // objetos (massas e centro de massa, ver objetos.js), unidade das massas e contador de alterações; S.marks
+  // (pontos do objeto ativo) é definido em objetos.js
+  objs: [], ativo: 0, massUnit: "g", ver: 0,
 };
 // exposto para os testes (não remova); globalThis é o window no navegador e também existe no Node
 globalThis.__va = S;

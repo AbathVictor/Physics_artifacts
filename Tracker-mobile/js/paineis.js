@@ -1,13 +1,15 @@
 // Painéis: linha de situação do vídeo (setSrc), liberar os controles, leitura do quadro atual, informações da
 // escala e atualização dos painéis dos passos (renderPanels).
 
-import { inInterval, unitPerPx } from "./analise.js";
+import { UA, escalaReal, inInterval } from "./analise.js";
 import { renderData } from "./dados.js";
 import { ctx, cv } from "./desenho.js";
 import { renderTrR } from "./entradas.js";
 import { S } from "./estado.js";
 import { renderHint, setMode } from "./ferramentas.js";
+import { renderMassas, renderObjs } from "./massas.js";
 import { stopPlay } from "./navegacao.js";
+import { ativoEhMassa, objAtivo, objetosIniciais } from "./objetos.js";
 import { stopTrack } from "./rastreio/rastreador.js";
 import { $, dist, fmt, kv, parseNum } from "./util.js";
 
@@ -26,10 +28,11 @@ export function updateReadout() {
   $("seek").value = String(S.cur);
   const tag = $("rTag");
   if (!inInterval(S.cur)) { tag.hidden = false; tag.className = "tag out"; tag.textContent = "fora do intervalo"; }
-  else if (S.marks.has(S.cur)) { tag.hidden = false; tag.className = "tag on"; tag.textContent = "ponto marcado"; }
+  else if (S.marks.has(S.cur)) { tag.hidden = false; tag.className = "tag on"; tag.textContent = ativoEhMassa() ? "ponto marcado" : "posição calculada"; }
   else tag.hidden = true;
-  $("bDel").disabled = !S.marks.has(S.cur);
-  $("bMark").disabled = !inInterval(S.cur);
+  // o centro de massa não se marca: vem das massas
+  $("bDel").disabled = !ativoEhMassa() || !S.marks.has(S.cur);
+  $("bMark").disabled = !ativoEhMassa() || !inInterval(S.cur);
   if (S.mode === "marcar") renderHint();
 }
 export function resetVideo() {
@@ -41,7 +44,7 @@ export function resetVideo() {
   S.decoder = null; S.frames = []; S.samples = []; S.track = null; S.timing = null;
   S.failed = new Set(); S.failedFull = new Set();
   S.gopMs = []; S.gopFrames = []; S.tsMismatch = 0; S.countErr = 0; S.restarts = 0; S.lastErr = "";
-  S.cur = 0; S.hw = null; S.err = null; S.fw = S.fh = 0; S.dispW = S.dispH = 0; S.rot = 0; S.marks = new Map(); S.view = { z: 1, vx: 0, vy: 0 };
+  S.cur = 0; S.hw = null; S.err = null; S.fw = S.fh = 0; S.dispW = S.dispH = 0; S.rot = 0; objetosIniciais(); renderObjs(); S.view = { z: 1, vx: 0, vy: 0 };
   setControls(false); setMode("nav");
   ["rN", "rT"].forEach((id) => { $(id).textContent = "—"; });
   $("rTag").hidden = true;
@@ -52,14 +55,16 @@ export function resetVideo() {
   renderData();
 }
 export function renderScaleInfo() {
-  const k = unitPerPx(), d = dist(S.scale.p1, S.scale.p2);
+  const k = escalaReal(), d = dist(S.scale.p1, S.scale.p2);
   const st = $("stScale");
   if (k > 0) {
     st.className = "st ok"; st.textContent = "definida";
     $("scaleInfo").textContent = `${fmt(d, 1)} px no vídeo · 1 px = ${fmt(k, sigDec(k))} ${S.scale.unit}`;
   } else {
-    st.className = "st todo"; st.textContent = "a definir";
-    $("scaleInfo").textContent = parseNum(S.scale.len) > 0 ? "Afaste mais as duas pontas no vídeo." : "Digite a distância real entre as pontas.";
+    // sem escala, as posições ficam em pixels, como no Tracker
+    st.className = "st def"; st.textContent = `genérica: 1 px = 1 ${UA}`;
+    $("scaleInfo").textContent = (parseNum(S.scale.len) > 0 ? "Afaste mais as duas pontas no vídeo. " : "Digite a distância real entre as pontas. ")
+      + `Enquanto isso, as posições ficam em pixels: 1 px = 1 ${UA} (unidade arbitrária), como no Tracker.`;
   }
 }
 const sigDec = (v) => Math.max(0, Math.min(8, 2 - Math.floor(Math.log10(Math.abs(v)))));
@@ -81,15 +86,12 @@ export function renderPanels() {
   if (document.activeElement !== $("axAng")) $("axAng").value = fmt(S.axes.ang * 180 / Math.PI, 1);
   const isDef = Math.abs(S.axes.o.x - S.dispW / 2) < 0.5 && Math.abs(S.axes.o.y - S.dispH / 2) < 0.5 && S.axes.ang === 0;
   $("stAxes").className = isDef ? "st def" : "st ok"; $("stAxes").textContent = isDef ? "padrão: origem no centro" : "definidos";
-  // massa
-  if (document.activeElement !== $("mVal")) $("mVal").value = S.mass.val;
-  if (document.activeElement !== $("mSig")) $("mSig").value = S.mass.sig;
-  $("mUnit").value = S.mass.unit;
-  const mv = parseNum(S.mass.val);
-  $("stMass").className = mv > 0 ? "st ok" : "st todo"; $("stMass").textContent = mv > 0 ? "informada" : "a informar";
-  $("mVal").classList.toggle("bad", S.mass.val !== "" && !(mv > 0));
-  $("mSig").classList.toggle("bad", S.mass.sig !== "" && !(parseNum(S.mass.sig) >= 0));
+  // objetos e massas
+  renderObjs(); renderMassas();
   // marcação
+  const cl = $("clearMarks"), o = objAtivo();
+  if (!cl.classList.contains("arm")) cl.textContent = ativoEhMassa() ? `Apagar as marcações da ${o.nome}` : "Apagar as marcações";
+  cl.disabled = !ativoEhMassa();
   $("every").value = String(S.every);
   $("trR").max = String(Math.max(10, Math.round(0.2 * Math.min(S.dispW, S.dispH))));
   renderTrR(); $("trAuto").checked = S.trAuto;
