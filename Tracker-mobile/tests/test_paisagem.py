@@ -429,6 +429,17 @@ async def main():
         R.conferir(await dentro(pg, "#objs [data-obj='0']") and await dentro(pg, "#addCm"), "tocar nela abre a gaveta dos objetos ali mesmo, sem abrir o painel")
         await pg.click("#objs [data-obj='0']"); await esperar_gaveta(pg, False)
         R.conferir(await pg.evaluate("__va.ativo") == 0 and "massa A" in await pg.inner_text("#pObjBtn"), "escolher uma massa troca o objeto e fecha")
+        # com o painel aberto, a linha de cima continua à vista e por cima dele: dá para trocar de objeto vendo a tabela
+        await pg.click("#pPainelBtn"); await pg.wait_for_timeout(260)
+        await pg.click("#pAbas [data-aba=tab]")
+        await pg.click("#pObjBtn"); await esperar_gaveta(pg, True)
+        cx, cy = await centro(pg, "#objs [data-obj='1']")
+        R.conferir(await pg.evaluate("([x, y]) => !!document.elementFromPoint(x, y).closest('#objs')", [cx, cy]) and await dentro(pg, "#btnTela") and await dentro(pg, "#menuBtn"),
+                   "painel aberto: a alça, ⤢ e ≡ à vista, e a gaveta dos objetos desce por cima do painel")
+        await pg.click("#objs [data-obj='1']"); await esperar_gaveta(pg, False)
+        R.conferir(await pg.evaluate("__va.ativo") == 1 and await dentro(pg, "#tblWrap"), "troca de objeto com a tabela aberta")
+        await escolher(pg, "[data-obj='0']")
+        await pg.click("#pFechaPainel"); await pg.wait_for_timeout(260)
         await janela_do_grafico(pg, R)
         await pg.click("#btnTela")
         await pg.wait_for_function("!document.body.classList.contains('pais-c')")
@@ -443,6 +454,37 @@ async def main():
         await pg.go_back()
         await pg.wait_for_function("!document.body.classList.contains('gaveta-aberta')")
         R.conferir(not await pg.evaluate("document.getElementById('pais').inert"), "Voltar fecha")
+
+        print("histórico e painel estreito")
+        # o popstate é assíncrono: dois pedidos de fechar antes dele (os dois dedos de uma pinça pousam juntos, Esc
+        # repetido) voltavam duas vezes no histórico, e o segundo Voltar saía da página
+        na_pagina = "!!window.__va && !!document.getElementById('pObjBtn')"
+        await pg.click("#pObjBtn"); await esperar_gaveta(pg, True)
+        cdp = await ctx.new_cdp_session(pg)
+        cx, cy = await centro(pg, "#cv")
+        await pinca(cdp, cx, cy, 80, 120)
+        await pg.wait_for_timeout(400)
+        R.conferir(await pg.evaluate(na_pagina) and not await gaveta_aberta(pg), "pinça de dois dedos com a gaveta dos objetos aberta: fecha a gaveta e continua na página")
+        for qual, abre in (("dos objetos", "#pObjBtn"), ("≡", "#menuBtn")):
+            await pg.click(abre)
+            await pg.wait_for_function("document.getElementById('pObjs').classList.contains('aberta') || document.body.classList.contains('gaveta-aberta')")
+            try:
+                await pg.evaluate("for (let i = 0; i < 2; i++) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))")
+            except Exception:
+                pass  # a página saiu (o contexto foi destruído); o conferir abaixo registra a falha
+            await pg.wait_for_timeout(400)
+            fechou = await pg.evaluate(na_pagina + " && !document.getElementById('pObjs').classList.contains('aberta') && !document.body.classList.contains('gaveta-aberta')")
+            R.conferir(fechou, f"Esc duas vezes com a gaveta {qual} aberta: fecha e continua na página")
+        # 640 × 360 (celular pequeno): a alça mostra só a letra da massa, para o nome caber ao lado de y(t)/x(t)
+        await escolher(pg, "[data-obj='0']")
+        await esperar_gaveta(pg, False)
+        await pg.set_viewport_size({"width": 640, "height": 360})
+        await pg.wait_for_timeout(300)
+        estreito = "(() => { const n = document.querySelector('#pObjBtn .nome'), p = n.querySelector('.pre'); return [getComputedStyle(p).display, n.scrollWidth <= n.clientWidth + 1]; })()"
+        R.conferir(await pg.evaluate(estreito) == ["none", True], f"640 × 360: a alça mostra \"● A\" inteiro ({await pg.evaluate(estreito)})")
+        await pg.set_viewport_size(DEITADO)
+        await pg.wait_for_timeout(300)
+        R.conferir(await pg.evaluate(estreito) == ["inline", True], "915 × 412: a alça mostra \"massa A\" inteiro")
 
         print("temas")
         for nome, esquema in (("claro", "light"), ("escuro", "dark")):
@@ -466,6 +508,18 @@ async def main():
             R.conferir(not c["ruins"] and "escolha as massas" in await pg.inner_text("#pObjBtn"),
                        f"[{nome}] contraste ≥ 4,5:1 com a gaveta dos objetos aberta e o aviso na alça" + ("" if not c["ruins"] else ": " + "; ".join(c["ruins"][:5])))
             await pg.click("#pObjBtn"); await esperar_gaveta(pg, False)
+
+        print("arquivo que não é vídeo")
+        # por último: a página fica sem vídeo. A gaveta aberta fecha (a alça fica desativada, sem nada para mostrar)
+        await pg.click("#pObjBtn"); await esperar_gaveta(pg, True)
+        ruim = VIDEOS / "nao_e_video.mp4"
+        ruim.write_bytes(b"isto nao e um video " * 100)
+        await pg.set_input_files("#fileIn", str(ruim))
+        await pg.wait_for_function("document.getElementById('srcLine').classList.contains('bad')", timeout=20000)
+        await esperar_gaveta(pg, False)
+        R.conferir(await pg.evaluate("document.getElementById('pObjBtn').disabled && history.state === null"),
+                   "a gaveta dos objetos fecha (sem entrada sobrando no histórico) e a alça fica desativada")
+        ruim.unlink()
 
         R.conferir(not erros, "sem erros de JavaScript" + (f": {erros}" if erros else ""))
         await nav.close()

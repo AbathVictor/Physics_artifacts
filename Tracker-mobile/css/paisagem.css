@@ -81,6 +81,10 @@ body.paisagem > header.top, body.paisagem > main.app, body.paisagem > footer.cre
 .pobjs.aberta .palca-btn { border-color: var(--accent); }
 .pobjs.aberta .palca-btn svg { transform: rotate(180deg); }
 .palca #plotSeg { flex: none; margin-left: auto; }
+/* painel estreito (celular pequeno, vídeo em pé): a alça mostra só a letra da massa ("● A"), para o nome caber ao lado
+   de y(t)/x(t). Na tela cheia não: lá a linha da alça tem a largura do conteúdo, e a contenção a encolheria a zero */
+body.paisagem:not(.pais-c) .palca { container-type: inline-size; }
+@container (max-width: 280px) { .palca-btn .pre { display: none; } }
 .palca .seg button { min-height: 32px; padding: 4px 8px; }
 /* deitado (A), y(t)/x(t) só com o gráfico à vista */
 body.paisagem:not(.pais-b) #pais:not([data-aba="graf"]) .palca #plotSeg { display: none; }
@@ -97,7 +101,8 @@ body.paisagem:not(.pais-b) #pais:not([data-aba="graf"]) .palca #plotSeg { displa
 .paisagem #delCm { height: 40px; padding: 0 10px; font-size: 0.8rem; }
 .pabas { display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .pseg { flex: 1; min-width: 0; display: flex; }
-.pseg button { flex: 1; min-width: 0; min-height: 36px; padding: 4px; font-family: var(--font-ui); font-size: 0.8rem; }
+.pseg button { flex: 1; min-width: 0; min-height: 36px; padding: 4px; font-family: var(--font-ui); font-size: 0.8rem;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }  /* painel estreito: "Parâm…", e não a letra cortada */
 .pabas-btns { display: flex; }
 .pabas .iconbtn { width: 44px; height: 44px; }
 #pFechaPainel { display: none; }
@@ -197,6 +202,11 @@ body.pais-c .ppainel { position: fixed; top: 0; right: 0; bottom: 0; width: 40%;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) 0;
   transform: translateX(105%); visibility: hidden; transition: transform 0.2s ease, visibility 0s 0.2s; box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3); }
 body.pais-c.painel-aberto .ppainel { transform: none; visibility: visible; transition: transform 0.2s ease; }
+/* o painel começa abaixo da linha de cima (alça, botão do painel, ⤢ e ≡: 8 px + 48 px + 6 px), que fica por cima
+   dele: com o painel aberto ainda dá para trocar de objeto (a gaveta desce sobre o painel), sair da tela cheia e
+   abrir o ≡ (a gaveta ≡ fica acima de tudo, z 30 e 31) */
+body.pais-c .ppainel { top: 62px; border-width: 1px 0 0 1px; border-top-left-radius: 10px; }
+body.pais-c.painel-aberto .ptopo { z-index: 21; }
 body.pais-c #pFechaPainel { display: grid; }
 body.pais-c .toast { bottom: 128px; }
 body.pais-c #pAbas [data-aba="graf"] { display: none; }

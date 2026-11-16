@@ -21,7 +21,7 @@ import { layout } from "./desenho.js";
 import { S } from "./estado.js";
 import { setMode } from "./ferramentas.js";
 import { IC } from "./icones.js";
-import { gavetaAberta } from "./gaveta.js";
+import { gavetaAberta, voltarHistorico } from "./gaveta.js";
 import { posicionarJanela } from "./janela.js";
 import { holdable, playInterval, show, startPlay, stopPlay } from "./navegacao.js";
 import { avisoFaltam, objAtivo, sistemaCm } from "./objetos.js";
@@ -142,8 +142,12 @@ export function atualizarEtapas() {
   const o = objAtivo(), btn = $("pObjBtn");
   let aviso = "";
   if (o && o.tipo === "cm") { const s = sistemaCm(o, S.objs); aviso = !s.membros.length ? "escolha as massas" : s.faltam.length ? avisoFaltam(s.faltam) : ""; }
-  btn.innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i><span class="nome">${esc(o.nome)}</span>${aviso ? `<span class="aviso">${esc(aviso)}</span>` : ""}${IC.abaixo}` : "";
+  // "massa " some com o painel estreito (css/paisagem.css), como nos botões compactos da fileira; "cm A" fica inteiro
+  const nome = o && o.tipo === "massa" ? `<span class="pre">massa </span>${esc(o.letra)}` : o ? esc(o.nome) : "";
+  btn.innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i><span class="nome">${nome}</span>${aviso ? `<span class="aviso">${esc(aviso)}</span>` : ""}${IC.abaixo}` : "";
   btn.disabled = !on;
+  // sem vídeo (um arquivo que não abriu), a gaveta não tem o que mostrar
+  if (!on) fecharObjs();
   btn.setAttribute("aria-label", o ? `Objeto ativo: ${o.nome}${aviso ? " (" + aviso + ")" : ""}. Trocar de objeto` : "Objetos");
 }
 // a ferramenta pode mudar por outros caminhos (botões "Ajustar … no vídeo", ferramentas em pé, abrir vídeo):
@@ -222,7 +226,9 @@ function abrirObjs() {
   history.pushState({ va: "objs" }, "");
   objsAberta = true; mostrarObjs();
 }
-function fecharObjs() { if (objsAberta) history.back(); }
+// voltarHistorico (gaveta.js) volta uma vez só até o popstate: dois dedos que pousam juntos fora da gaveta não
+// fazem a página sair
+function fecharObjs() { if (objsAberta) voltarHistorico(1); }
 window.addEventListener("popstate", (e) => {
   const a = !!(e.state && e.state.va === "objs");
   if (a !== objsAberta) { objsAberta = a; mostrarObjs(); }

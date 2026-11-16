@@ -95,10 +95,20 @@ function abrirPagina(p) {
   history.pushState({ va: "pagina" }, "");
   nivel = 2; pagina = p; mostrar();
 }
+// Volta n entradas no histórico uma vez só até o popstate chegar (ou até 1 s, se ele nunca vier). O popstate é
+// assíncrono: sem essa trava, dois pedidos seguidos (os dois dedos de uma pinça que pousam juntos, Esc repetido)
+// voltariam duas vezes, e o segundo Voltar sairia da página. Vale também para a gaveta dos objetos (paisagem.js).
+let voltandoDesde = -Infinity;
+export function voltarHistorico(n = 1) {
+  if (n < 1 || performance.now() - voltandoDesde < 1000) return;
+  voltandoDesde = performance.now();
+  history.go(-n);
+}
 // fechar volta no histórico tantas entradas quantas a gaveta criou; o popstate atualiza a tela
-export function fecharGaveta() { if (nivel) history.go(-nivel); }
+export function fecharGaveta() { if (nivel) voltarHistorico(nivel); }
 export const gavetaAberta = () => nivel > 0;
 window.addEventListener("popstate", (e) => {
+  voltandoDesde = -Infinity;
   const s = e.state && e.state.va;
   const novo = s === "pagina" && pagina ? 2 : s === "gaveta" || s === "pagina" ? 1 : 0;
   if (novo === nivel) return;
@@ -112,7 +122,7 @@ $("gavetaFecha").innerHTML = IC.fechar;
 $("gavetaVolta").innerHTML = IC.voltar;
 $("menuBtn").addEventListener("click", abrirGaveta);
 $("gavetaFecha").addEventListener("click", fecharGaveta);
-$("gavetaVolta").addEventListener("click", () => history.back());
+$("gavetaVolta").addEventListener("click", () => voltarHistorico(1));
 $("gavetaFundo").addEventListener("click", fecharGaveta);
 document.addEventListener("keydown", (e) => { if (nivel && e.key === "Escape") { e.preventDefault(); fecharGaveta(); } });
 $("gavetaCorpo").addEventListener("click", (e) => {
