@@ -102,13 +102,16 @@ export function drawPlot() {
   }
   plotMap = { R, X };
 }
-$("plot").addEventListener("click", (e) => {
+// tocar no gráfico leva ao quadro do ponto mais perto (na horizontal) do toque
+export function irAoPontoDoGrafico(clientX) {
   if (!plotMap) return;
-  const r = $("plot").getBoundingClientRect(), x = e.clientX - r.left;
+  const r = $("plot").getBoundingClientRect(), x = clientX - r.left;
   let best = null, bd = Infinity;
   plotMap.R.forEach((q) => { const d = Math.abs(plotMap.X(q.t) - x); if (d < bd) { bd = d; best = q; } });
   if (best) { stopPlay(); show(best.i); }
-});
+}
+// na tela cheia, o toque no gráfico é tratado pela janela (janela.js), que espera para distinguir o toque duplo
+$("plot").addEventListener("click", (e) => { if (!document.body.classList.contains("pais-c")) irAoPontoDoGrafico(e.clientX); });
 
 // tabela para copiar e para o arquivo: mesma estrutura do Tracker, com as massas e as unidades antes.
 // Com um objeto só, uma linha com o nome e t, x, y. Com vários, como o Tracker exporta várias trilhas: a linha

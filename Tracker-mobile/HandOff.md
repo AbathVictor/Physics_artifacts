@@ -49,6 +49,7 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir** |
 | Marcação | **zoom de pinça** no próprio vídeo + **toque posiciona a mira** (substituiu uma lupa lateral, que o autor achou pior) |
 | Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
+| Gráfico na tela cheia | decidido em 15/11/2026: o gráfico fica numa **janela móvel** sobre o vídeo, que se arrasta por **qualquer ponto** (o dedo precisa andar 8 px para virar arrasto; antes disso é toque) e nunca sai da tela, e se **redimensiona pelas quatro bordas e pelos quatro cantos** (18 px de toque nas bordas, que passam 12 px para fora da janela; mínimo de 220 × 140 px; marca no canto de baixo à direita). **Toque duplo** maximiza na área do vídeo livre dos controles flutuantes (da coluna de etapas à borda direita, do topo até a barra de quadros), e outro toque duplo volta ao tamanho e ao lugar de antes. Maximizada, não se move, e Marcar ponto e Rastrear somem (play, ±1 e a barra de quadros continuam funcionando). **Sem botão de maximizar** no cabeçalho, só o toque duplo (pedido do autor). Um toque simples no gráfico espera 0,25 s antes de ir ao quadro, para não confundir com o toque duplo. O cabeçalho tem recolher, o objeto ativo e y(t)/x(t). A janela fica acima do vídeo e abaixo dos controles flutuantes. Lugar, tamanho e se está recolhida ficam em `localStorage` (`va-grafico`, em frações da tela), fora do salvamento por vídeo; ao entrar na tela cheia, a janela nunca vem maximizada |
 | Rastreamento | automático no estilo do autotracker do Tracker (ver abaixo) |
 | Toque | sensibilidade "aceitável"; otimizar no futuro |
 
@@ -85,6 +86,8 @@ js/icones.js               ícones em SVG embutido (IC.menu, IC.camera…)
 js/paisagem.js             celular deitado: move os elementos da página para os contêineres de #pais (e os devolve
                            ao girar); etapas, abas do painel, variações B (vídeo em pé) e C (tela cheia)
 js/barra.js                barra de quadros deitada: trilho, trecho do intervalo, alças do início e do fim, quadro atual
+js/janela.js               janela do gráfico na tela cheia (C): arrastar, redimensionar pelas bordas, toque duplo
+                           maximiza, recolher; posicionarJanela() é chamada por prepararLayout (paisagem.js)
 css/paisagem.css           estilos da diagramação deitada (só valem com a classe "paisagem" no body)
 js/lupa.js                 lupa da escala: canvas fixo na tela, desenhado por render() ao arrastar uma ponta da fita
 js/analise.js              escala (real ou genérica, 1 px = 1 u.a.), eixos, phys(), predict(), salvamento por vídeo (persist)
@@ -184,6 +187,13 @@ do eixo x medido no sentido anti-horário.
 18. **Desenho juntado num quadro de tela**: os gestos (pinça, arrastar a imagem, as pontas da escala e os eixos)
     chamam `agendarRender()`, que redesenha uma vez por `requestAnimationFrame`; `render()` direto cancela o
     pedido pendente. A lupa é desenhada dentro de `render()`, no mesmo ciclo do vídeo.
+19. **Janela do gráfico (tela cheia)**: a captura do ponteiro (`setPointerCapture`) só começa quando o dedo anda
+    8 px. Capturar já no `pointerdown` mudaria o alvo do clique e os botões do cabeçalho (recolher, y(t)/x(t))
+    deixariam de funcionar. Na tela cheia, o `click` do gráfico em `dados.js` é ignorado: quem decide entre toque e
+    toque duplo é a `janela.js`, que chama `irAoPontoDoGrafico()` depois da espera. `posicionarJanela()` é chamada
+    no fim de `prepararLayout()`, depois de a classe `pais-c` ir para o `body` (se a `janela.js` ouvisse o
+    `va:antes-layout` sozinha, rodaria antes, porque é importada antes da `paisagem.js`). Um `ResizeObserver` no
+    `plotBox` redesenha o gráfico uma vez por quadro de tela enquanto a janela muda de tamanho.
 
 ## Testes
 
@@ -201,7 +211,7 @@ python tests/test_rastreamento.py          # medição do alvo, precisão, perda
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
-python tests/test_paisagem.py              # deitado (915 × 412): etapas, barra e alças, pinça, pior caso 10 massas + 2 cm, girar, B, C, gaveta, temas
+python tests/test_paisagem.py              # deitado (915 × 412): etapas, barra e alças, pinça, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta, temas
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
@@ -246,6 +256,10 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      3, 5 e 6. ~~paisagem A, variação B e tela cheia C~~ (feitas juntas: as três dividem o mesmo módulo);
      4. ~~lupa da escala e desenho juntado num quadro de tela~~ (feito). Todas as etapas do plano estão feitas; falta
      o autor conferir no celular.
+     Depois: ~~janela do gráfico na tela cheia~~ (feita em 15/11/2026; falta conferir no celular). Próximo, pedido
+     pelo autor em 15/11/2026: **limpar a poluição visual**, começando pela escolha das massas perto do gráfico
+     (menu flutuante que alterna entre massas e centros de massa, ou gaveta que se esconde; mesma posição; plano a
+     propor e combinar antes do código).
      3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
      painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
      letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e

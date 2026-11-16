@@ -128,7 +128,7 @@ body.pais-c .pais { grid-template-columns: minmax(0, 1fr); grid-template-rows: m
 body.pais-c .pcentro { position: relative; }
 body.pais-c .pmeio { position: absolute; inset: 0; }
 body.pais-c .viewer { border-radius: 0; }
-body.pais-c .etapas, body.pais-c .pbarra, body.pais-c .ptopo, body.pais-c .prodape, body.pais-c .pmini { position: fixed; z-index: 5; }
+body.pais-c .etapas, body.pais-c .pbarra, body.pais-c .ptopo, body.pais-c .prodape { position: fixed; z-index: 5; }
 body.pais-c .etapas { left: max(8px, env(safe-area-inset-left, 0px)); top: 8px; bottom: 8px; width: var(--etapas-w); }
 body.pais-c .etapas button:not([aria-pressed="true"]) { background: color-mix(in srgb, var(--surface) 72%, transparent); }
 body.pais-c .pbarra { left: calc(max(8px, env(safe-area-inset-left, 0px)) + var(--etapas-w) + 8px); right: max(8px, env(safe-area-inset-right, 0px)); bottom: 8px;
@@ -137,14 +137,41 @@ body.pais-c .ptopo { display: flex; gap: 6px; top: 8px; right: max(8px, env(safe
 body.pais-c .ptopo .iconbtn, .pindic { background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .pindic { display: inline-flex; align-items: center; height: 48px; padding: 0 14px; border: none; border-radius: 10px; color: var(--ink); font: 600 0.86rem var(--font-ui); cursor: pointer; }
 body.pais-c .prodape { right: max(8px, env(safe-area-inset-right, 0px)); bottom: 70px; width: min(48%, 400px); }
-body.pais-c .pmini { display: flex; flex-direction: column; left: calc(max(8px, env(safe-area-inset-left, 0px)) + var(--etapas-w) + 8px); bottom: 70px; width: min(34%, 280px);
-  border-radius: 10px; overflow: hidden; background: color-mix(in srgb, var(--surface) 88%, transparent); }
-.pmini-cab { border: none; background: none; color: var(--ink); font: 600 0.78rem var(--font-ui); text-align: left; padding: 6px 10px; cursor: pointer; min-height: 32px; }
-.pmini-cab::after { content: " ▾"; }
-.pmini.fechado .pmini-cab::after { content: " ▸"; }
-.pmini-corpo { display: flex; flex-direction: column; gap: 4px; height: 140px; padding: 0 8px 8px; }
+/* janela do gráfico (js/janela.js): acima do vídeo e abaixo dos controles flutuantes, que nunca ficam bloqueados.
+   O lugar e o tamanho vêm do JavaScript (left, top, width, height); arrasta por qualquer ponto (touch-action: none),
+   redimensiona pelas alças das bordas e dos cantos, que passam um pouco para fora da linha da janela */
+body.pais-c .pmini { display: flex; flex-direction: column; position: fixed; z-index: 4; left: 80px; top: 120px; width: 280px; height: 190px;
+  border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28); touch-action: none; user-select: none; -webkit-user-select: none; }
+body.pais-c .pmini.fechado { height: auto; }
+body.pais-c .pmini.max { background: var(--surface); }
+.pmini-cab { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px max(8px, var(--pj-reserva, 0px)) 4px 4px; cursor: grab; }
+.pmini-cab .objnome { flex: 1; min-width: 0; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.pmini-cab #plotSeg { flex: none; }
+.pmini-cab .objnome .status { display: none; }
+.pmini-cab .seg button { padding: 4px 8px; min-height: 32px; }
+.pmini-rec { width: 36px; height: 36px; flex: none; }
+.pmini-rec svg { width: 20px; height: 20px; transition: transform 0.15s; }
+.pmini.fechado .pmini-rec svg { transform: rotate(-90deg); }
+.pmini-corpo { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 8px 8px; }
 .pmini.fechado .pmini-corpo { display: none; }
-.pmini .objnome { display: none; }
+body.pais-c .pmini .plotbox { min-height: 0; }
+/* alças: bordas com 18 px de toque (12 para fora, 6 para dentro) e cantos de 28 px; marca no canto de baixo à direita */
+.pj-borda { position: absolute; z-index: 1; touch-action: none; }
+.pj-n, .pj-s { left: 16px; right: 16px; height: 18px; cursor: ns-resize; }
+.pj-n { top: -12px; } .pj-s { bottom: -12px; }
+.pj-e, .pj-w { top: 16px; bottom: 16px; width: 18px; cursor: ew-resize; }
+.pj-e { right: -12px; } .pj-w { left: -12px; }
+.pj-ne, .pj-nw, .pj-se, .pj-sw { width: 28px; height: 28px; }
+.pj-ne { top: -12px; right: -12px; cursor: nesw-resize; } .pj-sw { bottom: -12px; left: -12px; cursor: nesw-resize; }
+.pj-nw { top: -12px; left: -12px; cursor: nwse-resize; } .pj-se { bottom: -12px; right: -12px; cursor: nwse-resize; }
+.pj-se::after { content: ""; position: absolute; right: 15px; bottom: 15px; width: 9px; height: 9px;
+  background: linear-gradient(135deg, transparent 45%, var(--ink-soft) 45% 55%, transparent 55% 70%, var(--ink-soft) 70% 80%, transparent 80%); }
+/* recolhida, só muda a largura; maximizada, não muda de tamanho nem de lugar */
+.pmini.fechado .pj-borda:not(.pj-e):not(.pj-w), .pmini.max .pj-borda { display: none; }
+.pmini.max .pmini-cab { cursor: default; }
+/* maximizada, o gráfico cobre o vídeo: Marcar ponto e Rastrear somem até ela voltar ao tamanho normal */
+body.pais-c.graf-max #pais .prodape { display: none; }
 body.pais-c .ppainel { position: fixed; top: 0; right: 0; bottom: 0; width: 40%; z-index: 20; border-radius: 0; border-width: 0 0 0 1px;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) 0;
   transform: translateX(105%); visibility: hidden; transition: transform 0.2s ease, visibility 0s 0.2s; box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3); }

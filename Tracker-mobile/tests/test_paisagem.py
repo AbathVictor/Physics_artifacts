@@ -42,6 +42,153 @@ async def barra(pg):
     return await pg.evaluate("""() => { const t = document.getElementById('fbarTrilho').getBoundingClientRect(); return { x: t.left, w: t.width, y: t.top + t.height / 2 }; }""")
 
 
+async def ret(pg, sel):
+    """[esquerda, topo, largura, altura] do elemento."""
+    return await pg.evaluate("s => { const r = document.querySelector(s).getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }", sel)
+
+
+async def centro(pg, sel):
+    r = await ret(pg, sel)
+    return r[0] + r[2] / 2, r[1] + r[3] / 2
+
+
+def perto(a, b, tol=1.5):
+    return all(abs(x - y) <= tol for x, y in zip(a, b))
+
+
+async def janela_do_grafico(pg, R):
+    """Tela cheia (C): o gráfico numa janela que arrasta, redimensiona pelas bordas e maximiza com toque duplo."""
+    print("janela do gráfico (C)")
+    W, H = await pg.evaluate("[innerWidth, innerHeight]")
+    R.conferir(await pg.evaluate("document.getElementById('pMiniCab').contains(document.getElementById('plotSeg')) && document.getElementById('pMiniCorpo').contains(document.getElementById('plotBox'))"),
+               "gráfico numa janela, com y(t)/x(t) no cabeçalho")
+    j = await ret(pg, "#pMini")
+    R.conferir(j[0] >= 0 and j[1] >= 0 and j[0] + j[2] <= W and j[1] + j[3] <= H and j[3] > 150, f"lugar padrão dentro da tela ({[round(v) for v in j]})")
+    # massa A ativa, com pontos de 10 a 40 para o gráfico
+    await pg.click("#pIndic"); await pg.wait_for_timeout(260)
+    await pg.click("#objs [data-obj='0']")
+    await pg.click("#pFechaPainel"); await pg.wait_for_timeout(260)
+    await pg.evaluate("__va.objs[0].marks.clear(); for (let i = 10; i <= 40; i++) __va.objs[0].marks.set(i, { x: 300 + 2 * i, y: 150 + 30 * Math.sin(i / 4) })")
+    await pg.click("#pMini [data-plot=x]"); await pg.click("#pMini [data-plot=y]")
+    R.conferir(await pg.evaluate("__va.plotVar === 'y' && document.getElementById('plotEmpty').hidden"), "y(t)/x(t) do cabeçalho funcionam; gráfico da massa A com pontos")
+
+    # recolher e abrir
+    await pg.click("#pMiniRec")
+    f = await ret(pg, "#pMini")
+    R.conferir(await pg.evaluate("document.getElementById('pMini').classList.contains('fechado')") and f[3] < 60, f"recolhida, só o cabeçalho ({f[3]:.0f} px)")
+    await pg.click("#pMiniRec")
+    R.conferir(perto(await ret(pg, "#pMini"), j), "aberta de novo, no mesmo lugar e tamanho")
+
+    # arrastar pelo cabeçalho e pelo próprio gráfico; nunca sai da tela
+    x0, y0 = await centro(pg, "#pMiniCab .objnome")
+    await arrastar(pg, x0, y0, x0 + 150, y0 - 60)
+    j2 = await ret(pg, "#pMini")
+    R.conferir(perto(j2, [j[0] + 150, j[1] - 60, j[2], j[3]]), "arrastar pelo cabeçalho move a janela, sem mudar o tamanho")
+    cur = await pg.evaluate("__va.cur")
+    x0, y0 = await centro(pg, "#plot")
+    await arrastar(pg, x0, y0, x0 - 100, y0 + 40)
+    await pg.wait_for_timeout(400)
+    j3 = await ret(pg, "#pMini")
+    R.conferir(perto(j3, [j2[0] - 100, j2[1] + 40, j2[2], j2[3]]) and await pg.evaluate("__va.cur") == cur, "arrastar pelo gráfico também move (e não muda o quadro)")
+    x0, y0 = await centro(pg, "#pMiniCab .objnome")
+    await arrastar(pg, x0, y0, x0 - 3000, y0 - 3000)
+    a = await ret(pg, "#pMini")
+    x0, y0 = await centro(pg, "#pMiniCab .objnome")
+    await arrastar(pg, x0, y0, x0 + 3000, y0 + 3000)
+    b = await ret(pg, "#pMini")
+    R.conferir(a[0] >= 0 and a[1] >= 0 and b[0] + b[2] <= W and b[1] + b[3] <= H, f"a janela não sai da tela ({[round(v) for v in a[:2]]}, {round(b[0] + b[2])}, {round(b[1] + b[3])})")
+    # lugar com folga para redimensionar: esquerda 220, topo 40
+    x0, y0 = await centro(pg, "#pMiniCab .objnome")
+    await arrastar(pg, x0, y0, x0 + 220 - b[0], y0 + 40 - b[1])
+    j = await ret(pg, "#pMini")
+    R.conferir(perto(j[:2], [220, 40]), "arrastada de volta para o meio")
+
+    # redimensionar pelas bordas e pelos cantos, com tamanho mínimo
+    async def puxar(borda, dx, dy):
+        x, y = await centro(pg, f"#pMini .pj-{borda}")
+        await arrastar(pg, x, y, x + dx, y + dy)
+        return await ret(pg, "#pMini")
+    k = await puxar("e", 100, 0)
+    R.conferir(perto(k, [j[0], j[1], j[2] + 100, j[3]]), "borda direita: mais larga")
+    k2 = await puxar("s", 0, 40)
+    R.conferir(perto(k2, [k[0], k[1], k[2], k[3] + 40]), "borda de baixo: mais alta")
+    k3 = await puxar("w", -50, 0)
+    R.conferir(perto(k3, [k2[0] - 50, k2[1], k2[2] + 50, k2[3]]), "borda esquerda: cresce para a esquerda, com a direita parada")
+    k4 = await puxar("n", 0, 30)
+    R.conferir(perto(k4, [k3[0], k3[1] + 30, k3[2], k3[3] - 30]), "borda de cima: encolhe por cima, com a de baixo parada")
+    k5 = await puxar("se", -30, -20)
+    R.conferir(perto(k5, [k4[0], k4[1], k4[2] - 30, k4[3] - 20]), "canto de baixo à direita: largura e altura juntas")
+    m = await puxar("e", -2000, 0)
+    m = await puxar("n", 0, 2000)
+    R.conferir(perto(m[2:], [220, 140]), f"tamanho mínimo de 220 × 140 px ({m[2]:.0f} × {m[3]:.0f})")
+    R.conferir(await pg.evaluate("(() => { const c = document.getElementById('plot'); return Math.abs(c.width / c.getBoundingClientRect().width - Math.min(3, devicePixelRatio)) < 0.05; })()"),
+               "o gráfico é redesenhado no tamanho novo")
+    x, y = await centro(pg, "#pMini .pj-se")
+    await arrastar(pg, x, y, x + 120, y + 60)
+    jr = await ret(pg, "#pMini")
+
+    # toque duplo maximiza na área livre do vídeo; outro toque duplo volta
+    cur = await pg.evaluate("__va.cur")
+    x0, y0 = await centro(pg, "#plot")
+    await pg.touchscreen.tap(x0, y0); await pg.touchscreen.tap(x0, y0)
+    await pg.wait_for_function("document.getElementById('pMini').classList.contains('max')", timeout=2000)
+    await pg.wait_for_timeout(400)
+    d = await pg.evaluate("""(() => { const j = document.getElementById('pMini').getBoundingClientRect(), b = document.getElementById('pBarra').getBoundingClientRect(), e = document.getElementById('etapas').getBoundingClientRect();
+      return [j.left - b.left, j.right - b.right, j.top - e.top, b.top - 8 - j.bottom]; })()""")
+    R.conferir(perto(d, [0, 0, 0, 0]), f"toque duplo maximiza: da coluna de etapas à borda direita, do topo até a barra de quadros ({[round(v, 1) for v in d]})")
+    R.conferir(await pg.evaluate("__va.cur") == cur, "o toque duplo não muda o quadro")
+    R.conferir(not await dentro(pg, "#bMark") and not await dentro(pg, "#bTrack"), "maximizada: Marcar ponto e Rastrear somem")
+    for s in ("#lPlay", "#fbar", "#lP1", "#etapas [data-etapa=marcar]", "#btnTela", "#menuBtn", "#pIndic", "#plotSeg"):
+        if not await dentro(pg, s):
+            R.conferir(False, f"maximizada: {s} à vista")
+            break
+    else:
+        R.conferir(True, "maximizada: etapas, play, barra de quadros, ±1, ⤢, ≡ e y(t)/x(t) à vista")
+    await pg.click("#lP1")
+    await pg.wait_for_function("c => __va.cur === c + 1", arg=cur)
+    R.conferir(True, "maximizada: +1 continua funcionando")
+    x0, y0 = await centro(pg, "#pMiniCab .objnome")
+    await arrastar(pg, x0, y0, x0 + 80, y0 + 60)
+    R.conferir(perto(d, await pg.evaluate("""(() => { const j = document.getElementById('pMini').getBoundingClientRect(), b = document.getElementById('pBarra').getBoundingClientRect(), e = document.getElementById('etapas').getBoundingClientRect();
+      return [j.left - b.left, j.right - b.right, j.top - e.top, b.top - 8 - j.bottom]; })()""")), "maximizada, a janela não se move")
+    x0, y0 = await centro(pg, "#plot")
+    await pg.touchscreen.tap(x0, y0); await pg.touchscreen.tap(x0, y0)
+    await pg.wait_for_function("!document.getElementById('pMini').classList.contains('max')", timeout=2000)
+    R.conferir(perto(await ret(pg, "#pMini"), jr) and await dentro(pg, "#bMark"), "outro toque duplo volta ao tamanho e ao lugar de antes; Marcar ponto volta")
+
+    # um toque só no gráfico leva ao quadro do ponto mais perto, depois da espera do toque duplo
+    p = await ret(pg, "#plot")
+    await pg.touchscreen.tap(p[0] + 52 + (p[2] - 62) * 0.5, p[1] + p[3] / 2)
+    try:
+        await pg.wait_for_function("__va.cur === 25", timeout=3000)
+        R.conferir(True, "um toque no gráfico leva ao quadro do ponto mais perto")
+    except Exception:
+        R.conferir(False, f"um toque no gráfico leva ao quadro do ponto mais perto (quadro {await pg.evaluate('__va.cur')}, esperado 25)")
+
+    # contraste do texto da janela nos dois temas
+    so_janela = CONTRASTE.replace("createTreeWalker(document.body", "createTreeWalker(document.getElementById('pMini')")
+    for nome, esquema in (("claro", "light"), ("escuro", "dark")):
+        await pg.emulate_media(color_scheme=esquema)
+        c = await pg.evaluate(so_janela)
+        R.conferir(not c["ruins"] and c["n"] >= 3, f"[{nome}] contraste ≥ 4,5:1 no texto da janela ({c['n']} elementos)" + ("" if not c["ruins"] else ": " + "; ".join(c["ruins"][:5])))
+    await pg.emulate_media(color_scheme="light")
+
+    # lugar e tamanho lembrados ao sair e voltar à tela cheia (saindo maximizada, volta normal)
+    await pg.touchscreen.tap(x0, y0); await pg.touchscreen.tap(x0, y0)
+    await pg.wait_for_function("document.getElementById('pMini').classList.contains('max')", timeout=2000)
+    await pg.click("#btnTela")
+    await pg.wait_for_function("!document.body.classList.contains('pais-c')")
+    R.conferir(await pg.evaluate("!document.getElementById('pMini').getAttribute('style') && !document.body.classList.contains('graf-max') && getComputedStyle(document.getElementById('pMini')).display === 'none'"),
+               "fora da tela cheia a janela some, sem estilos de posição")
+    await pg.click("#btnTela")
+    await pg.wait_for_function("document.body.classList.contains('pais-c')")
+    await pg.wait_for_timeout(250)
+    R.conferir(perto(await ret(pg, "#pMini"), jr) and not await pg.evaluate("document.getElementById('pMini').classList.contains('max')"),
+               "de volta à tela cheia: mesmo lugar e tamanho, não maximizada")
+    g = await pg.evaluate("JSON.parse(localStorage.getItem('va-grafico'))")
+    R.conferir(g and all(0 <= g[k] <= 1 for k in "xywh") and abs(g["x"] * W - jr[0]) < 2, f"guardados em localStorage, em frações da tela ({g})")
+
+
 async def main():
     R = Resultado()
     async with async_playwright() as p:
@@ -201,9 +348,7 @@ async def main():
         R.conferir(await dentro(pg, "#objs") and await dentro(pg, "#pFechaPainel"), "o indicador do objeto ativo abre o painel como gaveta, com os objetos")
         await pg.click("#pFechaPainel"); await pg.wait_for_timeout(260)
         R.conferir(not await dentro(pg, "#pAbas"), "✕ fecha o painel")
-        await pg.click("#pMiniCab")
-        R.conferir(await pg.evaluate("document.getElementById('pMini').classList.contains('fechado')"), "o mini gráfico recolhe")
-        await pg.click("#pMiniCab")
+        await janela_do_grafico(pg, R)
         await pg.click("#btnTela")
         await pg.wait_for_function("!document.body.classList.contains('pais-c')")
         R.conferir(await pg.evaluate("document.getElementById('pAbasBtns').contains(document.getElementById('menuBtn')) && document.getElementById('pGraf').contains(document.getElementById('plotBox'))"),

@@ -5,7 +5,7 @@
 //   direita:  painel com a fileira de objetos, as abas Parâmetros | Gráfico | Tabela (com ⤢ e ≡), o conteúdo com
 //             rolagem e, na etapa Marcar, o rodapé fixo com Marcar ponto e Rastrear.
 // Variações: B (vídeo em pé: o gráfico ocupa uma coluna ao lado do vídeo) e C (tela cheia, botão ⤢: o vídeo ocupa
-// a tela, as etapas e os controles flutuam, e o painel abre como gaveta).
+// a tela, as etapas e os controles flutuam, o gráfico fica numa janela móvel (janela.js) e o painel abre como gaveta).
 //
 // Nada é recriado: os elementos que já existem (vídeo, botões, passos, gráfico, tabela) são MOVIDOS para os lugares
 // da paisagem, com os mesmos ids e eventos, e voltam para o lugar de origem quando o celular fica em pé (um
@@ -19,6 +19,7 @@ import { layout } from "./desenho.js";
 import { S } from "./estado.js";
 import { setMode } from "./ferramentas.js";
 import { IC } from "./icones.js";
+import { posicionarJanela } from "./janela.js";
 import { holdable, playInterval, show, startPlay, stopPlay } from "./navegacao.js";
 import { objAtivo } from "./objetos.js";
 import { stopTrack } from "./rastreio/rastreador.js";
@@ -60,6 +61,7 @@ export function prepararLayout() {
     const meio = $("pVideo").parentElement, asp = (S.dispW || 9) / (S.dispH || 16);
     $("pVideo").style.width = Math.round(Math.min(meio.clientWidth * 0.62, Math.max(120, meio.clientHeight * asp))) + "px";
   }
+  posicionarJanela();
 }
 function reorganizar(v) {
   atual = v;
@@ -81,8 +83,9 @@ function reorganizar(v) {
   // "Reproduzir do início ao fim" e "Repetir" vão para o Parâmetros do Intervalo
   mover($("introw"), $("blocoInt"));
   for (const bl of [...document.querySelectorAll(".panel > .block")]) mover(bl, $("pParam"));
+  // na tela cheia, o seletor y(t)/x(t) vai para o cabeçalho da janela do gráfico (janela.js)
   const graf = v === "B" ? $("pGrafB") : v === "C" ? $("pMiniCorpo") : $("pGraf");
-  mover($("plotSeg"), graf); mover($("plotBox"), graf);
+  mover($("plotSeg"), v === "C" ? $("pMiniCab") : graf); mover($("plotBox"), graf);
   mover($("tblWrap"), $("pTab")); mover($("outsideNote"), $("pTab"));
   if (v === "C") { mover($("btnTela"), $("pTopo")); mover($("menuBtn"), $("pTopo")); }
   else mover($("menuBtn"), $("pAbasBtns"));
@@ -185,12 +188,7 @@ document.addEventListener("fullscreenchange", () => { if (!document.fullscreenEl
 // na tela cheia, o painel abre como gaveta pelo indicador do objeto ativo e fecha no ✕
 $("pIndic").addEventListener("click", () => { document.body.classList.toggle("painel-aberto"); requestAnimationFrame(() => drawPlot()); });
 $("pFechaPainel").addEventListener("click", () => document.body.classList.remove("painel-aberto"));
-// mini gráfico recolhível
-$("pMiniCab").addEventListener("click", () => {
-  const f = $("pMini").classList.toggle("fechado");
-  $("pMiniCab").setAttribute("aria-expanded", String(!f));
-  if (!f) requestAnimationFrame(() => drawPlot());
-});
+// a janela do gráfico (arrastar, redimensionar, maximizar, recolher) fica em janela.js
 
 // avisos dos outros módulos (por eventos, para que nenhum deles precise importar este):
 // layout() vai medir o vídeo; os painéis foram atualizados

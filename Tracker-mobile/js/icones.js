@@ -17,6 +17,7 @@ export const IC = {
   ajuda: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 1 1 3.6 2.4c-.7.3-1.1.9-1.1 1.6v.6M12 17.2v.1"/>'),
   telaCheia: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
   sairTela: svg('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
+  abaixo: svg('<path d="M6 9l6 6 6-6"/>'),
   // etapas (coluna da esquerda, com o celular deitado)
   intervalo: svg('<path d="M4 12h16M7 8v8M17 8v8"/>'),
   escala: svg('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>'),

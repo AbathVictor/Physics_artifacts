@@ -233,9 +233,13 @@
   </section>
   <div class="prodape" id="pRodape"></div>
   <div class="ptopo" id="pTopo"><button type="button" class="pindic" id="pIndic" aria-label="Objeto ativo: abrir o painel"></button></div>
-  <div class="pmini" id="pMini">
-    <button type="button" class="pmini-cab" id="pMiniCab" aria-expanded="true">Gráfico</button>
-    <div class="pmini-corpo" id="pMiniCorpo"><p class="objnome"></p></div>
+  <!-- janela do gráfico na tela cheia (js/janela.js): arrasta, redimensiona pelas bordas, toque duplo maximiza -->
+  <div class="pmini" id="pMini" role="group" aria-label="Gráfico (arraste para mover; toque duplo para maximizar)">
+    <div class="pmini-cab" id="pMiniCab">
+      <button type="button" class="iconbtn pmini-rec" id="pMiniRec" aria-expanded="true" aria-label="Recolher o gráfico"></button>
+      <p class="objnome"></p>
+    </div>
+    <div class="pmini-corpo" id="pMiniCorpo"></div>
   </div>
 </div>
 <!-- lupa da escala (js/lupa.js): aparece só enquanto se arrasta uma ponta da fita de calibração -->
