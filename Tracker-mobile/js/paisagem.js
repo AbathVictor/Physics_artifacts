@@ -16,7 +16,7 @@
 // trecho da imagem continua na tela.
 
 import { atualizarBarra } from "./barra.js";
-import { drawPlot, temDados } from "./dados.js";
+import { drawPlot } from "./dados.js";
 import { layout } from "./desenho.js";
 import { S } from "./estado.js";
 import { setMode } from "./ferramentas.js";
@@ -121,28 +121,21 @@ function mostrarEtapa() {
   atualizarEtapas();
   if (atual !== "retrato") requestAnimationFrame(() => drawPlot());
 }
-// selos das etapas: ✓ concluída; "u.a." (neutro, nunca erro) em Escala e Massas sem valores
+// selo das etapas: só "u.a." (neutro, nunca erro) em Escala e Massas sem valores. As etapas concluídas não ganham
+// marca (o ✓ saiu a pedido do autor, em 16/11/2026: informação demais)
 function selo(id) {
-  if (!S.frames.length) return "";
-  const cls = (i) => $(i).className;
-  switch (id) {
-    case "intervalo": return "ok";
-    case "escala": return cls("stScale").includes("ok") ? "ok" : "ua";
-    case "eixos": return cls("stAxes").includes("ok") ? "ok" : "";
-    case "massas": return cls("stMass").includes("ok") ? "ok" : cls("stMass").includes("def") ? "ua" : "";
-    case "marcar": return S.marks.size ? "ok" : "";
-    case "dados": return temDados() ? "ok" : "";
-  }
-  return "";
+  if (!S.frames.length) return false;
+  if (id === "escala") return !$("stScale").className.includes("ok");
+  if (id === "massas") return $("stMass").className.includes("def");
+  return false;
 }
 export function atualizarEtapas() {
   const on = S.frames.length > 0;
   for (const b of document.querySelectorAll("#etapas [data-etapa]")) {
     b.disabled = !on;
-    const s = selo(b.dataset.etapa), i = b.querySelector(".selo");
-    i.className = "selo" + (s ? " " + s : ""); i.textContent = s === "ok" ? "✓" : s === "ua" ? "u.a." : "";
-    const e = etapa(b.dataset.etapa);
-    b.setAttribute("aria-label", e.rotulo + (s === "ok" ? " (concluída)" : s === "ua" ? " (u.a.)" : ""));
+    const ua = selo(b.dataset.etapa), i = b.querySelector(".selo");
+    i.className = "selo" + (ua ? " ua" : ""); i.textContent = ua ? "u.a." : "";
+    b.setAttribute("aria-label", etapa(b.dataset.etapa).rotulo + (ua ? " (u.a.)" : ""));
   }
   // alça da gaveta dos objetos: o objeto ativo e, num centro de massa sem posição, um aviso curto (o texto inteiro
   // fica no Parâmetros da etapa Massas e no gráfico vazio)

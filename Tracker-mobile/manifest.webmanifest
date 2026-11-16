@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Videoanálise Móvel",
+  "short_name": "Videoanálise",
+  "description": "Vídeo-análise quadro a quadro no celular: escala, eixos, massas, marcação, rastreamento, gráfico e tabela em CSV.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#F5F6F8",
+  "theme_color": "#F5F6F8",
+  "icons": [
+    { "src": "img/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icone-mascara-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -7,6 +7,10 @@
 <meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#121619" media="(prefers-color-scheme: dark)">
 <title>Videoanálise Móvel</title>
+<!-- app instalável (Chrome ⋮ → Instalar app): o manifesto abre o app sempre deitado ("orientation": "landscape").
+     Numa aba comum, quem gira a tela é o celular: o Chrome só deixa a página travar a orientação em tela cheia -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icone-192.png" type="image/png">
 <!-- tema escolhido à mão (js/tema.js), aplicado antes de a página aparecer para não piscar no tema errado -->
 <script>try { var t = JSON.parse(localStorage.getItem("va-tema")); if (t === "claro" || t === "escuro") document.documentElement.dataset.theme = t === "escuro" ? "dark" : "light"; } catch (e) {}</script>
 <link rel="stylesheet" href="css/fontes.css">

@@ -11,7 +11,8 @@ calibra a escala e os eixos, informa as massas, marca a posição de cada objeto
 automático; até 10 massas e centros de massa formados pelas massas que ele escolher) e exporta t, x, y para analisar no [Laboratório de Oscilações](../laboratorio-oscilacoes/OscLab.html), numa planilha ou em Python.
 
 - Público: alunos com celular **Android e Chrome**. iOS ainda não é alvo.
-- Tudo roda no navegador; o vídeo nunca sai do aparelho. Nada para instalar.
+- Tudo roda no navegador; o vídeo nunca sai do aparelho. Nada para instalar (instalar como app pelo Chrome é
+  opcional; o app instalado abre sempre deitado).
 - Funciona **sem internet** depois de aberta: o aluno abre o link uma vez com conexão e a página continua
   funcionando em modo avião, e até recarrega sem conexão (service worker, `sw.js`).
 - Publicada pelo GitHub Pages em `https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/`.
@@ -51,6 +52,8 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
 | Gráfico na tela cheia | decidido em 15/11/2026: o gráfico fica numa **janela móvel** sobre o vídeo, que se arrasta por **qualquer ponto** (o dedo precisa andar 8 px para virar arrasto; antes disso é toque) e nunca sai da tela, e se **redimensiona pelas quatro bordas e pelos quatro cantos** (18 px de toque nas bordas, que passam 12 px para fora da janela; mínimo de 220 × 140 px; marca no canto de baixo à direita). **Toque duplo** maximiza na área do vídeo livre dos controles flutuantes (da coluna de etapas à borda direita, do topo até a barra de quadros), e outro toque duplo volta ao tamanho e ao lugar de antes. Maximizada, não se move, e Marcar ponto e Rastrear somem (play, ±1 e a barra de quadros continuam funcionando). **Sem botão de maximizar** no cabeçalho, só o toque duplo (pedido do autor). Um toque simples no gráfico espera 0,25 s antes de ir ao quadro, para não confundir com o toque duplo. O cabeçalho tem só recolher e y(t)/x(t) (o objeto ativo fica na alça dos objetos, no canto de cima). A janela fica acima do vídeo e abaixo dos controles flutuantes. Lugar, tamanho e se está recolhida ficam em `localStorage` (`va-grafico`, em frações da tela), fora do salvamento por vídeo; ao entrar na tela cheia, a janela nunca vem maximizada |
 | Objetos deitado (gaveta) | decidido em 15/11/2026, para tirar a poluição visual em volta do gráfico (o autor escolheu **gaveta** em vez de menu flutuante): no alto do painel fica **uma linha só**, a alça (bolinha, nome do objeto ativo, seta e, num centro de massa sem posição, um aviso curto em vermelho: "escolha as massas" ou "massa B faltante") e, **na mesma linha, y(t)/x(t)** (em A, só com a aba Gráfico; em B, sempre). Tocar na alça faz descer, por cima do conteúdo, a fileira dos objetos de sempre (+ massa, + cm) e a escolha das massas do cm ativo, com rolagem se não couber. Fecha ao tocar de novo na alça, ao tocar fora (o toque segue: tocar no vídeo também põe a mira), com Esc, com o Voltar do Android e ao escolher ou criar uma massa; ao escolher ou criar um cm, ela fica aberta para a escolha das massas dele. A linha repetida com o nome do objeto acima do gráfico e da tabela saiu. Na **tela cheia**, a alça sobe para o canto de cima (no lugar do antigo indicador do objeto ativo) e abre a gaveta ali mesmo; o painel (Parâmetros e Tabela) abre por um **botão do painel** ao lado dela. **Em pé, nada mudou** (a fileira continua abaixo dos controles do vídeo) |
+| Abrir deitado | pedido do autor em 16/11/2026, **por hora**: o app abre deitado. Uma página numa aba do Chrome não consegue girar a tela (o Chrome só deixa travar a orientação em tela cheia ou no app instalado), então a página virou **app instalável** (`manifest.webmanifest`: `"orientation": "landscape"`, `"display": "standalone"`, ícones em `img/`). Instalado pelo Chrome (⋮ → Instalar app), abre sempre deitado, mesmo com a rotação automática desligada; em pé fica inalcançável no app. Numa aba comum nada muda: quem gira a tela é o celular. Para voltar atrás, basta trocar `"orientation"` para `"any"` |
+| Etapas deitado | sem marca nas etapas concluídas (o ✓ saiu a pedido do autor em 16/11/2026: informação demais). Fica só o selo neutro "u.a." em Escala e Massas sem valor |
 | Rastreamento | automático no estilo do autotracker do Tracker (ver abaixo) |
 | Toque | sensibilidade "aceitável"; otimizar no futuro |
 
@@ -66,6 +69,9 @@ janela de download do CSV, fluidez. O rastreamento automático foi testado num v
 ```
 index.html                 marcação da página; carrega vendor/mp4box.all.min.js e js/main.js (type="module")
 sw.js                      service worker: cópia local de todos os arquivos (lista ARQUIVOS, conferida por teste)
+manifest.webmanifest, img/ app instalável: abre deitado (orientation landscape), ícones de 192 e 512 px e um para o
+                           recorte do Android (maskable), desenhados por tests/gerar_icones.py (Pillow: fundo
+                           #0F766E, eixos, trajetória de pontos e a mira)
 css/app.css                estilos e tokens de cor (temas claro e escuro)
 css/fontes.css, fonts/     IBM Plex (cópia local, SIL OFL em fonts/OFL.txt)
 vendor/mp4box.all.min.js   mp4box.js 0.5.4 (BSD-3), globais MP4Box e DataStream
@@ -202,6 +208,12 @@ do eixo x medido no sentido anti-horário.
     `history.back()` da gaveta dos objetos ao mesmo tempo que o `pushState` da gaveta ≡ fecharia o menu na hora.
     O clique nos botões dos objetos é tratado primeiro por `massas.js` (importado antes); `paisagem.js` só decide
     se a gaveta fecha. `reorganizar()` fecha a gaveta antes de qualquer mudança de diagramação.
+21. **Orientação**: o `"orientation"` do manifesto só vale no app instalado (numa aba, o Chrome ignora). No app,
+    sair da tela cheia chama `screen.orientation.unlock()`, que volta à orientação do manifesto (deitado), e não à
+    livre. `start_url`, `scope` e `id` são `"./"`, relativos ao manifesto, para funcionar dentro da subpasta do
+    GitHub Pages. O `test_offline.py` pergunta ao próprio Chrome (`Page.getAppManifest` e
+    `Page.getInstallabilityErrors`) se o manifesto é lido sem erros e se a página é instalável; o motivo
+    "in-incognito" é descontado, porque a janela do Playwright é anônima.
 
 ## Testes
 
@@ -221,7 +233,7 @@ python tests/test_tema.py                  # cores dos dois temas, contraste de 
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412): etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, temas
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
-python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo
+python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 ```
 
@@ -266,8 +278,9 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      o autor conferir no celular.
      Depois: ~~janela do gráfico na tela cheia~~ (feita em 15/11/2026; falta conferir no celular). Em seguida, pedido
      pelo autor em 15/11/2026: **limpar a poluição visual**, começando pela escolha das massas perto do gráfico:
-     ~~gaveta dos objetos deitado~~ (feita em 15/11/2026; falta conferir no celular). Outros pontos da limpeza: a
-     combinar com o autor.
+     ~~gaveta dos objetos deitado~~ (feita em 15/11/2026; falta conferir no celular); ~~sem ✓ nas etapas~~ (feito
+     em 16/11/2026). Outros pontos da limpeza: a combinar com o autor. Também em 16/11/2026, por hora: ~~app
+     instalável que abre deitado~~ (falta conferir a instalação no celular).
      3. paisagem A (coluna de etapas, vídeo na altura toda, barra de quadros com duas alças que grudam no quadro,
      painel Parâmetros/Gráfico/Tabela, rodapé fixo Marcar ponto/Rastrear, botões de objeto compactos com bolinha e
      letra, girar sem perder etapa, objeto, quadro, mira, zoom e marcas); "Repetir" no Parâmetros do Intervalo, e

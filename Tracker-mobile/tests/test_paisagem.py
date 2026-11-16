@@ -249,7 +249,7 @@ async def main():
 
         print("etapas")
         sel = await pg.evaluate("[...document.querySelectorAll('#etapas .selo')].map((s) => s.textContent)")
-        R.conferir(sel == ["✓", "u.a.", "", "u.a.", "", ""], f"selos: intervalo ✓; escala e massas u.a. (neutro); o resto vazio ({sel})")
+        R.conferir(sel == ["", "u.a.", "", "u.a.", "", ""], f"selos: só u.a. (neutro) em escala e massas; sem ✓ nas concluídas ({sel})")
         for et, modo, aba in (("escala", "escala", "param"), ("eixos", "eixos", "param"), ("massas", "nav", "param"), ("marcar", "marcar", "graf"), ("dados", "nav", "graf"), ("intervalo", "nav", "param")):
             await pg.click(f"#etapas [data-etapa={et}]")
             st = await pg.evaluate("[__va.mode, __va.etapa, document.getElementById('pais').dataset.aba, document.querySelector('#etapas [aria-pressed=true]').dataset.etapa]")
@@ -259,7 +259,7 @@ async def main():
         R.conferir(await pg.evaluate("document.getElementById('blocoInt').contains(document.getElementById('introw'))"), "Reproduzir do início ao fim e Repetir no Parâmetros do Intervalo")
         await pg.click("#etapas [data-etapa=escala]")
         await pg.fill("#scaleLen", "30")
-        R.conferir(await pg.evaluate("document.querySelector('#etapas [data-etapa=escala] .selo').textContent") == "✓", "escala digitada: ✓ na etapa")
+        R.conferir(await pg.evaluate("document.querySelector('#etapas [data-etapa=escala] .selo').textContent") == "", "escala digitada: o u.a. sai e nenhuma marca entra")
         await pg.click(".modes [data-mode=marcar]", force=True) if False else None
         await pg.evaluate("document.querySelector('[data-goto-mode=eixos]').click()")
         R.conferir(await pg.evaluate("__va.etapa === 'eixos'"), "a etapa acompanha a ferramenta escolhida por outro caminho")
