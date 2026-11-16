@@ -18,6 +18,7 @@ export const IC = {
   telaCheia: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
   sairTela: svg('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
   abaixo: svg('<path d="M6 9l6 6 6-6"/>'),
+  painel: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16M16.5 8.5h2M16.5 12h2"/>'),
   // etapas (coluna da esquerda, com o celular deitado)
   intervalo: svg('<path d="M4 12h16M7 8v8M17 8v8"/>'),
   escala: svg('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>'),

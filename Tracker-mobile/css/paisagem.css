@@ -66,15 +66,35 @@ body.paisagem > header.top, body.paisagem > main.app, body.paisagem > footer.cre
 
 /* painel da direita */
 .ppainel { grid-area: painel; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
-.pobjs { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 6px; }
-.paisagem .objs { gap: 5px; padding: 0; }
-.paisagem .objs button { height: 32px; padding: 0 9px; font-size: 0.82rem; }
+/* gaveta dos objetos (js/paisagem.js): uma linha só, a alça (bolinha, nome e um aviso curto do centro de massa) e
+   y(t)/x(t); tocar na alça faz descer a fileira dos objetos e a escolha das massas do cm por cima do conteúdo */
+.pobjs { position: relative; }
+.palca { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; }
+.palca-btn { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 8px 0 12px;
+  border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); font: 600 0.86rem var(--font-ui);
+  cursor: pointer; touch-action: manipulation; white-space: nowrap; }
+.palca-btn .dot { margin: 0; }
+.palca-btn .nome { overflow: hidden; text-overflow: ellipsis; }
+.palca-btn .aviso { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--bad); font-weight: 500; font-size: 0.78rem; }
+.palca-btn svg { flex: none; width: 18px; height: 18px; transition: transform 0.15s; }
+.palca-btn:disabled { opacity: 0.4; cursor: default; }
+.pobjs.aberta .palca-btn { border-color: var(--accent); }
+.pobjs.aberta .palca-btn svg { transform: rotate(180deg); }
+.palca #plotSeg { flex: none; margin-left: auto; }
+.palca .seg button { min-height: 32px; padding: 4px 8px; }
+/* deitado (A), y(t)/x(t) só com o gráfico à vista */
+body.paisagem:not(.pais-b) #pais:not([data-aba="graf"]) .palca #plotSeg { display: none; }
+.pobjs-corpo { display: none; position: absolute; z-index: 6; top: 100%; left: 6px; right: 6px; flex-direction: column; gap: 8px; padding: 8px;
+  overflow: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28); }
+.pobjs.aberta .pobjs-corpo { display: flex; }
+.paisagem .objs { gap: 6px; padding: 0; }
+.paisagem .objs button { height: 40px; padding: 0 12px; font-size: 0.86rem; }
 /* escolha das massas do cm: título curto e o Excluir na mesma linha das massas */
-.paisagem .cmsel { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 6px 8px; }
+.paisagem .cmsel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; }
 .paisagem #cmSelT { display: none; }
-.paisagem #cmSelTc { flex-basis: 100%; font-size: 0.74rem; }
+.paisagem #cmSelTc { flex-basis: 100%; font-size: 0.76rem; }
 .paisagem #cmSelM, .paisagem .cmsel > .row { display: contents; }
-.paisagem #delCm { height: 32px; padding: 0 8px; font-size: 0.76rem; }
+.paisagem #delCm { height: 40px; padding: 0 10px; font-size: 0.8rem; }
 .pabas { display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .pseg { flex: 1; min-width: 0; display: flex; }
 .pseg button { flex: 1; min-width: 0; min-height: 36px; padding: 4px; font-family: var(--font-ui); font-size: 0.8rem; }
@@ -101,9 +121,6 @@ body.paisagem > header.top, body.paisagem > main.app, body.paisagem > footer.cre
 #pais[data-etapa="dados"] #pParam > [data-etapa="dados"] { display: flex; }
 .paisagem .plotbox { flex: 1; height: auto; min-height: 80px; }
 .paisagem .tbl-wrap { flex: 1; max-height: none; min-height: 0; }
-.objnome { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
-.objnome .nome { display: inline-flex; align-items: center; font-weight: 600; font-size: 0.86rem; }
-.objnome .status { font-size: 0.78rem; }
 
 /* rodapé fixo da etapa Marcar: Apagar, Marcar ponto (principal) e Rastrear (suave), sempre à vista */
 .prodape { grid-area: rodape; display: none; gap: 6px; }
@@ -122,8 +139,8 @@ body.pais-b .pvideo { flex: none; }
 body.pais-b .pgrafb { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 body.pais-b #pAbas [data-aba="graf"] { display: none; }
 
-/* variação C: tela cheia. O vídeo ocupa tudo; etapas, controles, Marcar/Rastrear e o mini gráfico flutuam
-   semitransparentes; ⤢ e ≡ no canto de cima; o painel abre como gaveta pelo indicador do objeto ativo */
+/* variação C: tela cheia. O vídeo ocupa tudo; etapas, controles, Marcar/Rastrear e a janela do gráfico flutuam
+   semitransparentes; no canto de cima, a gaveta dos objetos, o botão do painel, ⤢ e ≡; o painel abre como gaveta */
 body.pais-c .pais { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "centro"; padding: 0; gap: 0; background: #000; }
 body.pais-c .pcentro { position: relative; }
 body.pais-c .pmeio { position: absolute; inset: 0; }
@@ -134,8 +151,14 @@ body.pais-c .etapas button:not([aria-pressed="true"]) { background: color-mix(in
 body.pais-c .pbarra { left: calc(max(8px, env(safe-area-inset-left, 0px)) + var(--etapas-w) + 8px); right: max(8px, env(safe-area-inset-right, 0px)); bottom: 8px;
   padding: 4px 6px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 78%, transparent); }
 body.pais-c .ptopo { display: flex; gap: 6px; top: 8px; right: max(8px, env(safe-area-inset-right, 0px)); }
-body.pais-c .ptopo .iconbtn, .pindic { background: color-mix(in srgb, var(--surface) 80%, transparent); }
-.pindic { display: inline-flex; align-items: center; height: 48px; padding: 0 14px; border: none; border-radius: 10px; color: var(--ink); font: 600 0.86rem var(--font-ui); cursor: pointer; }
+body.pais-c .ptopo .iconbtn { background: color-mix(in srgb, var(--surface) 80%, transparent); }
+/* a alça tem texto (e o aviso em vermelho): fundo mais opaco, para o contraste valer sobre qualquer imagem */
+body.pais-c .palca-btn { background: color-mix(in srgb, var(--surface) 92%, transparent); }
+/* a gaveta dos objetos no canto de cima: a alça do tamanho dos botões vizinhos; a fileira desce alinhada à direita */
+body.pais-c .pobjs { position: static; }
+body.pais-c .palca { padding: 0; }
+body.pais-c .palca-btn { height: 48px; max-width: 34vw; border: none; border-radius: 10px; padding: 0 10px 0 14px; }
+body.pais-c .pobjs-corpo { left: auto; right: 0; top: calc(100% + 6px); width: min(360px, 50vw); }
 body.pais-c .prodape { right: max(8px, env(safe-area-inset-right, 0px)); bottom: 70px; width: min(48%, 400px); }
 /* janela do gráfico (js/janela.js): acima do vídeo e abaixo dos controles flutuantes, que nunca ficam bloqueados.
    O lugar e o tamanho vêm do JavaScript (left, top, width, height); arrasta por qualquer ponto (touch-action: none),
@@ -146,9 +169,7 @@ body.pais-c .pmini { display: flex; flex-direction: column; position: fixed; z-i
 body.pais-c .pmini.fechado { height: auto; }
 body.pais-c .pmini.max { background: var(--surface); }
 .pmini-cab { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px max(8px, var(--pj-reserva, 0px)) 4px 4px; cursor: grab; }
-.pmini-cab .objnome { flex: 1; min-width: 0; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
-.pmini-cab #plotSeg { flex: none; }
-.pmini-cab .objnome .status { display: none; }
+.pmini-cab #plotSeg { flex: none; margin-left: auto; }
 .pmini-cab .seg button { padding: 4px 8px; min-height: 32px; }
 .pmini-rec { width: 36px; height: 36px; flex: none; }
 .pmini-rec svg { width: 20px; height: 20px; transition: transform 0.15s; }

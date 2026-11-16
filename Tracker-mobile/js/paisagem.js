@@ -2,10 +2,12 @@
 //   esquerda: coluna das etapas (Intervalo, Escala, Eixos, Massas, Marcar, Dados);
 //   centro:   o vídeo na altura toda e, embaixo, a barra de controles (play, voltar ao início, barra de quadros com
 //             as duas alças do intervalo, −1, +1);
-//   direita:  painel com a fileira de objetos, as abas Parâmetros | Gráfico | Tabela (com ⤢ e ≡), o conteúdo com
+//   direita:  painel com a gaveta dos objetos (uma linha só: a alça com o objeto ativo e y(t)/x(t); a fileira dos
+//             objetos desce ao tocar na alça), as abas Parâmetros | Gráfico | Tabela (com ⤢ e ≡), o conteúdo com
 //             rolagem e, na etapa Marcar, o rodapé fixo com Marcar ponto e Rastrear.
 // Variações: B (vídeo em pé: o gráfico ocupa uma coluna ao lado do vídeo) e C (tela cheia, botão ⤢: o vídeo ocupa
-// a tela, as etapas e os controles flutuam, o gráfico fica numa janela móvel (janela.js) e o painel abre como gaveta).
+// a tela, as etapas e os controles flutuam, o gráfico fica numa janela móvel (janela.js), a gaveta dos objetos sobe
+// para o canto de cima e o painel abre como gaveta pelo botão do painel).
 //
 // Nada é recriado: os elementos que já existem (vídeo, botões, passos, gráfico, tabela) são MOVIDOS para os lugares
 // da paisagem, com os mesmos ids e eventos, e voltam para o lugar de origem quando o celular fica em pé (um
@@ -19,9 +21,10 @@ import { layout } from "./desenho.js";
 import { S } from "./estado.js";
 import { setMode } from "./ferramentas.js";
 import { IC } from "./icones.js";
+import { gavetaAberta } from "./gaveta.js";
 import { posicionarJanela } from "./janela.js";
 import { holdable, playInterval, show, startPlay, stopPlay } from "./navegacao.js";
-import { objAtivo } from "./objetos.js";
+import { avisoFaltam, objAtivo, sistemaCm } from "./objetos.js";
 import { stopTrack } from "./rastreio/rastreador.js";
 import { $, esc } from "./util.js";
 
@@ -62,6 +65,7 @@ export function prepararLayout() {
     $("pVideo").style.width = Math.round(Math.min(meio.clientWidth * 0.62, Math.max(120, meio.clientHeight * asp))) + "px";
   }
   posicionarJanela();
+  if (objsAberta) ajustarObjs();
 }
 function reorganizar(v) {
   atual = v;
@@ -70,24 +74,26 @@ function reorganizar(v) {
   b.classList.toggle("paisagem", v !== "retrato");
   b.classList.toggle("pais-b", v === "B");
   b.classList.toggle("pais-c", v === "C");
-  b.classList.remove("painel-aberto");
+  painelAberto(false); fecharObjs();
   $("pais").hidden = v === "retrato";
   $("pVideo").style.width = "";
   if (v === "retrato") { $("viewer").style.minHeight = ""; return; }
   mover($("viewer"), $("pVideo"));
   mover($("readout"), $("pInfo")); mover($("zoomRow"), $("pInfo"));
-  mover($("objs"), $("pObjs")); mover($("cmSel"), $("pObjs"));
+  // a fileira dos objetos e a escolha das massas do cm ficam na gaveta dos objetos
+  mover($("objs"), $("pObjsCorpo")); mover($("cmSel"), $("pObjsCorpo"));
   // avisos ficam no painel, nunca sobre o vídeo
   mover($("trackMsg"), $("pAvisos")); mover($("modeHint"), $("pAvisos"));
   mover($("markbar"), $("pRodape")); mover($("trackRow"), $("pRodape"));
   // "Reproduzir do início ao fim" e "Repetir" vão para o Parâmetros do Intervalo
   mover($("introw"), $("blocoInt"));
   for (const bl of [...document.querySelectorAll(".panel > .block")]) mover(bl, $("pParam"));
-  // na tela cheia, o seletor y(t)/x(t) vai para o cabeçalho da janela do gráfico (janela.js)
+  // y(t)/x(t) na linha da alça dos objetos; na tela cheia, no cabeçalho da janela do gráfico (janela.js)
   const graf = v === "B" ? $("pGrafB") : v === "C" ? $("pMiniCorpo") : $("pGraf");
-  mover($("plotSeg"), v === "C" ? $("pMiniCab") : graf); mover($("plotBox"), graf);
+  mover($("plotSeg"), v === "C" ? $("pMiniCab") : $("pAlca")); mover($("plotBox"), graf);
   mover($("tblWrap"), $("pTab")); mover($("outsideNote"), $("pTab"));
-  if (v === "C") { mover($("btnTela"), $("pTopo")); mover($("menuBtn"), $("pTopo")); }
+  // tela cheia: a gaveta dos objetos sobe para o canto de cima, antes do botão do painel, de ⤢ e de ≡
+  if (v === "C") { mover($("pObjs"), $("pTopo"), $("pPainelBtn")); mover($("btnTela"), $("pTopo")); mover($("menuBtn"), $("pTopo")); }
   else mover($("menuBtn"), $("pAbasBtns"));
   // nas variações B e C o gráfico fica fora do painel
   if (v !== "A" && S.aba === "graf") S.aba = S.etapa === "dados" ? "tab" : "param";
@@ -138,9 +144,14 @@ export function atualizarEtapas() {
     const e = etapa(b.dataset.etapa);
     b.setAttribute("aria-label", e.rotulo + (s === "ok" ? " (concluída)" : s === "ua" ? " (u.a.)" : ""));
   }
-  // indicador do objeto ativo (tela cheia): abre o painel com a fileira de objetos
-  const o = objAtivo();
-  $("pIndic").innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i>${esc(o.nome)}` : "";
+  // alça da gaveta dos objetos: o objeto ativo e, num centro de massa sem posição, um aviso curto (o texto inteiro
+  // fica no Parâmetros da etapa Massas e no gráfico vazio)
+  const o = objAtivo(), btn = $("pObjBtn");
+  let aviso = "";
+  if (o && o.tipo === "cm") { const s = sistemaCm(o, S.objs); aviso = !s.membros.length ? "escolha as massas" : s.faltam.length ? avisoFaltam(s.faltam) : ""; }
+  btn.innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i><span class="nome">${esc(o.nome)}</span>${aviso ? `<span class="aviso">${esc(aviso)}</span>` : ""}${IC.abaixo}` : "";
+  btn.disabled = !on;
+  btn.setAttribute("aria-label", o ? `Objeto ativo: ${o.nome}${aviso ? " (" + aviso + ")" : ""}. Trocar de objeto` : "Objetos");
 }
 // a ferramenta pode mudar por outros caminhos (botões "Ajustar … no vídeo", ferramentas em pé, abrir vídeo):
 // a etapa acompanha
@@ -185,10 +196,57 @@ function telaCheiaUI() {
 $("btnTela").addEventListener("click", () => { if (S.telaCheia) sairTelaCheia(); else entrarTelaCheia(); });
 // saiu da tela cheia pelo sistema (Voltar do Android, Esc): volta à diagramação normal
 document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && S.telaCheia) { S.telaCheia = false; telaCheiaUI(); layout(); } });
-// na tela cheia, o painel abre como gaveta pelo indicador do objeto ativo e fecha no ✕
-$("pIndic").addEventListener("click", () => { document.body.classList.toggle("painel-aberto"); requestAnimationFrame(() => drawPlot()); });
-$("pFechaPainel").addEventListener("click", () => document.body.classList.remove("painel-aberto"));
+// na tela cheia, o painel (Parâmetros e Tabela) abre como gaveta pelo botão do painel, no canto de cima, e fecha no ✕
+$("pPainelBtn").innerHTML = IC.painel;
+function painelAberto(a) {
+  document.body.classList.toggle("painel-aberto", a);
+  $("pPainelBtn").setAttribute("aria-expanded", String(a));
+}
+$("pPainelBtn").addEventListener("click", () => painelAberto(!document.body.classList.contains("painel-aberto")));
+$("pFechaPainel").addEventListener("click", () => painelAberto(false));
 // a janela do gráfico (arrastar, redimensionar, maximizar, recolher) fica em janela.js
+
+// ---------- gaveta dos objetos ----------
+// A alça mostra o objeto ativo; tocar nela faz descer, por cima do conteúdo, a fileira dos objetos (com + massa e
+// + cm) e a escolha das massas do centro de massa ativo. Fecha ao tocar de novo na alça, ao tocar fora dela (o toque
+// segue para onde foi), com Esc, com o Voltar do Android (abrir entra no histórico, como a gaveta ≡) e ao escolher ou
+// criar uma massa. Ao escolher ou criar um centro de massa ela fica aberta, para a escolha das massas dele.
+let objsAberta = false;
+function mostrarObjs() {
+  $("pObjs").classList.toggle("aberta", objsAberta);
+  $("pObjBtn").setAttribute("aria-expanded", String(objsAberta));
+  if (objsAberta) ajustarObjs();
+}
+// a gaveta vai até o fim do painel (ou da tela, na tela cheia) e, se não couber, rola
+function ajustarObjs() {
+  const c = $("pObjsCorpo");
+  c.style.maxHeight = "";
+  const fim = atual === "C" ? innerHeight - 8 : $("pPainel").getBoundingClientRect().bottom - 6;
+  c.style.maxHeight = Math.max(80, fim - c.getBoundingClientRect().top) + "px";
+}
+function abrirObjs() {
+  if (objsAberta || !S.frames.length) return;
+  history.pushState({ va: "objs" }, "");
+  objsAberta = true; mostrarObjs();
+}
+function fecharObjs() { if (objsAberta) history.back(); }
+window.addEventListener("popstate", (e) => {
+  const a = !!(e.state && e.state.va === "objs");
+  if (a !== objsAberta) { objsAberta = a; mostrarObjs(); }
+});
+$("pObjBtn").addEventListener("click", () => { if (objsAberta) fecharObjs(); else abrirObjs(); });
+// massas.js trata o clique antes (foi importado antes): aqui só se decide se a gaveta fecha
+$("objs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b || !objsAberta) return;
+  const o = b.dataset.obj != null ? S.objs[Number(b.dataset.obj)] : null;
+  if (b.id === "addMass" || (o && o.tipo === "massa")) fecharObjs();
+});
+// tocar fora fecha; com a gaveta ≡ aberta (ou ao tocar em ≡) quem cuida do histórico é ela
+document.addEventListener("pointerdown", (e) => {
+  if (objsAberta && !gavetaAberta() && !$("pObjs").contains(e.target) && !e.target.closest("#menuBtn")) fecharObjs();
+}, true);
+document.addEventListener("keydown", (e) => { if (objsAberta && !gavetaAberta() && e.key === "Escape") { e.preventDefault(); fecharObjs(); } });
 
 // avisos dos outros módulos (por eventos, para que nenhum deles precise importar este):
 // layout() vai medir o vídeo; os painéis foram atualizados

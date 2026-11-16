@@ -193,7 +193,7 @@
   <div class="pcentro" id="pCentro">
     <div class="pmeio">
       <div class="pvideo" id="pVideo"></div>
-      <div class="pgrafb" id="pGrafB"><p class="objnome"></p></div>
+      <div class="pgrafb" id="pGrafB"></div>
     </div>
     <div class="pbarra" id="pBarra">
       <button type="button" class="ctl prim" id="lPlay" aria-label="Reproduzir" disabled></button>
@@ -214,7 +214,14 @@
     </div>
   </div>
   <section class="ppainel" id="pPainel" aria-label="Painel">
-    <div class="pobjs" id="pObjs"></div>
+    <!-- gaveta dos objetos (js/paisagem.js): a alça, numa linha só, com o objeto ativo e y(t)/x(t); a fileira dos
+         objetos e a escolha das massas do cm descem por cima do conteúdo ao tocar na alça -->
+    <div class="pobjs" id="pObjs">
+      <div class="palca" id="pAlca">
+        <button type="button" class="palca-btn" id="pObjBtn" aria-expanded="false" aria-controls="pObjsCorpo" disabled></button>
+      </div>
+      <div class="pobjs-corpo" id="pObjsCorpo"></div>
+    </div>
     <div class="pabas" id="pAbas">
       <div class="seg pseg" role="group" aria-label="Conteúdo do painel">
         <button type="button" data-aba="param" aria-pressed="true">Parâmetros</button>
@@ -227,17 +234,17 @@
     <div class="pconteudo" id="pConteudo">
       <div class="pavisos" id="pAvisos"></div>
       <div class="ppane" id="pParam"></div>
-      <div class="ppane pgraf" id="pGraf"><p class="objnome"></p></div>
-      <div class="ppane ptab" id="pTab"><p class="objnome"></p></div>
+      <div class="ppane pgraf" id="pGraf"></div>
+      <div class="ppane ptab" id="pTab"></div>
     </div>
   </section>
   <div class="prodape" id="pRodape"></div>
-  <div class="ptopo" id="pTopo"><button type="button" class="pindic" id="pIndic" aria-label="Objeto ativo: abrir o painel"></button></div>
+  <!-- tela cheia: a gaveta dos objetos vem para cá (antes do botão do painel), com ⤢ e ≡ -->
+  <div class="ptopo" id="pTopo"><button type="button" class="iconbtn" id="pPainelBtn" aria-label="Abrir o painel (parâmetros e tabela)" aria-expanded="false"></button></div>
   <!-- janela do gráfico na tela cheia (js/janela.js): arrasta, redimensiona pelas bordas, toque duplo maximiza -->
   <div class="pmini" id="pMini" role="group" aria-label="Gráfico (arraste para mover; toque duplo para maximizar)">
     <div class="pmini-cab" id="pMiniCab">
       <button type="button" class="iconbtn pmini-rec" id="pMiniRec" aria-expanded="true" aria-label="Recolher o gráfico"></button>
-      <p class="objnome"></p>
     </div>
     <div class="pmini-corpo" id="pMiniCorpo"></div>
   </div>

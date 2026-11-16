@@ -28,9 +28,7 @@ export function renderData() {
   $("dataObj").innerHTML = o ? `<i class="dot" style="background:${o.cor}"></i>${esc(o.nome)}` : "";
   const sc = o && o.tipo === "cm" ? situacaoCm(o) : null, note = $("objNote");
   note.hidden = !sc; note.textContent = sc ? sc.txt : ""; note.className = "status" + (sc && sc.bad ? " bad" : "");
-  // celular deitado: nome e cor do objeto ativo no topo do gráfico e da tabela, com o aviso do centro de massa
-  const topo = (o ? `<span class="nome"><i class="dot" style="background:${o.cor}"></i>${esc(o.nome)}</span>` : "") + (sc && sc.bad ? `<span class="status bad">${esc(sc.txt)}</span>` : "");
-  document.querySelectorAll(".objnome").forEach((e) => { e.innerHTML = topo; });
+  // (celular deitado: o objeto ativo e o aviso do centro de massa ficam na alça da gaveta dos objetos, paisagem.js)
   // o aviso do centro de massa aparece uma vez só, acima do gráfico
   const vazio = sc && sc.bad ? "O centro de massa ainda não tem posições." : sc ? "Nenhum quadro com todas as massas do sistema marcadas." : "Nenhum ponto marcado ainda.";
   const head = `<thead><tr><th>quadro</th><th>t (s)</th><th>x (${u})</th><th>y (${u})</th></tr></thead>`;
