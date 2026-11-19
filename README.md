@@ -8,7 +8,7 @@ Página para analisar o oscilador amortecido (sistema massa-mola) a partir da v�
 
 | Aba | O que faz |
 | --- | --- |
-| **Análise da curva** | Importa a trajetória exportada do Tracker e traça a curva do modelo com os parâmetros medidos (massa, frequência, amplitude inicial e coeficiente de decaimento), com medidas de qualidade (RMS dos resíduos, R², χ²/ν, autocorrelação dos resíduos). Também faz o ajuste livre por mínimos quadrados, calcula τ, ω₀, b, k, Q e δ com propagação de incertezas e compara as medidas diretas com o ajuste. |
+| **Análise da curva** | Importa a trajetória exportada do Tracker e traça duas curvas: a do modelo com os parâmetros medidos (massa, frequência, amplitude inicial e coeficiente de decaimento) e a do ajuste livre por mínimos quadrados. Para cada curva, mostra R², RMSE e MAPE, sem dizer se o ajuste é bom: essa leitura fica com o aluno. Também calcula τ, ω₀, b, k, Q e δ com propagação de incertezas e compara as medidas diretas com o ajuste. |
 | **Ajuste dos picos** | Ajusta A(t) = A₀·e^(−γt/2) às amplitudes dos picos inseridas à mão ou coladas de uma planilha, com o gráfico linearizado ln A × t. |
 | **Multivisualização** | Sobrepõe posição, velocidade e aceleração (ou mostra em gráficos empilhados) e estima as defasagens e as razões de amplitude, comparando com o MHS. |
 | **Explorar o modelo** | Simula o oscilador para valores escolhidos de m, k e b e compara os regimes subcrítico, crítico e supercrítico, com a energia mecânica. |

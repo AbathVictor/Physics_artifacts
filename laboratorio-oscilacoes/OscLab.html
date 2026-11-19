@@ -86,7 +86,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ----- cabeçalho: título de capítulo, abas como sumário ----- */
 .top { display: flex; align-items: flex-end; gap: 6px 28px; flex-wrap: wrap; max-width: 1400px; margin: 0 auto 22px; padding-top: 20px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-bottom: 14px; }
-.brand .kicker { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--kicker); }
 .brand h1 { font-family: var(--font-serif); font-weight: 600; font-size: clamp(1.55rem, 1.15rem + 1.5vw, 2.15rem); letter-spacing: -0.012em; margin: 0; line-height: 1.1; text-wrap: balance; }
 .brand .sub { font-family: var(--font-serif); font-size: 0.98rem; color: var(--ink-soft); }
 .brand .sub i { font-style: italic; color: var(--ink); }
@@ -211,8 +210,9 @@ table.res td.v { font-size: 0.9rem; white-space: nowrap; }
 table.res td.u { font-size: 0.84rem; color: var(--ink-soft); white-space: nowrap; }
 @media (max-width: 440px) { table.res td.v { font-size: 0.82rem; } table.res td.q { font-size: 0.84rem; white-space: normal; } table.res td.u { font-size: 0.78rem; } }
 table.res td.miss { color: var(--ink-soft); font-size: 0.84rem; }
-table.res.q3 td.v { text-align: left; }
-table.res.q3 th:not(:first-child) { white-space: nowrap; }
+/* métricas: uma coluna por curva, com o traço da cor da curva no gráfico */
+table.res.met td.v { text-align: left; }
+table.res.met th i { vertical-align: middle; margin-right: 6px; }
 table.peaks { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 table.peaks th { text-align: left; font-weight: 600; font-size: 0.82rem; color: var(--ink-soft); padding: 0 4px 6px 0; }
 table.peaks td { padding: 2px 4px 2px 0; }
@@ -258,7 +258,6 @@ details.help[open] summary { margin-bottom: 6px; }
 <body>
 <header class="top">
   <div class="brand">
-    <span class="kicker">Calculadora de oscilações</span>
     <h1>Laboratório de Oscilações</h1>
     <span class="sub">Oscilador amortecido: <i>m z̈</i> + <i>b ż</i> + <i>k z</i> = 0</span>
   </div>
@@ -300,7 +299,7 @@ details.help[open] summary { margin-bottom: 6px; }
     <div class="stage">
       <div class="plot-wrap main">
         <canvas id="aPlot" aria-label="Trajetória medida e curva de ajuste"></canvas>
-        <div class="empty" id="aEmpty"><p><b>Nenhuma trajetória ainda</b>Preencha as medidas diretas no passo 1 e importe o arquivo do Tracker no passo 2. Os pontos, as curvas e os resíduos aparecem aqui.</p></div>
+        <div class="empty" id="aEmpty"><p><b>Nenhuma trajetória ainda</b>Importe os dados do Tracker no passo 2.</p></div>
         <div class="plot-tools"><button class="tool" id="aFrame" type="button" title="Enquadrar os dados">Enquadrar</button></div>
       </div>
       <div class="plot-wrap small"><canvas id="aRes" aria-label="Resíduos do ajuste"></canvas></div>
@@ -354,12 +353,11 @@ details.help[open] summary { margin-bottom: 6px; }
           </div>
           <div class="row" style="margin-top:4px"><button class="btn ghost small" id="useG" type="button">Usar o γ da aba Ajuste dos picos</button></div>
         </div>
-        <p class="note">Em todas as abas, γ = b/m e a amplitude cai como e<sup>−γt/2</sup>. Com f, A₀ e γ, a página traça a curva do modelo com os parâmetros medidos (passo 3). A massa entra no cálculo de b e k.</p>
       </section>
 
       <section class="block">
         <h2><span class="n">2</span>Trajetória do Tracker</h2>
-        <p class="status" id="srcLine"></p>
+        <p class="status" id="srcLine" hidden></p>
         <div class="row">
           <button class="btn" id="importBtn" type="button">Importar arquivo</button>
           <button class="btn ghost" id="pasteToggle" type="button" aria-expanded="false">Colar tabela</button>
@@ -380,63 +378,64 @@ details.help[open] summary { margin-bottom: 6px; }
           <div class="field"><label for="t2">até t (s)</label><input id="t2" inputmode="decimal" autocomplete="off"></div>
         </div>
         <div class="row"><button class="btn ghost small" id="fullRange" type="button">Usar todos os pontos</button></div>
+        <p class="msg" id="rangeMsg" hidden></p>
         <div class="relbox" id="relBox" hidden>
           <p class="note" id="relTxt"></p>
           <button class="btn small" id="relUse" type="button">Ajustar a partir daí</button>
         </div>
-        <p class="note">Se o vídeo começa antes de a massa ser solta, comece o ajuste no instante em que ela é solta. Os resíduos ajudam: com o intervalo certo, eles ficam espalhados em torno de zero, sem ondas.</p>
         <details class="help">
           <summary>Como levar os dados do Tracker para cá</summary>
           <ol>
-            <li>Calibre a escala no Tracker com a régua do vídeo, para a posição sair em metros (ou cm).</li>
-            <li>Marque a massa quadro a quadro. Pode deixar a origem onde quiser: o ajuste encontra a posição de equilíbrio z<sub>e</sub>.</li>
-            <li>Exporte a tabela de dados como arquivo de texto ou CSV e importe aqui. Outra opção: selecione a tabela de dados no Tracker, copie e use <b>Colar tabela</b>.</li>
+            <li>Calibre a escala no Tracker com a régua do vídeo.</li>
+            <li>Marque a massa quadro a quadro.</li>
+            <li>Exporte a tabela como texto ou CSV e importe aqui, ou copie a tabela no Tracker e use <b>Colar tabela</b>.</li>
+            <li>Se o vídeo começa antes de a massa ser solta, comece o ajuste no instante em que ela é solta.</li>
           </ol>
-          <p>Vírgula ou ponto decimal, tabulação, ponto e vírgula e as linhas de título do Tracker (nome da massa, nomes das colunas) são reconhecidos. Só não dá para usar a vírgula ao mesmo tempo como delimitador e como decimal: nesse caso, exporte com tabulação ou ponto e vírgula. A página escolhe sozinha a coluna que mais oscila; confira se é a certa.</p>
+          <p>Vírgula ou ponto decimal, tabulação e ponto e vírgula são reconhecidos, mas não a vírgula como delimitador e decimal ao mesmo tempo. A coluna da posição escolhida é a que mais oscila; confira.</p>
         </details>
       </section>
 
       <section class="block">
         <h2><span class="n">3</span>Curva com os parâmetros medidos</h2>
-        <p class="note">z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(2πf(t−t₀) + φ), com A₀, f e γ do passo 1 e t₀ no início do intervalo. Só z<sub>e</sub> e φ são ajustados, porque não são medidos diretamente.</p>
-        <p class="status" id="expStatus"></p>
-        <div class="tbl-wrap"><table class="res q3" id="expQual"></table></div>
-        <div id="expVerdict"></div>
+        <p class="note">z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(2πf(t−t₀) + φ), com t₀ no início do intervalo. A₀, f e γ vêm do passo 1; só z<sub>e</sub> e φ são ajustados.</p>
+        <p class="status bad" id="expStatus" hidden></p>
         <p class="note hint-warn" id="expSigNote" hidden></p>
         <div class="tbl-wrap"><table class="res" id="expPar"></table></div>
-        <details class="help">
-          <summary>Como ler essas medidas de qualidade</summary>
-          <p><b>RMS dos resíduos</b>: desvio típico entre os pontos e a curva, na unidade da posição. Quanto menor, melhor.</p>
-          <p><b>R²</b>: fração da variação de z explicada pela curva. Perto de 1 é bom, mas em oscilações quase sempre passa de 0,99; compare as duas colunas.</p>
-          <p><b>χ²/ν</b>: aparece quando você informa σ<sub>z</sub> no passo 2. Perto de 1, a curva descreve os dados dentro da incerteza dos pontos.</p>
-          <p><b>Autocorrelação dos resíduos r₁</b>: perto de 0, os resíduos se espalham ao acaso; perto de 1, formam ondas, sinal de que a curva se afasta dos dados de forma sistemática. É o que se vê no gráfico de resíduos, em um número.</p>
-          <p>O ajuste livre serve de referência: é a melhor curva possível desse modelo para estes pontos.</p>
-        </details>
       </section>
 
       <section class="block">
         <h2><span class="n">4</span>Ajuste livre</h2>
-        <p class="note">Todos os parâmetros livres: z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(ω(t−t₀) + φ), com γ = b/m e t₀ no início do intervalo de ajuste. Mínimos quadrados (Levenberg–Marquardt).</p>
-        <p class="status" id="fitStatus"></p>
+        <p class="note">z(t) = z<sub>e</sub> + A₀·e<sup>−γ(t−t₀)/2</sup>·sen(ω(t−t₀) + φ), com os cinco parâmetros livres (mínimos quadrados).</p>
+        <p class="status bad" id="fitStatus" hidden></p>
         <div class="tbl-wrap"><table class="res" id="fitTable"></table></div>
       </section>
 
       <section class="block">
-        <h2><span class="n">5</span>Grandezas do ajuste livre</h2>
-        <div class="tbl-wrap"><table class="res" id="derTable"></table></div>
-        <div id="regime"></div>
-        <p class="note">Incertezas propagadas pela matriz de covariância do ajuste (inclui a correlação entre γ e ω) e pela incerteza da massa.</p>
+        <h2><span class="n">5</span>Métricas das curvas</h2>
+        <p class="status" id="qualStatus" hidden></p>
+        <div class="tbl-wrap"><table class="res met" id="qualTable"></table></div>
+        <details class="help">
+          <summary>Definições</summary>
+          <p>r<sub>i</sub> = z<sub>i</sub> − ẑ<sub>i</sub> é o resíduo do ponto i (dado menos curva), e N é o número de pontos no intervalo. Cada coluna usa os resíduos da sua curva.</p>
+          <p><b>R²</b> = 1 − Σr<sub>i</sub>² / Σ(z<sub>i</sub> − z̄)²</p>
+          <p><b>RMSE</b> = √(Σr<sub>i</sub>² / N), na unidade da posição</p>
+          <p><b>MAPE</b> = (100 % / N)·Σ|r<sub>i</sub> / z<sub>i</sub>|; os pontos com z = 0 ficam de fora</p>        </details>
       </section>
 
       <section class="block">
-        <h2><span class="n">6</span>Medido × ajustado</h2>
+        <h2><span class="n">6</span>Grandezas do ajuste livre</h2>
+        <div class="tbl-wrap"><table class="res" id="derTable"></table></div>
+        <div id="regime"></div>
+      </section>
+
+      <section class="block">
+        <h2><span class="n">7</span>Medido × ajustado</h2>
         <div class="cmp" id="cmpList"></div>
-        <p class="note">Critério: |Δ| ≤ 2σ compatíveis; entre 2σ e 3σ, discrepância moderada; acima de 3σ, incompatíveis. σ combina as incertezas da medida direta e do ajuste livre.</p>
+        <p class="note">Critério: |Δ| ≤ 2σ, compatíveis; até 3σ, discrepância moderada; acima, incompatíveis. σ combina as incertezas da medida e do ajuste.</p>
         <div class="row">
-          <button class="btn" id="copyBtn" type="button">Copiar resultados</button>
+          <button class="btn" id="copyBtn" type="button" title="Copia uma tabela com vírgula decimal, para colar na planilha ou no editor de texto">Copiar resultados</button>
           <button class="btn ghost" id="toExplore" type="button">Abrir no modo explorar</button>
         </div>
-        <p class="note">A tabela copiada sai com vírgula decimal e cola como tabela no editor de texto ou na planilha.</p>
       </section>
     </div>
   </section>
@@ -446,7 +445,7 @@ details.help[open] summary { margin-bottom: 6px; }
     <div class="stage">
       <div class="plot-wrap main">
         <canvas id="pPlot" aria-label="Amplitude dos picos em função do tempo e curva de ajuste"></canvas>
-        <div class="empty" id="pEmpty"><p><b>Nenhum pico ainda</b>Digite na tabela o instante t e a amplitude A de pelo menos 3 picos, ou cole as colunas de uma planilha. O ajuste aparece aqui.</p></div>
+        <div class="empty" id="pEmpty"><p><b>Nenhum pico ainda</b>Digite ou cole t e A de pelo menos 3 picos.</p></div>
         <div class="plot-tools"><button class="tool" id="pFrame" type="button">Enquadrar</button></div>
       </div>
       <div class="plot-wrap small"><canvas id="pLn" aria-label="Logaritmo da amplitude em função do tempo"></canvas></div>
@@ -454,16 +453,16 @@ details.help[open] summary { margin-bottom: 6px; }
       <div class="legend">
         <span><i class="sw-pt"></i>picos medidos (± σ<sub>A</sub>)</span>
         <span><i class="sw-ln"></i>ajuste A(t) = A₀·e<sup>−γt/2</sup></span>
-        <span>abaixo: ln A × t, uma reta de inclinação −γ/2</span>
+        <span>abaixo: ln A × t</span>
       </div>
     </div>
     <div class="panel">
       <section class="block">
         <h2><span class="n">1</span>Amplitudes dos picos</h2>
-        <p class="note">Para cada pico da oscilação (máximo ou mínimo), anote o instante t e a amplitude A, que é a distância do pico até a posição de equilíbrio. Use sempre um valor positivo.</p>
+        <p class="note">A é a distância do pico (máximo ou mínimo) até a posição de equilíbrio, sempre positiva.</p>
         <div class="grid2">
           <div class="field"><label for="pUnit">Unidade de A</label><select id="pUnit"><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option></select></div>
-          <div class="field"><label for="pSig">Incerteza de A, se for a mesma para todos</label><input id="pSig" inputmode="decimal" autocomplete="off" placeholder="opcional"></div>
+          <div class="field"><label for="pSig">Incerteza comum de A</label><input id="pSig" inputmode="decimal" autocomplete="off" placeholder="opcional" title="Vale para as linhas sem σA"></div>
         </div>
         <div class="tbl-wrap"><table class="peaks" id="pTable"></table></div>
         <div class="row">
@@ -476,12 +475,11 @@ details.help[open] summary { margin-bottom: 6px; }
           <div class="row" style="margin-top:6px"><button class="btn small" id="pPasteUse" type="button">Usar dados colados</button></div>
         </div>
         <p class="msg" id="pMsg" hidden></p>
-        <p class="note">A coluna σ<sub>A</sub> de cada linha tem prioridade sobre a incerteza comum. Linhas incompletas são ignoradas e ficam marcadas em vermelho.</p>
       </section>
       <section class="block">
         <h2><span class="n">2</span>Ajuste</h2>
-        <p class="note">Modelo: A(t) = A₀·e<sup>−γt/2</sup>, por mínimos quadrados não lineares, ponderados por σ<sub>A</sub> quando todas as linhas têm incerteza. Aqui, como em todas as abas, γ = b/m.</p>
-        <p class="status" id="pStatus"></p>
+        <p class="note">A(t) = A₀·e<sup>−γt/2</sup>, com γ = b/m, por mínimos quadrados.</p>
+        <p class="status" id="pStatus" hidden></p>
         <div class="tbl-wrap"><table class="res" id="pFitTable"></table></div>
       </section>
       <section class="block">
@@ -499,7 +497,7 @@ details.help[open] summary { margin-bottom: 6px; }
       <div class="plot-wrap main" id="mOverWrap">
         <canvas id="mOver" aria-label="Posição, velocidade e aceleração sobrepostas"></canvas>
         <div class="plot-tools"><button class="tool" id="mFrame" type="button">Enquadrar</button></div>
-        <div class="empty" id="mEmpty"><p><b>Nenhum arquivo ainda</b>Importe um arquivo do Tracker com o tempo e a posição (e, se tiver, a velocidade e a aceleração). As três curvas aparecem aqui, uma sobre a outra.</p></div>
+        <div class="empty" id="mEmpty"><p><b>Nenhum arquivo ainda</b>Importe a tabela do Tracker com t, x e, se tiver, v e a.</p></div>
       </div>
       <div class="stack" id="mStack" hidden>
         <div class="plot-wrap third"><canvas id="mX" aria-label="Posição em função do tempo"></canvas><div class="plot-tools"><button class="tool" id="mFrame2" type="button">Enquadrar</button></div></div>
@@ -516,7 +514,7 @@ details.help[open] summary { margin-bottom: 6px; }
     <div class="panel">
       <section class="block">
         <h2><span class="n">1</span>Arquivo do Tracker</h2>
-        <p class="status" id="mSrc">Nenhum arquivo importado ainda.</p>
+        <p class="status" id="mSrc" hidden></p>
         <div class="row">
           <button class="btn" id="mImport" type="button">Importar arquivo</button>
           <button class="btn ghost" id="mPasteT" type="button" aria-expanded="false">Colar tabela</button>
@@ -539,7 +537,7 @@ details.help[open] summary { margin-bottom: 6px; }
           <div class="field"><label for="mT2">até t (s)</label><input id="mT2" inputmode="decimal" autocomplete="off"></div>
         </div>
         <div class="row"><button class="btn ghost small" id="mFull" type="button">Usar todo o intervalo</button></div>
-        <p class="note">No Tracker, inclua na tabela de dados as colunas de velocidade e aceleração (v e a) antes de exportar. Se o arquivo não tiver uma delas, escolha "calcular por derivada numérica": a velocidade sai da posição, e a aceleração sai da velocidade.</p>
+        <p class="note">Sem a coluna v ou a no arquivo, escolha "calcular por derivada numérica".</p>
       </section>
       <section class="block">
         <h2><span class="n">2</span>Visualização</h2>
@@ -547,15 +545,15 @@ details.help[open] summary { margin-bottom: 6px; }
           <button type="button" data-mode="over" aria-pressed="true">Sobrepostas</button>
           <button type="button" data-mode="stack" aria-pressed="false">Empilhadas</button>
         </div>
-        <p class="note" id="mModeNote"></p>
+        <p class="note" id="mModeNote" hidden></p>
         <label class="check"><input type="checkbox" id="mCenter"> Centralizar a posição no equilíbrio (subtrair a média)</label>
         <label class="check"><input type="checkbox" id="mDots"> Mostrar os pontos medidos</label>
       </section>
       <section class="block">
         <h2><span class="n">3</span>Relações entre as curvas</h2>
-        <p class="status" id="mRelStatus"></p>
+        <p class="status" id="mRelStatus" hidden></p>
         <div class="tbl-wrap"><table class="res" id="mRel"></table></div>
-        <p class="note">Estimativas na frequência dominante da posição, ajustando a cada curva uma senoide no intervalo mostrado. No MHS, a velocidade está adiantada de 90° em relação à posição e a aceleração está em oposição de fase (180°); com amortecimento fraco, os valores ficam próximos desses.</p>
+        <p class="note">Senoide ajustada a cada curva, na frequência dominante da posição, no intervalo mostrado.</p>
       </section>
     </div>
   </section>
@@ -581,7 +579,7 @@ details.help[open] summary { margin-bottom: 6px; }
     <div class="panel">
       <section class="block">
         <h2>Sistema massa-mola</h2>
-        <p class="note">Solta da posição z(0) = A₀ com velocidade nula. Mude b e veja a oscilação passar de subcrítica a crítica e supercrítica.</p>
+        <p class="note">Solta de z(0) = A₀, em repouso.</p>
         <div class="param"><label for="eM">Massa <span>m (g)</span></label><input class="num" id="eMn" inputmode="decimal" aria-label="Massa em gramas"><input type="range" id="eM" min="20" max="1000" step="1"></div>
         <div class="param"><label for="eK">Constante elástica <span>k (N/m)</span></label><input class="num" id="eKn" inputmode="decimal" aria-label="Constante elástica"><input type="range" id="eK" min="0.5" max="100" step="0.1"></div>
         <div class="param"><label for="eB">Coeficiente de amortecimento <span>b (kg/s)</span></label><input class="num" id="eBn" inputmode="decimal" aria-label="Coeficiente de amortecimento"><input type="range" id="eB" min="0" max="5" step="0.001"></div>
@@ -594,10 +592,6 @@ details.help[open] summary { margin-bottom: 6px; }
         <h2>Grandezas do modelo</h2>
         <dl class="kv" id="eKV"></dl>
         <div id="eRegime"></div>
-      </section>
-      <section class="block">
-        <h2>O que observar</h2>
-        <p class="note">Com γ = b/m, no regime subcrítico a amplitude cai como e<sup>−γt/2</sup> e a energia como e<sup>−γt</sup>: em τ = 2/γ a amplitude cai a 37% e a energia a 14%. A frequência ω = √(ω₀² − γ²/4) quase não muda com amortecimento fraco. Com b = b<sub>c</sub> = 2√(mk), o sistema volta ao equilíbrio no menor tempo, sem oscilar.</p>
       </section>
     </div>
   </section>
@@ -903,13 +897,16 @@ details.help[open] summary { margin-bottom: 6px; }
     const det = n * a22 - a12 * a12, s2 = sz > 0 ? sz * sz : sse / nu;
     return { ze, ph, sze: det > 0 ? Math.sqrt(a22 / det * s2) : NaN, sph: det > 0 ? Math.sqrt(n / det * s2) : NaN, f, resid };
   }
-  // medidas de qualidade de uma curva a partir dos resíduos
-  function quality(resid, zs, nPar, sz) {
+  // métricas de uma curva a partir dos seus resíduos (resid[i] = zs[i] − curva(t[i]))
+  function quality(resid, zs) {
     const n = resid.length;
-    let sse = 0, mz = 0, mr = 0; resid.forEach(r => { sse += r * r; mr += r; }); zs.forEach(z => { mz += z; }); mz /= n; mr /= n;
-    let sst = 0; zs.forEach(z => { sst += (z - mz) ** 2; });
-    let num = 0, den = 0; for (let i = 0; i < n; i++) { den += (resid[i] - mr) ** 2; if (i) num += (resid[i] - mr) * (resid[i - 1] - mr); }
-    return { n, nu: n - nPar, rms: Math.sqrt(sse / n), r2: sst > 0 ? 1 - sse / sst : NaN, chi2red: sz > 0 ? sse / (sz * sz) / (n - nPar) : null, r1: den > 0 ? num / den : 0 };
+    let mz = 0; zs.forEach(z => { mz += z; }); mz /= n;
+    let sse = 0, sst = 0, ape = 0, na = 0;
+    for (let i = 0; i < n; i++) {
+      sse += resid[i] ** 2; sst += (zs[i] - mz) ** 2;
+      if (zs[i] !== 0) { ape += Math.abs(resid[i] / zs[i]); na++; } // MAPE: z = 0 não entra na média
+    }
+    return { n, rmse: Math.sqrt(sse / n), r2: sst > 0 ? 1 - sse / sst : NaN, mape: na ? 100 * ape / na : NaN };
   }
   function analyze() {
     R = null;
@@ -917,11 +914,12 @@ details.help[open] summary { margin-bottom: 6px; }
     const [t1, t2] = range(pts);
     const sel = pts.filter(p => p.t >= t1 && p.t <= t2);
     const res = { pts, t1, t2, sel, ok: false, release: releaseTime(pts) };
-    const bad = (m) => { res.msg = m; R = res; };
-    if (!pts.length) return bad("Importe a trajetória do Tracker no passo 2 para traçar as curvas.");
-    if (S.a.ti === S.a.zi) return bad("A mesma coluna está escolhida para o tempo e para a posição. Escolha colunas diferentes no passo 2.");
-    if (!(t2 > t1)) return bad(`O início do intervalo de ajuste (t = ${fmtSig(t1, 4)} s) precisa ser menor que o fim (t = ${fmtSig(t2, 4)} s).`);
-    if (sel.length < 12) return bad(`Há ${sel.length} ${sel.length === 1 ? "ponto" : "pontos"} entre t = ${fmtSig(t1, 4)} s e t = ${fmtSig(t2, 4)} s. O ajuste precisa de pelo menos 12; amplie o intervalo.`);
+    // problemas nos dados ou no intervalo: a mensagem aparece no passo 2 (dataMsg); res.msg fica para o ajuste livre
+    const bad = (m, badRange) => { res.dataMsg = m; res.badRange = !!badRange; R = res; };
+    if (!pts.length) { R = res; return; }
+    if (S.a.ti === S.a.zi) return bad("A mesma coluna está escolhida para o tempo e para a posição.");
+    if (!(t2 > t1)) return bad(`O início do intervalo (t = ${fmtSig(t1, 4)} s) precisa ser menor que o fim (t = ${fmtSig(t2, 4)} s).`, true);
+    if (sel.length < 12) return bad(`Há ${sel.length} ${sel.length === 1 ? "ponto" : "pontos"} no intervalo; o ajuste precisa de pelo menos 12.`, true);
     const ts = sel.map(p => p.t), zs = sel.map(p => p.z), t0 = ts[0];
     const fM = parseNum(S.a.meas.f), AM = parseNum(S.a.meas.A), gM = parseNum(S.a.meas.g);
     // curva com os parâmetros medidos (independe do ajuste livre)
@@ -933,7 +931,7 @@ details.help[open] summary { margin-bottom: 6px; }
       if (miss.length || neg.length || nan.length) res.exp = { ok: false, msg: [miss.length ? `Preencha no passo 1: ${list(miss)}.` : "", nan.length ? `O valor de ${list(nan)} no passo 1 não é um número; use vírgula ou ponto como decimal.` : "", neg.length ? `${list(neg)} ${neg.length > 1 ? "precisam ser positivos" : (neg[0] === "γ" ? "não pode ser negativo" : "precisa ser positivo")} (passo 1).` : ""].filter(Boolean).join(" ") };
       else {
         const X = fitExp(ts, zs, t0, AM, 2 * Math.PI * fM, gM / 2, szv);
-        res.exp = Object.assign(X, { ok: true, A: AM, w: 2 * Math.PI * fM, gh: gM / 2, t0, q: quality(X.resid, zs, 2, szv), residT: ts });
+        res.exp = Object.assign(X, { ok: true, A: AM, w: 2 * Math.PI * fM, gh: gM / 2, t0, q: quality(X.resid, zs), residT: ts });
       }
     }
     const ze0 = zs.reduce((s, z) => s + z, 0) / zs.length;
@@ -981,10 +979,10 @@ details.help[open] summary { margin-bottom: 6px; }
       ok: true, p, cov, sig, t0, n, nu, iters: fit.iters, conv: fit.conv, tb: ts[ts.length - 1],
       noOsc: !(p[1] > 3 * sig[1]) || !(p[1] > 2 * sEst),
       gSig: p[2] > 2 * sig[2],
-      chi2red: hasSz ? fit.sse / (sz * sz) / nu : null, sEst: Math.sqrt(fit.sse / nu), hasSz,
+      sEst: Math.sqrt(fit.sse / nu), hasSz,
       resid: sel.map(q => ({ t: q.t, r: q.z - model(p, q.t, t0) }))
     });
-    res.q = quality(res.resid.map(q => q.r), zs, 5, hasSz ? sz : 0);
+    res.q = quality(res.resid.map(q => q.r), zs);
     // grandezas derivadas: q = [ze, A, γ, ω, φ, m]
     const mk = massKg();
     const hasM = mk.v > 0;
@@ -1041,34 +1039,15 @@ details.help[open] summary { margin-bottom: 6px; }
   const U = () => S.a.unitPos;
   function row(q, sub, v, u) { return `<tr><td class="q">${q}${sub ? `<span>${sub}</span>` : ""}</td><td class="v">${v}</td><td class="u">${u}</td></tr>`; }
   const fmtR2 = (v) => !isFinite(v) ? "—" : minus(nf(v > 0.999 ? 5 : 4).format(v));
+  const fmtPct = (v) => isFinite(v) ? `${fmtSig(v, 3)} %` : "—";
+  // linha de estado: some quando não há o que dizer
+  function setStatus(node, text, cls = "bad") { node.textContent = text || ""; node.hidden = !text; node.className = cls ? `status ${cls}` : "status"; }
   function renderExp() {
-    const st = el("expStatus"), qt = el("expQual"), vd = el("expVerdict"), pt = el("expPar");
+    const st = el("expStatus"), pt = el("expPar");
     const X = R && R.exp;
-    if (!X || !X.ok) {
-      st.className = "status bad";
-      st.textContent = X ? X.msg : (R && R.msg ? R.msg : "Importe a trajetória para traçar a curva.");
-      qt.innerHTML = vd.innerHTML = pt.innerHTML = ""; el("expSigNote").hidden = true; return;
-    }
-    const u = U(), F = R.ok && !R.noOsc ? R.q : null, E = X.q;
-    st.className = "status ok";
-    st.textContent = `Curva traçada sobre ${E.n} pontos, de t = ${fmtSig(X.t0, 4)} s a ${fmtSig(X.residT[X.residT.length - 1], 4)} s.`;
-    const two = (lab, sub, a, b) => `<tr><td class="q">${lab}${sub ? `<span>${sub}</span>` : ""}</td><td class="v">${a}</td><td class="v">${b}</td></tr>`;
-    qt.innerHTML = `<thead><tr><th>Qualidade</th><th>Medidos</th><th>Ajuste livre</th></tr></thead><tbody>` +
-      two(`RMS dos resíduos (${u})`, "", fmtSig(E.rms, 2), F ? fmtSig(F.rms, 2) : "—") +
-      two("R²", "", fmtR2(E.r2), F ? fmtR2(F.r2) : "—") +
-      (E.chi2red != null ? two("χ²/ν", `ν = ${E.nu} e ${E.nu - 3}`, fmtSig(E.chi2red, 3), F && F.chi2red != null ? fmtSig(F.chi2red, 3) : "—") : "") +
-      two("r₁ dos resíduos", "autocorrelação", minus(nf(2).format(E.r1)), F ? minus(nf(2).format(F.r1)) : "—") + `</tbody>`;
-    if (F) {
-      const ratio = E.rms / F.rms;
-      const [k, lab, txt] = ratio < 1.25
-        ? ["ok", "Descreve os dados", "quase tão bem quanto o ajuste livre"]
-        : ratio < 2 ? ["warn", "Descreve razoavelmente", "com desvios maiores que os do ajuste livre"]
-        : ["bad", "Não descreve bem os dados", "com desvios bem maiores que os do ajuste livre"];
-      vd.innerHTML = `<div class="row"><span class="chip ${k}">${lab}</span><span class="note">RMS ${fmtSig(ratio, 2)} vez${ratio >= 2 ? "es" : ""} o do ajuste livre: ${txt}.</span></div>` +
-        (ratio >= 1.25 ? `<p class="note" style="margin-top:6px">Confira f, A₀ e γ no passo 1 e o intervalo de ajuste. Se a curva sai de fase com o tempo, o desvio vem da frequência; se a amplitude da curva se afasta da dos pontos, vem do decaimento γ ou de A₀. O passo 6 mostra qual medida difere do ajuste livre.</p>` : "") +
-        `<p class="note" style="margin-top:6px">Critério: RMS até 1,25 vez o do ajuste livre, descreve os dados; até 2 vezes, razoavelmente; acima disso, não descreve bem.</p>`;
-    } else vd.innerHTML = `<p class="note">Sem o ajuste livre, não há referência para comparar; use os números acima e o gráfico de resíduos.</p>`;
-    const mk = massKg(), hasM = mk.v > 0;
+    if (!X || !X.ok) { setStatus(st, X ? X.msg : ""); pt.innerHTML = ""; el("expSigNote").hidden = true; return; }
+    setStatus(st, "");
+    const u = U(), mk = massKg(), hasM = mk.v > 0;
     const fM = parseNum(S.a.meas.f), sf = Math.abs(parseNum(S.a.meas.sf)) || 0, gM = parseNum(S.a.meas.g), sg = Math.abs(parseNum(S.a.meas.sg)) || 0;
     const w = 2 * Math.PI * fM, sw = 2 * Math.PI * sf, w0 = Math.sqrt(w * w + gM * gM / 4), sw0 = Math.sqrt((w * sw) ** 2 + (gM / 4 * sg) ** 2) / w0;
     const miss = `<td class="v miss">informe a massa no passo 1</td>`;
@@ -1083,42 +1062,49 @@ details.help[open] summary { margin-bottom: 6px; }
       (hasM ? row("k = m·ω₀²", "constante elástica", fmtUnc(mk.v * w0 * w0, Math.sqrt((w0 * w0 * mk.s) ** 2 + (2 * mk.v * w0 * sw0) ** 2)), "N/m") : `<tr><td class="q">k = m·ω₀²</td>${miss}<td class="u">N/m</td></tr>`) +
       `</tbody>`;
     el("expSigNote").hidden = !noSig.length;
-    if (noSig.length) el("expSigNote").textContent = `Sem incerteza informada para ${noSig.join(", ").replace(/, ([^,]*)$/, " e $1")} no passo 1: as incertezas abaixo ficam subestimadas.`;
+    if (noSig.length) el("expSigNote").textContent = `Sem incerteza de ${noSig.join(", ").replace(/, ([^,]*)$/, " e $1")} no passo 1: as incertezas abaixo ficam subestimadas.`;
+  }
+  // métricas das duas curvas, cada uma calculada com os seus próprios resíduos sobre os mesmos pontos
+  function renderQual() {
+    const st = el("qualStatus"), tb = el("qualTable");
+    const E = R && R.exp && R.exp.ok ? R.exp.q : null, F = R && R.ok ? R.q : null;
+    if (!E && !F) { setStatus(st, ""); tb.innerHTML = ""; return; }
+    const sel = R.sel, n = sel.length;
+    setStatus(st, `N = ${n} pontos, de t = ${fmtSig(sel[0].t, 4)} s a ${fmtSig(sel[n - 1].t, 4)} s.`, "");
+    const val = (Q, fn) => `<td class="v">${Q ? fn(Q) : "—"}</td>`;
+    const line = (lab, sub, fn) => `<tr><td class="q">${lab}${sub ? `<span>${sub}</span>` : ""}</td>${val(E, fn)}${val(F, fn)}</tr>`;
+    tb.innerHTML = `<thead><tr><th>Métrica</th><th><i class="sw-c" style="--c:var(--c3)"></i>Parâmetros medidos</th><th><i class="sw-c" style="--c:var(--fit)"></i>Ajuste livre</th></tr></thead><tbody>` +
+      line("R²", "", Q => fmtR2(Q.r2)) +
+      line(`RMSE (${U()})`, "", Q => fmtSig(Q.rmse, 3)) +
+      line("MAPE", "", Q => fmtPct(Q.mape)) + `</tbody>`;
   }
   function renderAnalysis() {
     renderExp();
+    renderQual();
     const st = el("fitStatus"), ft = el("fitTable"), dt = el("derTable"), cl = el("cmpList"), rg = el("regime");
     const pts = R ? R.pts : [];
-    el("srcLine").textContent = pts.length ? `${S.a.src || "Dados colados"} · ${pts.length} pontos` : "Nenhuma trajetória importada ainda.";
+    setStatus(el("srcLine"), pts.length ? `${S.a.src || "Dados colados"} · ${pts.length} pontos` : "", "");
     el("aEmpty").hidden = pts.length > 0;
+    el("rangeMsg").textContent = (R && R.dataMsg) || ""; el("rangeMsg").hidden = !(R && R.dataMsg);
     const rel = R && R.release;
     const relShow = rel != null && R.t1 < rel - (1e-3 * Math.max(1, Math.abs(rel)));
     el("relBox").hidden = !relShow;
-    if (relShow) el("relTxt").textContent = `A massa parece estar parada até t ≈ ${fmtSig(rel, 3)} s e ser solta nesse instante. O trecho parado não segue o modelo e distorce o ajuste.`;
+    if (relShow) el("relTxt").textContent = `A massa parece ter sido solta em t ≈ ${fmtSig(rel, 3)} s.`;
     if (!R || !R.ok) {
-      st.className = "status bad"; st.textContent = R && R.msg ? R.msg : "Importe a trajetória para fazer o ajuste.";
+      setStatus(st, R && R.msg);
       ft.innerHTML = ""; dt.innerHTML = ""; cl.innerHTML = ""; rg.innerHTML = "";
       return;
     }
     const p = R.p, s = R.sig, u = U();
-    st.className = R.noOsc || !R.conv ? "status bad" : "status ok";
-    st.textContent = `Ajuste com ${R.n} pontos, de t = ${fmtSig(R.t0, 4)} s a ${fmtSig(R.tb, 4)} s.` +
-      (R.conv ? "" : " Atenção: o ajuste parou antes de convergir; confira o intervalo e as medidas diretas.") +
-      (R.noOsc ? " Os dados não mostram uma oscilação clara: a amplitude ajustada é comparável ao ruído. Confira a coluna da posição e o intervalo de ajuste." : "");
+    setStatus(st, [R.conv ? "" : "O ajuste parou antes de convergir; confira o intervalo e as medidas diretas.",
+      R.noOsc ? "Não há oscilação clara: a amplitude ajustada é comparável ao ruído. Confira a coluna da posição e o intervalo." : ""].filter(Boolean).join(" "));
     ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
       row("z<sub>e</sub>", "posição de equilíbrio", fmtUnc(p[0], s[0]), u) +
       row("A₀", `amplitude em t₀ = ${fmtSig(R.t0, 4)} s`, fmtUnc(p[1], s[1]), u) +
       row("γ = b/m", "parâmetro de amortecimento", fmtUnc(p[2], s[2]), "s⁻¹") +
       row("ω", "frequência angular amortecida", fmtUnc(p[3], s[3]), "rad/s") +
-      row("φ", "fase", fmtUnc(p[4], s[4]), "rad") +
-      (R.hasSz
-        ? row("χ²/ν", `ν = N − 5 = ${R.nu}`, fmtSig(R.chi2red, 3), "")
-        : row("σ estimada", "desvio dos pontos em torno do ajuste", fmtSig(R.sEst, 2), u)) + `</tbody>`;
-    if (R.noOsc) {
-      dt.innerHTML = ""; cl.innerHTML = "";
-      rg.innerHTML = `<p class="note">Sem uma oscilação identificada, as grandezas derivadas e a comparação com as medidas diretas não fazem sentido.</p>`;
-      return;
-    }
+      row("φ", "fase", fmtUnc(p[4], s[4]), "rad") + `</tbody>`;
+    if (R.noOsc) { dt.innerHTML = ""; cl.innerHTML = ""; rg.innerHTML = ""; return; }
     const d = R.der;
     const miss = `<td class="v miss">informe a massa no passo 1</td>`;
     const gPos = p[2] > 0;
@@ -1136,13 +1122,10 @@ details.help[open] summary { margin-bottom: 6px; }
     let cls = "ok", txt = "Subcrítico";
     if (!R.gSig) { cls = "warn"; txt = "Amortecimento não significativo"; }
     else if (r >= 1) { cls = "bad"; txt = "Não subcrítico"; }
-    const gNote = !R.gSig
-      ? `<p class="note" style="margin-top:6px">γ não chega a 2σ acima de zero neste intervalo, então o amortecimento não foi medido com segurança e τ e Q ficam mal determinados. Use um intervalo mais longo, com mais oscilações.</p>`
-      : "";
-    rg.innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/(2ω₀) = ${fmtUnc(r, rs)}${r < 1 && R.gSig ? " &lt; 1" : ""}</span></div>` + gNote +
-      `<p class="note" style="margin-top:6px">O modelo com seno já supõe o regime subcrítico (γ &lt; 2ω₀), então o ajuste confirma esse regime e mostra a folga γ/(2ω₀).</p>`;
+    const gNote = !R.gSig ? `<p class="note" style="margin-top:6px">γ não chega a 2σ acima de zero: τ e Q ficam mal determinados.</p>` : "";
+    rg.innerHTML = `<div class="row"><span class="chip ${cls}">${txt}</span><span class="note">γ/(2ω₀) = ${fmtUnc(r, rs)}${r < 1 && R.gSig ? " &lt; 1" : ""}</span></div>` + gNote;
     cl.innerHTML = R.cmp.map(c => {
-      if (c.missing) return `<div class="cmp-item"><span class="t">${c.name}</span><span class="chip info">sem medida direta</span><span class="d">Preencha o passo 1 para comparar.</span></div>`;
+      if (c.missing) return `<div class="cmp-item"><span class="t">${c.name}</span><span class="chip info">sem medida direta</span></div>`;
       const sc = Math.sqrt(c.ms ** 2 + c.fs ** 2);
       const z = sc > 0 ? Math.abs(c.meas - c.fit) / sc : Infinity;
       const [k, lab] = z <= 2 ? ["ok", "compatíveis"] : z <= 3 ? ["warn", "discrepância moderada"] : ["bad", "incompatíveis"];
@@ -1172,20 +1155,18 @@ details.help[open] summary { margin-bottom: 6px; }
     add("δ = γT/2", d.dec.v, d.dec.s, ""); add("γ/(2ω0)", d.ratio.v, d.ratio.s, "");
     lines.push(["N (pontos)", String(R.n), "", ""]);
     lines.push(["intervalo de ajuste", `${num(R.t1)} a ${num(R.t2)}`, "", "s"]);
-    if (R.hasSz) lines.push(["χ²/ν", num(R.chi2red), "", ""]); else lines.push(["σ estimada dos pontos", num(R.sEst), "", u]);
-    const X = R.exp;
-    if (X && X.ok) {
+    const X = R.exp, E = X && X.ok ? X.q : null, F = R.q;
+    if (E) {
       const gM = parseNum(S.a.meas.g);
       lines.push([]); lines.push(["Curva com os parâmetros medidos", "", "", ""]);
       if (gM >= 0) add("γ (medida, = b/m)", gM, parseNum(S.a.meas.sg), "s^-1");
       add("ze (curva medida)", X.ze, X.sze, u); add("φ (curva medida)", X.ph, X.sph, "rad");
-      lines.push(["Qualidade", "Parâmetros medidos", "Ajuste livre", ""]);
-      lines.push(["RMS dos resíduos", num(X.q.rms), num(R.q.rms), u]);
-      lines.push(["R²", plain(fmtR2(X.q.r2)), plain(fmtR2(R.q.r2)), ""]);
-      if (X.q.chi2red != null) lines.push(["χ²/ν", num(X.q.chi2red), num(R.q.chi2red), ""]);
-      lines.push(["r1 dos resíduos", num(X.q.r1), num(R.q.r1), ""]);
     }
-    return lines.map(l => l.join("\t")).join("\n");
+    // métricas: cada curva com os seus resíduos
+    lines.push([]); lines.push(["Métrica", "Parâmetros medidos", "Ajuste livre", "Unidade"]);
+    lines.push(["R²", E ? plain(fmtR2(E.r2)) : "", plain(fmtR2(F.r2)), ""]);
+    lines.push(["RMSE", E ? num(E.rmse) : "", num(F.rmse), u]);
+    lines.push(["MAPE", E ? num(E.mape) : "", num(F.mape), "%"]);    return lines.map(l => l.join("\t")).join("\n");
   }
 
   // ================= gráfico genérico =================
@@ -1471,7 +1452,7 @@ details.help[open] summary { margin-bottom: 6px; }
       const has = R.pts.length > 0;
       if (document.activeElement !== el("t1")) el("t1").value = S.a.t1 !== "" ? S.a.t1 : (has ? fmtIn(R.t1, 5) : "");
       if (document.activeElement !== el("t2")) el("t2").value = S.a.t2 !== "" ? S.a.t2 : (has ? fmtIn(R.t2, 5) : "");
-      const badRange = !!(R.msg && /intervalo|pontos entre/.test(R.msg));
+      const badRange = !!R.badRange;
       el("t1").classList.toggle("bad", badRange); el("t2").classList.toggle("bad", badRange);
     }
   }
@@ -1722,10 +1703,10 @@ details.help[open] summary { margin-bottom: 6px; }
     const cAA = a22 / det * scale, cgg = a11 / det * scale, cAg = -a12 / det * scale;
     Object.assign(res, {
       ok: true, A0, g, sA0: Math.sqrt(Math.max(0, cAA)), sg: Math.sqrt(Math.max(0, cgg)), cAg,
-      n, nu, weighted, chi2red: weighted && nu > 0 ? cur / nu : null, sEst: !weighted && nu > 0 ? Math.sqrt(cur / nu) : null,
+      n, nu, weighted, sEst: !weighted && nu > 0 ? Math.sqrt(cur / nu) : null,
       partialSigma: !weighted && pts.some(q => q.s > 0)
     });
-    if (n === 3) res.warn = "Com só 3 picos, as incertezas do ajuste são pouco confiáveis; use mais picos.";
+    if (n === 3) res.warn = "Com só 3 picos, as incertezas do ajuste são pouco confiáveis.";
     return res;
   }
 
@@ -1762,23 +1743,23 @@ details.help[open] summary { margin-bottom: 6px; }
     markBadRows(PR.bad);
     const st = el("pStatus"), ft = el("pFitTable"), dt = el("pDerTable"), cm = el("pCmp"), u = P.unit;
     const nBad = PR.bad.size;
+    const ign = nBad ? ` ${nBad} ${nBad === 1 ? "linha ignorada" : "linhas ignoradas"} (em vermelho).` : "";
     if (!PR.ok) {
-      st.className = "status bad"; st.textContent = PR.msg + (nBad ? ` ${nBad} ${nBad === 1 ? "linha está incompleta ou inválida" : "linhas estão incompletas ou inválidas"}.` : "");
+      // tabela ainda vazia: nada a dizer
+      setStatus(st, PR.pts.length || nBad ? PR.msg + ign : "");
       ft.innerHTML = dt.innerHTML = cm.innerHTML = ""; return;
     }
-    st.className = PR.warn ? "status bad" : "status ok";
-    st.textContent = `Ajuste com ${PR.n} picos` + (PR.weighted ? ", ponderado por σA." : ", sem ponderação.") +
-      (nBad ? ` ${nBad} ${nBad === 1 ? "linha ignorada" : "linhas ignoradas"} (em vermelho).` : "") +
-      (PR.partialSigma ? " Algumas linhas não têm σA, então a ponderação foi desligada; preencha todas ou use a incerteza comum." : "") +
-      (PR.warn ? " " + PR.warn : "");
+    setStatus(st, `${PR.n} picos, ` + (PR.weighted ? "ponderado por σA." : "sem ponderação.") + ign +
+      (PR.partialSigma ? " Há linhas sem σA, então a ponderação foi desligada." : "") +
+      (PR.warn ? " " + PR.warn : ""), PR.warn ? "bad" : "");
     ft.innerHTML = `<thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
       row("A₀", "amplitude em t = 0", fmtUnc(PR.A0, PR.sA0), u) +
       row("γ = b/m", "parâmetro de amortecimento", fmtUnc(PR.g, PR.sg), "s⁻¹") +
-      (PR.weighted ? row("χ²/ν", `ν = N − 2 = ${PR.nu}`, fmtSig(PR.chi2red, 3), "") : row("σ estimada", "desvio dos picos em torno do ajuste", fmtSig(PR.sEst, 2), u)) + `</tbody>`;
+      (PR.weighted ? "" : row("σ estimada", "desvio dos picos em torno do ajuste", fmtSig(PR.sEst, 2), u)) + `</tbody>`;
     const gPos = PR.g > 0;
     const mk = massKg(), hasM = mk.v > 0;
     const bV = hasM ? mk.v * PR.g : NaN, bS = hasM ? Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2) : NaN;
-    const mText = hasM ? `com m = ${fmtUnc(parseNum(S.a.meas.m), parseNum(S.a.meas.sm))} ${S.a.meas.mu} do passo 1 da análise` : "";
+    const mText = hasM ? `m = ${fmtUnc(parseNum(S.a.meas.m), parseNum(S.a.meas.sm))} ${S.a.meas.mu}` : "";
     dt.innerHTML = `<thead><tr><th>Grandeza</th><th>Valor</th><th>Unidade</th></tr></thead><tbody>` +
       (gPos ? row("τ = 2/γ", "tempo para A cair a A₀/e", fmtUnc(2 / PR.g, 2 * PR.sg / PR.g ** 2), "s") : `<tr><td class="q">τ = 2/γ</td><td class="v miss">não definido, pois γ ≤ 0</td><td class="u">s</td></tr>`) +
       (gPos ? row("t½ = 2·ln2/γ", "tempo para A cair à metade", fmtUnc(2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2), "s") : "") +
@@ -1789,10 +1770,9 @@ details.help[open] summary { margin-bottom: 6px; }
       const z = Math.abs(a - c) / Math.sqrt(sa * sa + sc * sc);
       const [k, lab] = z <= 2 ? ["ok", "compatíveis"] : z <= 3 ? ["warn", "discrepância moderada"] : ["bad", "incompatíveis"];
       cm.innerHTML = `<div class="cmp-item"><span class="t">γ dos picos × γ da curva completa</span><span class="chip ${k}">${lab}</span>` +
-        `<span class="d">picos ${fmtUnc(a, sa)} s⁻¹ · curva ${fmtUnc(c, sc)} s⁻¹ · |Δ| = ${fmtSig(z, 2)}σ</span>` +
-        `<span class="d" style="font-family:var(--font-ui)">Os dois métodos medem o mesmo γ = b/m: um usa só os picos, o outro usa a trajetória inteira.</span></div>`;
+        `<span class="d">picos ${fmtUnc(a, sa)} s⁻¹ · curva ${fmtUnc(c, sc)} s⁻¹ · |Δ| = ${fmtSig(z, 2)}σ</span></div>`;
     } else {
-      cm.innerHTML = `<div class="cmp-item"><span class="t">γ dos picos × γ da curva completa</span><span class="chip info">sem ajuste da curva</span><span class="d" style="font-family:var(--font-ui)">Faça o ajuste na aba Análise da curva para comparar os dois métodos.</span></div>`;
+      cm.innerHTML = `<div class="cmp-item"><span class="t">γ dos picos × γ da curva completa</span><span class="chip info">sem ajuste da curva</span></div>`;
     }
   }
   function peaksTSV() {
@@ -1804,7 +1784,7 @@ details.help[open] summary { margin-bottom: 6px; }
     add("A0", PR.A0, PR.sA0, u); add("γ = b/m", PR.g, PR.sg, "s^-1");
     if (PR.g > 0) { add("τ = 2/γ", 2 / PR.g, 2 * PR.sg / PR.g ** 2, "s"); add("t1/2 = 2·ln2/γ", 2 * Math.LN2 / PR.g, 2 * Math.LN2 * PR.sg / PR.g ** 2, "s"); }
     const mk = massKg(); if (mk.v > 0) add("b = m·γ", mk.v * PR.g, Math.sqrt((PR.g * mk.s) ** 2 + (mk.v * PR.sg) ** 2), "kg/s");
-    if (PR.weighted) L.push(["χ²/ν", num(PR.chi2red), "", ""]); else L.push(["σ estimada dos picos", num(PR.sEst), "", u]);
+    if (!PR.weighted) L.push(["σ estimada dos picos", num(PR.sEst), "", u]);
     L.push([]); L.push(["t (s)", `A (${u})`, `σA (${u})`, ""]);
     PR.pts.forEach(q => L.push([tsvRaw(q.t), tsvRaw(q.A), q.s ? tsvRaw(q.s) : "", ""]));
     return L.map(l => l.join("\t")).join("\n");
@@ -1999,7 +1979,7 @@ details.help[open] summary { margin-bottom: 6px; }
     const valid = (ys) => ys ? D.t.map((t, i) => [t, ys[i]]).filter(([, y]) => y != null && isFinite(y)) : [];
     const ref = D.x ? "x" : D.v ? "v" : null;
     const rp = ref ? valid(D[ref]) : [];
-    if (rp.length < 12) { st.className = "status bad"; st.textContent = "É preciso a posição (ou a velocidade) com pelo menos 12 pontos no intervalo."; tb.innerHTML = ""; return; }
+    if (rp.length < 12) { setStatus(st, "É preciso a posição (ou a velocidade) com pelo menos 12 pontos no intervalo."); tb.innerHTML = ""; return; }
     const w = estimateFreq(rp.map(q => q[0]), rp.map(q => q[1]));
     const H = {}; ["x", "v", "a"].forEach(k => { if (D[k]) H[k] = harmonic(D.t, D[k], w); });
     const deg = (r) => { let d = r * 180 / Math.PI; d = ((d + 180) % 360 + 360) % 360 - 180; if (d <= -180) d += 360; return d; };
@@ -2018,13 +1998,12 @@ details.help[open] summary { margin-bottom: 6px; }
     }
     if (H.v && H.a && !H.x) html += rowR("φ<sub>a</sub> − φ<sub>v</sub>", "fase da aceleração", fmtDeg(deg(H.a.psi - H.v.psi)), "+90° (adiantada)");
     tb.innerHTML = html + `</tbody>`;
-    st.className = "status ok";
-    st.textContent = `Calculadas com ${rp.length} pontos, de t = ${fmtSig(rp[0][0], 4)} s a ${fmtSig(rp[rp.length - 1][0], 4)} s.`;
+    setStatus(st, "");
   }
   function mRender() {
     MD = mSeries();
     const has = !!(MD && MD.t.length);
-    el("mSrc").textContent = M.raw && mCols.length ? `${M.src || "Dados colados"} · ${mCols[M.ti] ? mCols[M.ti].values.filter(v => v != null).length : 0} instantes` : "Nenhum arquivo importado ainda.";
+    setStatus(el("mSrc"), M.raw && mCols.length ? `${M.src || "Dados colados"} · ${mCols[M.ti] ? mCols[M.ti].values.filter(v => v != null).length : 0} instantes` : "", "");
     const opt = (sel, extra) => extra + mCols.map((c, j) => `<option value="${j}"${j === sel ? " selected" : ""}>${c.name.replace(/[&<>"]/g, "")}</option>`).join("");
     const o = (v, val, label) => `<option value="${v}"${val === v ? " selected" : ""}>${label}</option>`;
     el("mT").innerHTML = opt(M.ti, "");
@@ -2040,17 +2019,17 @@ details.help[open] summary { margin-bottom: 6px; }
     el("mOverWrap").hidden = stack; el("mStack").hidden = !stack;
     document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === M.mode)));
     el("mEmpty").hidden = has;
-    el("mModeNote").textContent = M.mode === "stack"
-      ? "Cada curva no seu gráfico e nas suas unidades, com o mesmo eixo de tempo. Arrastar ou dar zoom em um deles move os três."
-      : "Cada curva está dividida pelo seu maior valor em módulo, indicado na legenda, para as três caberem na mesma escala. A leitura abaixo do gráfico mostra os valores reais.";
+    // só o modo sobreposto precisa de explicação: as curvas aparecem normalizadas
+    el("mModeNote").hidden = M.mode === "stack";
+    el("mModeNote").textContent = "Cada curva aparece dividida pelo seu maior valor em módulo (na legenda).";
     const u = mUnits();
     SER.forEach(([k]) => {
       const m = MD && MD[k] ? MD["m" + k] : 0;
       el("mScale" + k.toUpperCase()).textContent = MD && MD[k] && M.mode === "over" && m > 0 ? `÷ ${fmtSig(m, 3)} ${u[k]}` : (MD && !MD[k] ? "(sem dados)" : "");
     });
-    if (badR) { el("mRelStatus").className = "status bad"; el("mRelStatus").textContent = "O início do intervalo precisa ser menor que o fim."; el("mRel").innerHTML = ""; }
+    if (badR) { setStatus(el("mRelStatus"), "O início do intervalo precisa ser menor que o fim."); el("mRel").innerHTML = ""; }
     else if (has) mRelations(MD);
-    else { el("mRelStatus").className = "status"; el("mRelStatus").textContent = "Importe um arquivo para ver as relações."; el("mRel").innerHTML = ""; }
+    else { setStatus(el("mRelStatus"), ""); el("mRel").innerHTML = ""; }
     schedule();
   }
   const mX = { min: 0, max: 10 };
