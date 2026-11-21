@@ -10,7 +10,7 @@ import { renderPanels, updateReadout } from "../paineis.js";
 import { cropRGBA, evolve, nccSearch, subpixel, templateFrom } from "./modelo.js";
 import { predictNext } from "./previsao.js";
 import { $, clampF, fmt } from "../util.js";
-import { copyFrame, pump, putCache, readRange } from "../video/decodificador.js";
+import { copyFrame, lerAmostra, pump, putCache } from "../video/decodificador.js";
 
 // Como o autotracker do Tracker: um modelo (o círculo em volta da mira, guardado num quadrado com os cantos
 // mascarados) é procurado em cada quadro por correlação normalizada nas cores. Primeiro numa versão reduzida da
@@ -157,6 +157,8 @@ async function runTrack() {
   TR.running = true; TR.stop = false; TR.userStop = false; S.tracking = true; setTrackUI(true);
   trackMsg("Preparando o rastreamento…");
   while (S.busy) await sleep(20);
+  // um decodificador só por vez (fase 2 do plano de memória): o da página é fechado; o pump cria outro depois
+  if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
   const gen = S.gen, F = S.frames;
   const st = { hist: [{ p: { x: S.cross.x, y: S.cross.y }, t: F[startI].t }], last: startI, n: 0, lost: null, err: null, score: 1, minScore: 1, dirty: false };
   const order = []; let q = 0;
@@ -206,12 +208,15 @@ async function runTrack() {
     const dEnd = S.gopEnd[F[endI].d];
     while (d <= dEnd && !TR.stop && gen === S.gen) {
       const g1 = S.gopEnd[d];
-      const get = await readRange(d, g1);
       const P = []; for (let k = d; k <= g1; k++) P.push(S.presOf[k]);
       P.sort((a, b) => a - b); order.push(...P);
       for (let k = d; k <= g1 && !TR.stop; k++) {
         const s = S.samples[k];
-        dec.decode(new EncodedVideoChunk({ type: k === d ? "key" : "delta", timestamp: Math.round(s.cts * 1e6 / S.ts), data: get(k) }));
+        // amostra por amostra, pelo leitor em blocos (antes, o grupo inteiro numa leitura: 151 MB num vídeo de um
+        // quadro-chave só)
+        const data = await lerAmostra(k);
+        if (TR.stop || gen !== S.gen) break;
+        dec.decode(new EncodedVideoChunk({ type: k === d ? "key" : "delta", timestamp: Math.round(s.cts * 1e6 / S.ts), data }));
         while (dec.decodeQueueSize > 3 && !TR.stop) await sleep(2);
       }
       d = g1 + 1;

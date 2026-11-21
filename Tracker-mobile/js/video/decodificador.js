@@ -10,12 +10,16 @@
 // - prévias: uma imagem pequena do quadro-chave de cada grupo, mostrada enquanto o dedo arrasta a barra (S.arrasto,
 //   barra.js) e enquanto o quadro exato não chega (desenho.js, com a etiqueta "prévia"); feitas em segundo plano
 //   depois de abrir o vídeo e, com o dedo arrastando, na hora, para o grupo debaixo do dedo.
+//
+// Fase 2 (memória): num vídeo de até 960 px não há cópia em "resolução cheia" (ela é a própria baixa); a resolução
+// cheia guarda só o quadro atual e o próximo da marcação; com a página em segundo plano (outro app, tela apagada), os
+// quadros guardados (menos o atual) e o decodificador são devolvidos, e voltam a ser feitos quando ela volta.
 
 import { agendarRender, layout, render } from "../desenho.js";
 import { S } from "../estado.js";
 import { setSrc } from "../paineis.js";
 import { $ } from "../util.js";
-import { computeDims } from "./conteiner.js";
+import { cheiaIgual, computeDims } from "./conteiner.js";
 import { lerBytes } from "./leitor.js";
 
 function getDecoder() {
@@ -97,7 +101,7 @@ export async function readRange(d0, d1) {
   const buf = await lerBytes(S.file, lo, hi);
   return (d) => { const s = S.samples[d]; return buf.subarray(s.offset - lo, s.offset - lo + s.size); };
 }
-const lerAmostra = (d) => { const s = S.samples[d]; return lerBytes(S.file, s.offset, s.offset + s.size); };
+export const lerAmostra = (d) => { const s = S.samples[d]; return lerBytes(S.file, s.offset, s.offset + s.size); };
 // espera a fila do decodificador andar (evento dequeue), no máximo 10 ms
 const andar = (dec) => new Promise((r) => { const t = setTimeout(r, 10); dec.addEventListener("dequeue", () => { clearTimeout(t); r(); }, { once: true }); });
 // o grupo ainda serve? Com o dedo arrastando, só se o quadro atual estiver nele; senão, se estiver na janela em volta
@@ -117,7 +121,7 @@ function onFrame(frame) {
     if (!keep || i == null) return;
     if (i === keep.chave) guardarPrevia(keep.g0, i, frame);
     if (i >= keep.lo && i <= keep.hi && !S.low.has(i)) putCache("low", i, copyFrame(frame, "low"));
-    if (keep.full && keep.full.has(i) && !S.full.has(i)) putCache("full", i, copyFrame(frame, "full"));
+    if (keep.full && keep.full.has(i) && !S.full.has(i) && !cheiaIgual()) putCache("full", i, copyFrame(frame, "full"));
     // o quadro pedido (ou a prévia dele) chegou: aparece já, sem esperar o resto do grupo
     if (i === S.cur || (i === keep.chave && gopOf(S.cur) === keep.g0)) { agendarRender(); busyUI(); }
   } catch (e) {
@@ -193,20 +197,22 @@ async function decodeGop(job) {
   }
   return fim < g1 ? "abandonado" : "ok";
 }
-// quadros guardados em resolução cheia para o zoom: o atual e os próximos da marcação
+// quadros guardados em resolução cheia para o zoom: o atual e o próximo da marcação
 function fullSet(i) {
-  const s = new Set([i]), g = gopOf(i);
-  for (let m = 1; m <= 3; m++) { const j = i + m * S.every; if (j >= S.frames.length || j > S.end || gopOf(j) !== g) break; s.add(j); }
+  const s = new Set([i]), j = i + S.every;
+  if (j < S.frames.length && j <= S.end && gopOf(j) === gopOf(i)) s.add(j);
   return s;
 }
 function nextJob() {
+  // página em segundo plano: nada a fazer até ela voltar
+  if (S.oculta) return null;
   const c = S.cur, N = S.frames.length, gc = gopOf(c);
   // dedo arrastando a barra: só a prévia do grupo debaixo do dedo; o quadro exato vem quando o dedo para
   if (S.arrasto) {
     if (!S.low.has(c) && !S.previa.has(gc) && !S.previaFalhou.has(gc) && !S.failed.has(gc)) return { i: c, lo: -1, hi: -2, full: null, soChave: true, fg: true };
     return null;
   }
-  const wantFull = !S.playing && (S.mode !== "nav" || S.view.z > 1.01);
+  const wantFull = !cheiaIgual() && !S.playing && (S.mode !== "nav" || S.view.z > 1.01);
   if (!S.low.has(c) && !S.failed.has(gc)) return { i: c, lo: S.playing ? c : c - S.win[0], hi: c + S.win[1], full: wantFull ? fullSet(c) : null, fg: true };
   if (wantFull && !S.full.has(c) && !S.failedFull.has(gc)) return { i: c, lo: c - S.win[0], hi: c + S.win[1], full: fullSet(c), fullOnly: true, fg: true };
   for (let k = c + 1; k <= Math.min(N - 1, c + S.win[1]); k++) {
@@ -214,12 +220,9 @@ function nextJob() {
     if (S.failed.has(gopOf(k))) break;
     return { i: k, lo: k, hi: c + S.win[1], full: null };
   }
-  if (S.mode === "marcar" && !S.playing) {
-    for (let m = 1; m <= 3; m++) {
-      const j = c + m * S.every;
-      if (j >= N || j > S.end) break;
-      if (!S.full.has(j) && !S.failedFull.has(gopOf(j))) return { i: j, lo: -1, hi: -2, full: fullSet(j), fullOnly: true };
-    }
+  if (S.mode === "marcar" && !S.playing && !cheiaIgual()) {
+    const j = c + S.every;
+    if (j < N && j <= S.end && !S.full.has(j) && !S.failedFull.has(gopOf(j))) return { i: j, lo: -1, hi: -2, full: new Set([j]), fullOnly: true };
   }
   // nada mais a fazer: prévias dos outros grupos, em segundo plano (parado com o play ou a medição)
   if (!S.playing && !S.semFundo) {
@@ -264,6 +267,30 @@ export async function pump() {
     }
   } finally {
     S.busy = false; busyUI();
+    if (S.oculta) fecharDecodificador();
   }
 }
+function fecharDecodificador() {
+  if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
+}
+// página em segundo plano: devolve os quadros guardados (menos o atual, para a tela voltar com ele) e o decodificador;
+// o arquivo e as prévias ficam. Com o rastreamento ou a medição em andamento, nada muda.
+function liberarMemoria() {
+  const solta = (map, which) => {
+    for (const [k, v] of map) {
+      if (k === S.cur) continue;
+      if (v.bmp === S.lastBmp) S.lastBmp = null;
+      try { v.bmp.close(); } catch {}
+      map.delete(k);
+      if (which === "low") S.lowBytes -= v.bytes; else S.fullBytes -= v.bytes;
+    }
+  };
+  solta(S.low, "low"); solta(S.full, "full");
+  if (!S.busy) fecharDecodificador();
+}
+document.addEventListener("visibilitychange", () => {
+  S.oculta = document.visibilityState === "hidden";
+  if (!S.frames.length || S.tracking || S.semFundo) return;
+  if (S.oculta) liberarMemoria(); else pump();
+});
 export function busyUI() { $("busy").hidden = !S.frames.length || S.low.has(S.cur); }

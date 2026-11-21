@@ -13,6 +13,8 @@ export const S = {
   // segundo plano (durante a medição)
   previa: new Map(), previaBytes: 0, previaFalhou: new Set(), fundo: null, pw: 0, ph: 0,
   arrasto: false, naPrevia: false, semFundo: false,
+  // a página está em segundo plano (decodificador.js devolve a memória dos quadros)
+  oculta: false,
   // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo
   medicao: null,
   // análise
@@ -32,5 +34,9 @@ export const S = {
 globalThis.__va = S;
 export const support = typeof globalThis.VideoDecoder === "function" && typeof globalThis.EncodedVideoChunk === "function";
 const devMem = (globalThis.navigator && navigator.deviceMemory) || 4;
-const BUDGET = Math.min(192, Math.max(64, devMem * 32)) * 1e6;
-S.lowBudget = BUDGET * 0.75; S.fullBudget = BUDGET * 0.25;
+// Quadros guardados (fase 2 do plano de memória e decodificação, 21/11/2026): a baixa resolução guarda só a janela em
+// volta do quadro atual, com no máximo BAIXA bytes (8 GB de memória → 96 MB; 4 GB → 64 MB; 2 GB ou menos → 40 MB);
+// a resolução cheia, só o quadro atual e o próximo da marcação. Os limites em bytes são ajustados ao tamanho do vídeo
+// em computeDims (conteiner.js). Antes: até 192 MB, e um vídeo de 480p chegava a 190 MB com quadros repetidos.
+export const BAIXA = Math.min(96, Math.max(40, devMem * 16)) * 1e6;
+S.lowBudget = BAIXA; S.fullBudget = 0;

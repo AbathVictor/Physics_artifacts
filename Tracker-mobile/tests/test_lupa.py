@@ -44,9 +44,10 @@ async def quadro(pg):
 
 async def pixel_video(pg, p):
     """Cor do quadro atual (a mesma imagem que a lupa usa) no ponto p, em pixels do vídeo."""
-    return await pg.evaluate("""p => { const f = __va.full.get(__va.cur), c = __va.low.get(__va.cur), b = f ? f.bmp : c.bmp;
+    # num vídeo de até 960 px (o exemplo) a resolução cheia é a própria baixa: não há segunda cópia
+    return await pg.evaluate("""p => { const f = __va.full.get(__va.cur), c = __va.low.get(__va.cur), b = f ? f.bmp : c.bmp, cheia = !!f || __va.fullW === __va.lw;
       const o = new OffscreenCanvas(b.width, b.height), g = o.getContext('2d'); g.drawImage(b, 0, 0); const k = b.width / __va.dispW;
-      const d = g.getImageData(Math.floor(p.x * k), Math.floor(p.y * k), 1, 1).data; return [d[0], d[1], d[2], !!f]; }""", p)
+      const d = g.getImageData(Math.floor(p.x * k), Math.floor(p.y * k), 1, 1).data; return [d[0], d[1], d[2], cheia]; }""", p)
 
 
 async def pixel_lupa(pg):
@@ -59,7 +60,7 @@ async def caso(R, pg, cdp, nome):
     d = Dedo(cdp)
     await pg.click(f"{'#etapas [data-etapa=escala]' if nome == 'deitado' else '.modes [data-mode=escala]'}")
     await pg.evaluate("document.getElementById('cv').scrollIntoView({ block: 'center' })")
-    await pg.wait_for_function("__va.full.has(__va.cur)", timeout=20000)
+    await pg.wait_for_function("(__va.full.has(__va.cur) || (__va.fullW === __va.lw && __va.fullH === __va.lh && __va.low.has(__va.cur)))", timeout=20000)
     W, H = await pg.evaluate("[innerWidth, innerHeight]")
 
     # ponta de baixo (p2), posta sobre a massa vermelha do vídeo de exemplo: lupa acima do dedo

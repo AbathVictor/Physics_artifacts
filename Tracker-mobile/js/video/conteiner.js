@@ -3,7 +3,7 @@
 
 import { restoreOrDefaults } from "../analise.js";
 import { layout, resetView } from "../desenho.js";
-import { S, support } from "../estado.js";
+import { BAIXA, S, support } from "../estado.js";
 import { show } from "../navegacao.js";
 import { renderPanels, resetVideo, setControls, setSrc } from "../paineis.js";
 import { $, esc, fmt, fmtBytes } from "../util.js";
@@ -129,6 +129,8 @@ function buildIndex() {
   S.timing = { mean, sd, med, minDt: sorted[0], maxDt: sorted[sorted.length - 1], gaps: dts.filter((x) => x > 1.5 * med).length, dur: fr[fr.length - 1].t, fps: 1 / med, variable: (sorted[sorted.length - 1] - sorted[0]) / med > 0.02 };
 }
 
+// num vídeo de até 960 px no lado maior, a "resolução cheia" é igual à baixa: não há segunda cópia de cada quadro
+export const cheiaIgual = () => S.fullW === S.lw && S.fullH === S.lh;
 export function computeDims() {
   const r = S.rot % 180 !== 0;
   S.dispW = r ? S.fh : S.fw; S.dispH = r ? S.fw : S.fh;
@@ -139,6 +141,12 @@ export function computeDims() {
   // prévias dos quadros-chave (decodificador.js): lado maior ≤ 400 px
   const kp = Math.min(1, 400 / long);
   S.pw = Math.max(2, Math.round(S.dispW * kp)); S.ph = Math.max(2, Math.round(S.dispH * kp));
-  const n = Math.max(8, Math.min(61, Math.floor(S.lowBudget / (S.lw * S.lh * 4))));
+  // janela da baixa resolução (15 quadros para trás e 45 para a frente, no máximo) dentro do limite BAIXA; a baixa
+  // resolução não guarda além da janela
+  const quadro = S.lw * S.lh * 4;
+  const n = Math.max(16, Math.min(61, Math.floor(BAIXA / quadro) - 2));
   S.win = [Math.floor(n / 4), n - 1 - Math.floor(n / 4)];
+  S.lowBudget = (n + 2) * quadro;
+  // resolução cheia: dois quadros (o atual e o próximo da marcação); num vídeo de até 960 px, a própria baixa
+  S.fullBudget = cheiaIgual() ? 0 : 2 * S.fullW * S.fullH * 4 + 1;
 }

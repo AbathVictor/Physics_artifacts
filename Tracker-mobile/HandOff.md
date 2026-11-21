@@ -146,8 +146,12 @@ do eixo x medido no sentido anti-horário.
    celular do autor depois de arrastar a barra. Há também um vigia de 8 s que recria o decodificador e tenta de novo.
 5. A **rotação** guardada nos metadados (vídeos gravados em pé) é aplicada na cópia: os quadros em cache já estão girados.
 6. **Caches**: baixa resolução (lado maior ≤ 960 px) numa janela de até 61 quadros (15 atrás, 45 à frente), e
-   resolução cheia (lado maior ≤ 2560 px) para o zoom e para o quadro atual e os próximos da marcação.
-   O orçamento de memória vem de `navigator.deviceMemory`. O grupo seguinte é decodificado em segundo plano para
+   resolução cheia (lado maior ≤ 2560 px) para o zoom, só o quadro atual e o próximo da marcação. Desde a fase 2
+   (21/11/2026): a baixa guarda só a janela, com no máximo `BAIXA` bytes (`estado.js`: 96 MB num aparelho de 8 GB,
+   64 MB com 4 GB, 40 MB com 2 GB ou menos); num vídeo de até 960 px a resolução cheia **é** a baixa (`cheiaIgual()`,
+   `conteiner.js`) e não há segunda cópia (desenho, lupa e rastreador já usam a baixa quando a cheia falta; a fila de
+   trabalhos e o aviso de "carregando a resolução cheia" do zoom sabem disso). O orçamento vem de
+   `navigator.deviceMemory`. O grupo seguinte é decodificado em segundo plano para
    não haver pausa ao avançar.
 7. **Salvamento** em `localStorage` por vídeo (nome + tamanho + número de quadros), 0,3 s depois da última mudança,
    e na hora quando a aba é escondida ou fechada (`visibilitychange`/`pagehide`).
@@ -254,7 +258,14 @@ do eixo x medido no sentido anti-horário.
     medição; o `pump` para quando o rastreamento começa. **Há esperas no meio da alimentação** (leitura, fila): a cada
     passo, `decodeGop` confere se outro vídeo foi aberto (`S.gen`), e o `pump` não tenta de novo nem mostra erro de
     um vídeo já trocado (sem isso, abrir um vídeo durante as prévias de fundo do anterior mostrava por um instante
-    "Não consegui decodificar este trecho"). O play (`tick`, `navegacao.js`) só avança para o próximo
+    "Não consegui decodificar este trecho").
+23. **Memória** (fase 2, 21/11/2026). Limites da baixa e da cheia na armadilha 6. O rastreamento fecha o decodificador
+    da página antes de abrir o seu (um só aberto por vez; o `pump` cria outro depois, ~0,25 s no celular) e lê o
+    vídeo amostra por amostra pelo leitor (`lerAmostra`), não mais o grupo inteiro de uma vez. Com a página em
+    segundo plano (`visibilitychange`, `S.oculta`), os quadros guardados, menos o atual, e o decodificador são
+    devolvidos (o arquivo e as prévias ficam); ao voltar, o `pump` refaz a janela. Durante o rastreamento e a
+    medição, nada é devolvido. Teto de tudo num aparelho de 8 GB: ~96 MB de baixa + 2 quadros em cheia + 32 MB de
+    prévias + até 128 MB do arquivo. O play (`tick`, `navegacao.js`) só avança para o próximo
     quadro quando chega a hora dele e ele já está decodificado; atrasado, o relógio recomeça desse quadro.
 
 ## Testes
@@ -269,13 +280,13 @@ pip install -r tests/requirements.txt      # Playwright e Pillow; não precisa d
 python tests/gerar_videos.py               # uma vez; precisa do ffmpeg no PATH (libx265 é opcional)
 python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, HEVC
 python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos, recuperação
-python tests/test_rastreamento.py          # medição do alvo, precisão, perda do alvo, botão Parar
+python tests/test_rastreamento.py          # medição do alvo, precisão, um decodificador só, perda do alvo, botão Parar
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas (Diagnóstico com "Medir este vídeo"), tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412), sem liberar o em pé: aviso "Gire o celular", abre em tela cheia, etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, Voltar uma vez só (pinça e Esc duplo), alça a 640 × 360, temas, arquivo que não é vídeo
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
-python tests/test_desempenho.py            # fase 1, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros
+python tests/test_desempenho.py            # fases 1 e 2, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, abrir vídeo durante a decodificação do anterior, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros, memória dentro dos limites, segundo plano, vídeo de até 960 px sem cópia repetida
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 python tests/medir_desempenho.py [--software] [--leitura-lenta] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
@@ -319,7 +330,11 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      0. ~~Medir no celular~~ (feito em 21/11/2026; falta o autor medir um vídeo que trava): o diagnóstico mostra
         quadros por grupo, taxa de bits, tempo por quadro e limite de memória, e ganhou **"Medir este vídeo"**
         (`js/medicao.js`), que roda no celular os mesmos testes do computador.
-     1. ~~A imagem acompanha o dedo~~ (feito em 21/11/2026; falta o autor testar no celular). A medição do autor
+     1. ~~A imagem acompanha o dedo~~ (feito em 21/11/2026; **testado pelo autor no celular**: "não há travamentos
+        perceptíveis", a etiqueta "prévia" não atrapalha; medido no celular, antes → depois: uma leitura só do arquivo
+        (0,51 s), tempo por grupo 762 → 123 ms, salto 0,82–1,13 s → 0,05–0,16 s, arrasto com imagem do lugar 8 % →
+        98 %, quadro exato depois de soltar 1,44 s → 0,16 s, play 54 de 120 quadros → todos em velocidade real;
+        quadro-chave com o decodificador aberto 47 ms, com um novo 272 ms). A medição do autor
         (vídeo `Test_videos/de_sei_lá.mp4`, 848 × 480, 4,1 MB, grupos de 30) mostrou que o principal culpado era a
         **leitura do arquivo** (0,96 s para 0,2 MB no celular, 3 ms no computador), e não a memória; a leitura em
         blocos entrou como primeiro item. Feito: leitura em blocos (`leitor.js`), grupo alimentado aos poucos e
@@ -329,12 +344,11 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
         imagem do lugar 5 % → 98 % do tempo, quadro exato depois de soltar 1,39 s → 0,03 s, play 66 de 121 quadros →
         todos em velocidade real; 4K 30 q/s com decodificação por software, arrasto 5 % → 100 %, depois de soltar
         2,89 s → 0,68 s, play 11 de 121 quadros → todos a 86 % da velocidade real.
-     2. Memória: limite que conta o tamanho do vídeo e o do decodificador (em 4K, menos quadros guardados e
-        resolução cheia só para o quadro atual e o próximo da marcação; num vídeo de até 960 px, a "resolução
-        cheia" é uma segunda cópia idêntica de cada quadro: 47 MB desperdiçados no vídeo do autor); um decodificador
-        só no rastreamento; grupos muito longos lidos aos poucos também no rastreamento (ele ainda pede o grupo
-        inteiro de uma vez ao leitor; a decodificação comum já lê amostra por amostra); memória liberada com a página
-        em segundo plano.
+     2. ~~Memória~~ (feito em 21/11/2026; falta o autor testar no celular; armadilhas 6 e 23): a baixa resolução
+        só guarda a janela, num limite pela memória do aparelho; a cheia, só o quadro atual e o próximo da marcação;
+        num vídeo de até 960 px, sem a segunda cópia idêntica; um decodificador só no rastreamento, lendo amostra por
+        amostra; memória devolvida com a página em segundo plano. No vídeo do autor, com a leitura lenta simulada:
+        quadros guardados 161 MB (190 MB antes da fase 1) → 94 MB, com salto, arrasto e play iguais aos da fase 1.
      3. Só se 1 e 2 não bastarem (com os números do celular): cópia leve para navegar (540p com quadros-chave
         frequentes, feita uma vez ao abrir o vídeo; navegação e play nela, marcação, zoom e rastreamento no original).
      Dica de gravação ("grave em 1080p"): não, por hora; fica para a versão beta (decisão do autor).

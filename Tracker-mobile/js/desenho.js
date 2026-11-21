@@ -84,7 +84,9 @@ function drawMain() {
   const pv = src ? null : S.previa.get(S.gopStart[S.frames[S.cur].d]);
   S.naPrevia = !!pv;
   if (!src) src = pv ? pv.bmp : S.lastBmp;
-  S.viewFull = !!(f && src === f.bmp);
+  // num vídeo de até 960 px a baixa já é a resolução cheia (não há segunda cópia)
+  const igual = S.fullW === S.lw && S.fullH === S.lh;
+  S.viewFull = igual ? !!(c && src === c.bmp) : !!(f && src === f.bmp);
   S.viewNeedsFull = needFull && !S.viewFull;
   if (src) {
     const sc = src.width / S.dispW;

@@ -26,7 +26,7 @@ async def rastrear(pg, W, H, inicio, cada, toque=True, R_fixo=None, exig="0.7", 
     await pg.select_option("#every", str(cada))
     await pg.select_option("#trThr", exig)
     await ir_para(pg, inicio)
-    await pg.wait_for_function("i => __va.full.has(i)", arg=inicio, timeout=15000)
+    await pg.wait_for_function("i => (__va.full.has(i) || (__va.fullW === __va.lw && __va.fullH === __va.lh && __va.low.has(i)))", arg=inicio, timeout=15000)
     x, y = verdade(W, H, inicio, rot=rot)
     if toque:
         await pg.evaluate("v => { const e = document.getElementById('trAuto'); if (!e.checked) e.click(); }", None)
@@ -55,7 +55,7 @@ async def main():
         for nome, W, H in (("exemplo", 360, 640), ("bframes.mp4", 640, 360), ("hd1080.mp4", 1920, 1080)):
             await preparar(pg, nome, W, H)
             await ir_para(pg, 0)
-            await pg.wait_for_function("__va.full.has(0)", timeout=15000)
+            await pg.wait_for_function("(__va.full.has(0) || (__va.fullW === __va.lw && __va.fullH === __va.lh && __va.low.has(0)))", timeout=15000)
             await tocar(pg, *verdade(W, H, 0))
             medido, real = await pg.evaluate("__va.objR"), W * 0.06
             R.conferir(abs(medido - real) < 3, f"{nome}: raio real {real:.1f} px, medido {medido:.1f} px")
@@ -74,6 +74,21 @@ async def main():
             passos = [b[0] - a[0] for a, b in zip(marcas, marcas[1:])]
             R.conferir(len(marcas) == n_esp and all(s == cada for s in passos), f"rastreou {len(marcas)} de {n_esp} quadros, a cada {cada}")
             R.conferir(max(erros) < lim, f"erro máx {max(erros):.2f} px (médio {sum(erros) / len(erros):.2f} px) · {st['n'] / st['secs']:.0f} quadros/s")
+
+        print("um decodificador só durante o rastreamento")
+        # conta os decodificadores abertos ao mesmo tempo (fase 2 do plano de memória: o da página fecha quando o
+        # rastreamento começa, que abre o seu)
+        await pg.evaluate("""(() => { const VD = VideoDecoder, vivos = new WeakSet(); window.__vivos = 0; window.__maxVivos = 0;
+          window.VideoDecoder = class extends VD {
+            constructor(i) { super(i); vivos.add(this); window.__vivos++; window.__maxVivos = Math.max(window.__maxVivos, window.__vivos); }
+            close() { if (vivos.has(this) && this.state !== 'closed') { vivos.delete(this); window.__vivos--; } return super.close(); } }; })()""")
+        await preparar(pg, "base30.mp4", 640, 360)
+        await ir_para(pg, 0)
+        await pg.wait_for_function("!__va.busy && __va.decoder && __va.decoder.state === 'configured'", timeout=15000)
+        await pg.evaluate("window.__maxVivos = window.__vivos")
+        await rastrear(pg, 640, 360, 0, 1)
+        vivos = await pg.evaluate("[window.__maxVivos, window.__vivos]")
+        R.conferir(vivos[0] <= 1, f"no máximo um decodificador aberto ao mesmo tempo no rastreamento ({vivos[0]})")
 
         print("massa que some no quadro 70")
         await preparar(pg, "occl.mp4", 640, 360)

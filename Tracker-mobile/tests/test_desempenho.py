@@ -135,6 +135,35 @@ async def main():
         mem = await pg.evaluate("import('./js/video/leitor.js').then((m) => [__va.previaBytes, m.leitura.naMemoria, m.LIMITE_BLOCOS])")
         R.conferir(mem[0] <= 32e6 and mem[1] <= mem[2], f"prévias ({mem[0] / 1e6:.1f} MB) e arquivo na memória ({mem[1] / 1e6:.1f} MB) dentro dos limites")
 
+        print("memória (fase 2)")
+        # 1080p: a baixa resolução (960 × 540) só guarda a janela; a cheia, no máximo o quadro atual e o próximo
+        await pg.click("#etapas [data-etapa=marcar]")
+        for i in (30, 31, 32, 90, 150, 151):
+            await pg.evaluate("i => { const s = document.getElementById('seek'); s.value = i; s.dispatchEvent(new Event('input')); }", i)
+            await pg.wait_for_function("i => __va.cur === i && __va.low.has(i)", arg=i, timeout=20000)
+        await pg.wait_for_function("!__va.busy", timeout=30000)
+        m = await pg.evaluate("[__va.low.size, __va.win[0] + __va.win[1] + 1, __va.lowBytes, __va.lowBudget, __va.full.size, __va.fullBytes, __va.fullBudget]")
+        R.conferir(m[0] <= m[1] + 2 and m[2] <= m[3] and m[4] <= 2 and m[5] <= m[6],
+                   f"1080p: {m[0]} quadros em baixa resolução (janela de {m[1]}, {m[2] / 1e6:.0f} MB), {m[4]} em resolução cheia ({m[5] / 1e6:.0f} MB)")
+        # página em segundo plano: os quadros (menos o atual) e o decodificador saem; ao voltar, voltam
+        vis = "v => { Object.defineProperty(document, 'visibilityState', { value: v, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }"
+        await pg.evaluate(vis, "hidden")
+        await pg.wait_for_function("!__va.busy && __va.decoder === null", timeout=20000)
+        m = await pg.evaluate("[__va.low.size, __va.full.size, __va.low.has(__va.cur)]")
+        R.conferir(m[0] <= 1 and m[1] <= 1 and m[2], f"em segundo plano: só o quadro atual guardado ({m[0]} + {m[1]}) e nenhum decodificador aberto")
+        await pg.evaluate(vis, "visible")
+        await pg.wait_for_function("__va.low.size > 10 && !__va.busy", timeout=30000)
+        R.conferir(await quadro_certo(pg, await pg.evaluate("__va.cur")), "de volta: a janela em volta do quadro atual é decodificada de novo")
+        # vídeo de até 960 px: a resolução cheia é a própria baixa, sem segunda cópia, também com zoom e na marcação
+        await abrir_video(pg, "norot.mp4")
+        await pg.click("#etapas [data-etapa=marcar]")
+        await pg.evaluate("import('./js/desenho.js').then((m) => { __va.view = { z: 3, vx: 100, vy: 60 }; m.render(); })")
+        await pg.wait_for_function("!__va.busy && __va.low.has(__va.cur)", timeout=20000)
+        await pg.evaluate("import('./js/desenho.js').then((m) => m.render())")
+        m = await pg.evaluate("[__va.full.size, __va.fullBytes, document.getElementById('zoomTxt').textContent, __va.lowBytes / 1e6]")
+        R.conferir(m[0] == 0 and m[1] == 0 and "carregando" not in m[2],
+                   f"640 × 360: nenhuma cópia em resolução cheia com zoom e na marcação, e sem \"carregando\" ({m[2]}; {m[3]:.0f} MB em baixa)")
+
         R.conferir(not erros, "sem erros de JavaScript" + (f": {erros}" if erros else ""))
         await nav.close()
     R.encerrar()
