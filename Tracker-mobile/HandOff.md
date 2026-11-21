@@ -67,6 +67,17 @@ abertura de vídeo da câmera ou da galeria, navegação, play, reprodução do 
 janela de download do CSV, fluidez. O rastreamento automático foi testado num vídeo real de pêndulo
 (1080p, massa de 28 px): funciona depois da medição automática do tamanho do alvo (ver armadilha 9).
 
+**Rastreamento comparado com o Tracker de computador** (21/11/2026, `Test_videos/Pendulum_test.mp4`, 1080p, 254
+quadros, rastreamento automático nos dois; arquivos `Pendulum_test_desktop_version.trk/.txt` e
+`Pendulum_test_mobile_version.csv`): as duas trajetórias, ambas sem escala (1 px por unidade), cobrem os mesmos 254
+quadros. Descontadas a diferença de origem dos eixos (6,1; −108,5 px) e uma inclinação de 0,80° dos eixos no celular
+(no Tracker, ângulo 0; a diferença em y acompanhava x, correlação −0,98), elas diferem em média 0,28 px por quadro
+(RMS 0,32 px, máximo 0,82 px; 0,24 px RMS em x e 0,20 px em y). Período por cruzamentos: 2,1241 s no Tracker e
+2,1235 s no celular; amplitude em x: 103,28 e 103,41 px. Observações: o arquivo do celular chegou como planilha (.xlsx
+com nome .csv) com o CSV "Internacional/Python" inteiro numa coluna, porque foi aberto numa planilha em português
+(para isso, o formato certo é o "Excel/Planilhas Google"); e o CSV do celular não guarda a origem, o ângulo dos eixos
+nem a escala (o .trk guarda), por isso a comparação precisou ajustar a origem e o ângulo.
+
 ## Arquitetura
 
 ```
@@ -371,9 +382,12 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
         decodificador (armadilha 24): com a leitura lenta e a decodificação por software simuladas, o play do
         Pendulum foi de 77 % para 100 % da velocidade real; saltos de 0,14 a 0,73 s e 0,47 s depois de soltar (o
         limite de um vídeo com grupos tão longos: um quadro no meio do grupo exige decodificar desde o quadro-chave; a
-        prévia cobre a espera). Falta o autor testar no celular.
-     3. Só se 1 e 2 não bastarem (com os números do celular): cópia leve para navegar (540p com quadros-chave
-        frequentes, feita uma vez ao abrir o vídeo; navegação e play nela, marcação, zoom e rastreamento no original).
+        prévia cobre a espera). **Testado pelo autor no celular**: play do Pendulum em 100 % da velocidade real
+        (era 70 %), "não há travamentos perceptíveis", e a espera de ~0,5 s depois de soltar não incomoda.
+     3. Dispensada por ora (decisão do autor em 21/11/2026, com as fases 1 e 2 testadas no celular sem travamentos):
+        cópia leve para navegar (540p com quadros-chave frequentes, feita uma vez ao abrir o vídeo; navegação e play
+        nela, marcação, zoom e rastreamento no original). Só ela tiraria a espera de ~0,5 s ao saltar no meio de um
+        grupo longo.
      Dica de gravação ("grave em 1080p"): não, por hora; fica para a versão beta (decisão do autor).
   3. ~~Modelo de dados com vários objetos, no molde do Tracker, com migração do que os alunos já salvaram~~ (feito
      em 14/11/2026, antes da fase 2, a pedido do autor; junto vieram a interface para até 10 massas, o centro de
