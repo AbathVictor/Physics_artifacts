@@ -8,6 +8,11 @@ export const S = {
   oc: {}, octx: {}, decoder: null, busy: false, failed: new Set(), failedFull: new Set(),
   cur: 0, lastBmp: null, playing: false, view: { z: 1, vx: 0, vy: 0 }, viewFull: false, viewNeedsFull: false,
   gopMs: [], gopFrames: [], tsMismatch: 0, countErr: 0, restarts: 0, lastErr: "", err: null,
+  // prévias dos quadros-chave (decodificador.js): grupo → imagem pequena; S.arrasto: o dedo arrasta a barra (só
+  // prévias, o quadro exato vem quando ele para); S.naPrevia: a tela mostra uma prévia; S.semFundo: sem prévias em
+  // segundo plano (durante a medição)
+  previa: new Map(), previaBytes: 0, previaFalhou: new Set(), fundo: null, pw: 0, ph: 0,
+  arrasto: false, naPrevia: false, semFundo: false,
   // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo
   medicao: null,
   // análise

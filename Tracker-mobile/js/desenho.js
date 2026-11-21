@@ -78,7 +78,12 @@ function drawMain() {
   if (f) f.used = performance.now();
   // a imagem reduzida basta enquanto não precisa ser ampliada na tela; com zoom, usa a resolução cheia
   const needFull = k * dpr > (S.lw / S.dispW) * 1.05;
-  const src = f && (needFull || !c) ? f.bmp : c ? c.bmp : S.lastBmp;
+  let src = f && (needFull || !c) ? f.bmp : c ? c.bmp : null;
+  // sem o quadro exato ainda (dedo arrastando a barra, salto): a prévia do quadro-chave do grupo dele, marcada como
+  // prévia; sem prévia, o último quadro mostrado
+  const pv = src ? null : S.previa.get(S.gopStart[S.frames[S.cur].d]);
+  S.naPrevia = !!pv;
+  if (!src) src = pv ? pv.bmp : S.lastBmp;
   S.viewFull = !!(f && src === f.bmp);
   S.viewNeedsFull = needFull && !S.viewFull;
   if (src) {
@@ -89,6 +94,7 @@ function drawMain() {
     catch { if (src === S.lastBmp) S.lastBmp = null; }
   }
   drawOverlays(g, { k, ox: -v.vx * k, oy: -v.vy * k });
+  if (S.naPrevia) label(g, "prévia", cssW / 2, 20, "#fff");
   // lupa: só ao arrastar uma ponta da escala
   if (S.lupa && (S.grab === "p1" || S.grab === "p2") && S.mode === "escala") desenharLupa(S.scale[S.grab], S.lupa.x, S.lupa.y, k);
   else esconderLupa();

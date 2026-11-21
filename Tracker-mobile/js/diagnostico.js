@@ -3,6 +3,7 @@
 import { S } from "./estado.js";
 import { $, fmt, fmtBytes, kv, toast } from "./util.js";
 import { friendlyCodec } from "./video/conteiner.js";
+import { leitura } from "./video/leitor.js";
 
 export function diagPairs() {
   const T = S.timing, vt = T ? S.track : null;
@@ -18,6 +19,7 @@ export function diagPairs() {
     ["tempo por grupo", Number.isFinite(avg(S.gopMs)) ? fmt(avg(S.gopMs), 0) + " ms" : "—"],
     ["quadros por grupo", vt ? grupos() : "—"],
     ["taxa de bits", vt ? taxa() : "—"],
+    ["leitura do arquivo", leitura.leituras ? `${leitura.leituras} leitura${leitura.leituras > 1 ? "s" : ""} · média ${fmt(leitura.ms / leitura.leituras, 0)} ms · ${fmtBytes(leitura.bytes)} lidos · ${fmtBytes(leitura.naMemoria)} na memória` : "—"],
     ["tempo por quadro", S.gopFrames.length ? fmt(S.gopMs.reduce((a, b) => a + b, 0) / S.gopFrames.reduce((a, b) => a + b, 0), 1) + " ms" : "—"],
     ["memória", `${S.low.size} quadros · ${fmtBytes(S.lowBytes)} + resolução cheia ${S.full.size} · ${fmtBytes(S.fullBytes)}`],
     ["limite de memória", vt ? `${fmtBytes(S.lowBudget + S.fullBudget)} · até ${S.win[0] + S.win[1] + 1} quadros em ${S.lw} × ${S.lh} · cheia ${S.fullW} × ${S.fullH}` : "—"],
@@ -51,10 +53,10 @@ function medicaoPairs() {
   const p = M.play, a = M.arrasto, d = M.dec;
   return [
     ["medição: salto", M.saltos.map(s).join(" · ")],
-    ["medição: arrasto", `quadro pedido na tela ${pc(a.pronto)} do tempo · ${fmt(a.telasPorS, 0)} telas/s · depois de soltar ${s(a.depois)}`],
-    ["medição: play", p.erro ? p.erro : `quadro da hora na tela ${pc(p.pronto)} · ${p.vistos} de ${p.esperados} quadros em ${fmt(p.seg, 1)} s · ${fmt(p.telasPorS, 0)} telas/s`],
-    ["medição: decodificador", d.quadros ? `grupo de ${d.quadros} quadros (${fmt(d.mb, 1)} MB, lido em ${ms(d.leitura)}): ${ms(d.so.porQuadro)} por quadro · copiando, ${ms(d.copia.porQuadro)} (cópia ${ms(d.copia.copiaPorQuadro)}) · só o quadro-chave ${ms(d.chave.ms)}${d.erro ? " · erro: " + d.erro : ""}` : d.erro],
-    ["medição: memória", `${fmt(M.memoria.quadrosMB, 0)} MB em quadros guardados${M.memoria.jsMB != null ? ` · JavaScript ${fmt(M.memoria.jsMB, 0)} MB` : ""}`],
+    ["medição: arrasto", `imagem do lugar (exata ou prévia) ${pc(a.imagem)} do tempo · quadro exato ${pc(a.exato)} · ${fmt(a.telasPorS, 0)} telas/s · depois de soltar ${s(a.depois)}`],
+    ["medição: play", p.erro ? p.erro : `velocidade ${pc(p.velocidade)} da real · ${p.vistos} de ${p.percorridos} quadros mostrados em ${fmt(p.seg, 1)} s · ${fmt(p.telasPorS, 0)} telas/s`],
+    ["medição: decodificador", d.quadros ? `grupo de ${d.quadros} quadros (${fmt(d.mb, 1)} MB, lido em ${ms(d.leitura)}): ${ms(d.so.porQuadro)} por quadro · copiando, ${ms(d.copia.porQuadro)} (cópia ${ms(d.copia.copiaPorQuadro)}) · só o quadro-chave ${ms(d.chave.ms)} (decodificador novo), ${ms(d.chave.msDeNovo)} (já aberto)${d.erro ? " · erro: " + d.erro : ""}` : d.erro],
+    ["medição: memória", `${fmt(M.memoria.quadrosMB, 0)} MB em quadros guardados · prévias ${fmt(M.memoria.previasMB, 0)} MB · arquivo ${fmt(M.memoria.blocosMB, 0)} MB${M.memoria.jsMB != null ? ` · JavaScript ${fmt(M.memoria.jsMB, 0)} MB` : ""}`],
   ];
 }
 $("diag").addEventListener("toggle", () => { if ($("diag").open) kv($("kvDiag"), diagPairs()); });

@@ -42,7 +42,9 @@ export function resetVideo() {
   stopTrack(); stopPlay();
   for (const v of S.low.values()) { try { v.bmp.close(); } catch {} }
   for (const v of S.full.values()) { try { v.bmp.close(); } catch {} }
+  for (const v of S.previa.values()) { try { v.bmp.close(); } catch {} }
   S.low.clear(); S.full.clear(); S.lowBytes = S.fullBytes = 0; S.lastBmp = null;
+  S.previa.clear(); S.previaBytes = 0; S.previaFalhou = new Set(); S.fundo = null; S.arrasto = false; S.naPrevia = false;
   if (S.decoder && S.decoder.state !== "closed") { try { S.decoder.close(); } catch {} }
   S.decoder = null; S.frames = []; S.samples = []; S.track = null; S.timing = null;
   S.failed = new Set(); S.failedFull = new Set();

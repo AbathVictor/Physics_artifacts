@@ -6,7 +6,7 @@
 //
 // Ao criar, renomear ou apagar um arquivo da página, atualize a lista ARQUIVOS (o teste test_offline.py confere)
 // e mude VERSAO, para que a cópia antiga seja descartada.
-const VERSAO = "videoanalise-9";
+const VERSAO = "videoanalise-10";
 const ARQUIVOS = [
   "./",
   "index.html",
@@ -64,6 +64,7 @@ const ARQUIVOS = [
   "js/video/conteiner.js",
   "js/video/decodificador.js",
   "js/video/exemplo.js",
+  "js/video/leitor.js",
   "vendor/mp4box.all.min.js",
 ];
 // sem resposta da rede neste tempo, usa a cópia guardada (conexão ruim se comporta como sem conexão)

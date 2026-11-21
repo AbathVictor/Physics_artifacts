@@ -3,8 +3,9 @@ vídeo" do celular (js/medicao.js): salto entre quadros, arrasto na barra, play,
 Não é teste (não dá ok/FALHA): serve para comparar antes e depois de uma mudança na decodificação.
 
 Uso:  python tests/medir_desempenho.py [--software] vídeo.mp4 [outro.mp4 ...]
-  --software  força a decodificação por software, mais perto da velocidade de um celular (o hardware deste
-              computador decodifica ~9× mais rápido que o do celular do autor)
+  --software        força a decodificação por software, mais perto da velocidade de um celular (o hardware deste
+                    computador decodifica ~9× mais rápido que o do celular do autor)
+  --leitura-lenta   cada leitura do arquivo demora 0,9 s, como no celular do autor (medido em 21/11/2026)
 """
 import asyncio
 import sys
@@ -26,6 +27,10 @@ async def main():
             await pg.evaluate("""(() => { const c = VideoDecoder.prototype.configure;
               VideoDecoder.prototype.configure = function (cfg) { return c.call(this, { ...cfg, hardwareAcceleration: 'prefer-software' }); }; })()""")
             print("(decodificação por software)")
+        if "--leitura-lenta" in sys.argv:
+            await pg.evaluate("""(() => { const ab = Blob.prototype.arrayBuffer;
+              Blob.prototype.arrayBuffer = function () { return new Promise((r) => setTimeout(r, 900)).then(() => ab.call(this)); }; })()""")
+            print("(leitura do arquivo lenta: 0,9 s por leitura)")
         await pg.set_viewport_size({"width": 915, "height": 412})
         await pg.wait_for_function("document.body.classList.contains('paisagem')")
         for v in videos:
@@ -36,7 +41,7 @@ async def main():
             linhas = await pg.evaluate("import('./js/diagnostico.js').then((m) => m.diagPairs())")
             print("==", nome)
             for k, val in linhas:
-                if k in ("resolução", "quadros", "hardware", "quadros por grupo", "taxa de bits", "tempo por quadro", "limite de memória", "reinícios do decodificador", "último erro") or k.startswith("medição"):
+                if k in ("resolução", "quadros", "quadros por grupo", "taxa de bits", "leitura do arquivo", "tempo por quadro", "limite de memória", "reinícios do decodificador", "último erro") or k.startswith("medição"):
                     print(f"  {k}: {val}")
         if erros:
             print("erros de JavaScript:", erros)

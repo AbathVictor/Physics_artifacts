@@ -61,19 +61,26 @@ export function stopPlay() {
   iconePlay();
   render(); pump();
 }
+// O play mostra todos os quadros, um de cada vez, no máximo em velocidade real (decisão do autor, 21/11/2026: o
+// intuito é avaliar o movimento, não precisa ser em tempo real). O próximo quadro aparece quando chega a hora dele E
+// ele já está decodificado; se o celular não deu conta, o play espera por ele (desacelera) e o relógio recomeça desse
+// quadro, sem correr para recuperar o atraso. Com mais quadros por segundo que a tela (câmera lenta), também
+// desacelera: um quadro por quadro de tela.
+const ATRASO_MS = 40;
 export function tick(now) {
   if (!S.playing) return;
-  const T = S.t0 + (now - S.wall0) / 1000;
-  // último quadro com tempo ≤ T (busca binária)
-  let lo = 0, hi = S.frames.length - 1;
-  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (S.frames[mid].t <= T) lo = mid; else hi = mid - 1; }
-  let i = Math.min(lo, S.playEnd);
-  if (i !== S.cur) {
-    S.cur = i;
-    $("seek").value = String(i);
-    render(); busyUI(); pump();
+  const i = S.cur + 1;
+  if (i <= S.playEnd) {
+    const hora = S.wall0 + (S.frames[i].t - S.t0) * 1000;
+    if (now >= hora && S.low.has(i)) {
+      S.cur = i;
+      // em dia, segue a grade de tempo do vídeo; atrasado (esperou o quadro), recomeça agora
+      S.wall0 = now - hora > ATRASO_MS ? now : hora; S.t0 = S.frames[i].t;
+      $("seek").value = String(i);
+      render(); busyUI(); pump();
+    } else if (now >= hora) pump();
   }
-  if (i >= S.playEnd) {
+  if (S.cur >= S.playEnd) {
     const again = S.intervalPlay && $("loopInt").checked;
     stopPlay(); renderTableCursor();
     if (again) setTimeout(playInterval, 400);

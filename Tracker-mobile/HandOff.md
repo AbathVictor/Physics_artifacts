@@ -47,7 +47,8 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Saída | **Copiar tabela** (tabulação) e **Exportar CSV** em dois formatos que o aluno escolhe: *Excel/Planilhas Google* (`;` entre colunas, vírgula decimal, com marca UTF-8 no início) e *Internacional/Python* (`,` entre colunas, ponto decimal) |
 | Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=3)`. O Laboratório de Oscilações lê os dois formatos (testado) | Com vários objetos, o formato de várias trilhas do Tracker (`ExportDataDialog`): uma linha por massa (`massa A: …`), uma linha por centro de massa (`cm A: massa A + massa B · …`), `unidades`, `#multi:`, a linha dos nomes `;massa A;;massa B;;cm A;;`, o cabeçalho `t;x;y;x;y;x;y;` e os dados (célula vazia no quadro em que o objeto não tem ponto). Com um objeto só, o formato continua o de antes |
 | Descartado | botão "Enviar para o Laboratório de Oscilações" |
-| Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir**. Mudança decidida em 21/11/2026, a fazer na fase 1 do plano de memória e decodificação: quando o celular não der conta de um vídeo pesado, o play **desacelera e mostra todos os quadros** (o intuito é avaliar o movimento, não precisa ser em tempo real); no máximo, velocidade real |
+| Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir**. Desde 21/11/2026 (fase 1 do plano de memória e decodificação, decisão do autor): o play **mostra todos os quadros**, um de cada vez, **no máximo em velocidade real**; quando o celular não dá conta, **desacelera** em vez de pular quadros (o intuito é avaliar o movimento, não precisa ser em tempo real). Consequência: vídeo com mais quadros por segundo que a tela (câmera lenta de 120 ou 240 q/s) toca mais devagar que o real, um quadro por quadro de tela |
+| Arrastar na barra (prévia) | decidido em 21/11/2026 (fase 1): enquanto o dedo arrasta a barra de quadros ou uma alça do intervalo, a imagem é a **prévia** do quadro-chave mais próximo (imagem pequena, com a etiqueta "prévia" no alto do vídeo), que sai rápido mesmo em vídeos pesados; quando o dedo **para** (0,25 s) ou **solta**, aparece o **quadro exato**. O número do quadro é sempre o exato, e o início e o fim do intervalo ficam no quadro certo. Um toque sem arrastar vai direto ao quadro exato |
 | Marcação | **zoom de pinça** no próprio vídeo + **toque posiciona a mira** (substituiu uma lupa lateral, que o autor achou pior) |
 | Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
 | Gráfico na tela cheia | decidido em 15/11/2026: o gráfico fica numa **janela móvel** sobre o vídeo, que se arrasta por **qualquer ponto** (o dedo precisa andar 8 px para virar arrasto; antes disso é toque) e nunca sai da tela, e se **redimensiona pelas quatro bordas e pelos quatro cantos** (18 px de toque nas bordas, que passam 12 px para fora da janela; mínimo de 220 × 140 px; marca no canto de baixo à direita). **Toque duplo** maximiza na área do vídeo livre dos controles flutuantes (da coluna de etapas à borda direita, do topo até a barra de quadros), e outro toque duplo volta ao tamanho e ao lugar de antes. Maximizada, não se move, e Marcar ponto e Rastrear somem (play, ±1 e a barra de quadros continuam funcionando). **Sem botão de maximizar** no cabeçalho, só o toque duplo (pedido do autor). Um toque simples no gráfico espera 0,25 s antes de ir ao quadro, para não confundir com o toque duplo. O cabeçalho tem só recolher e y(t)/x(t) (o objeto ativo fica na alça dos objetos, no canto de cima). A janela fica acima do vídeo e abaixo dos controles flutuantes. Lugar, tamanho e se está recolhida ficam em `localStorage` (`va-grafico`, em frações da tela), fora do salvamento por vídeo; ao entrar na tela cheia, a janela nunca vem maximizada |
@@ -81,7 +82,10 @@ js/main.js                 entrada: importa todos os módulos (vários só regis
 js/util.js                 $, fmt, parseNum, LS, toast, clampF, dist (sem estado)
 js/estado.js               estado S, exposto em globalThis.__va (os testes dependem disso; não remova); orçamento de memória
 js/video/conteiner.js      MP4/MOV: topBoxes, openFile, buildIndex, computeDims
-js/video/decodificador.js  pump → nextJob → decodeGop; caches S.low e S.full; onFrame, copyFrame, putCache
+js/video/decodificador.js  pump → nextJob → decodeGop; caches S.low e S.full; prévias dos quadros-chave (S.previa);
+                           onFrame, copyFrame, putCache
+js/video/leitor.js         leitura do arquivo em blocos de 8 MB guardados na memória (lerBytes), com o resto do arquivo
+                           lido em segundo plano quando cabe no limite
 js/video/exemplo.js        vídeo de exemplo em base64 (SAMPLE_B64)
 js/objetos.js              objetos no molde do Tracker: massas (nome, cor, valor, pontos) e centros de massa (nomes das
                            massas do sistema); pesos, pontos do cm, salvar e reabrir. Sem DOM (testado no Node)
@@ -232,6 +236,27 @@ do eixo x medido no sentido anti-horário.
     carregar (`retrato=True`, o padrão), porque a maior parte dos testes roda em pé; o `test_paisagem.py` abre sem
     ela. Com o em pé liberado, girar em pé sai da tela cheia, como antes; sem ele, a tela cheia fica guardada.
 
+22. **Leitura do arquivo e decodificação aos poucos** (fase 1, 21/11/2026). No celular do autor, cada leitura do
+    arquivo custa ~0,9 s, qualquer que seja o tamanho (com `File.slice().arrayBuffer()`; no computador, 3 ms), e
+    abrir um decodificador custa ~0,25 s. Por isso: (a) tudo o que lê o arquivo passa por `lerBytes()` (`leitor.js`),
+    em blocos de 8 MB que ficam na memória (até 128 MB num aparelho de 8 GB), e um arquivo que cabe no limite é lido
+    inteiro em segundo plano depois da primeira leitura (o índice, `conteiner.js`, também: um vídeo pequeno é uma
+    leitura só); (b) `decodeGop` alimenta o grupo aos poucos (fila de até 4, evento `dequeue`) e para se o quadro
+    atual sair do grupo (`serve()`), **sem recriar o decodificador** (nada de `reset()`/`configure()` de novo); um
+    grupo abandonado não entra em `S.failed`; (c) ao parar no meio, os quadros que ainda vão sair são os que
+    entraram e não saíram, na ordem de apresentação: com quadros B, **não** são os seguintes da ordem do grupo
+    inteiro, e a lista `keep.P` é refeita (sem isso, quadros seriam guardados com o número errado); (d) o quadro
+    pedido aparece assim que sai do decodificador (`onFrame` chama `agendarRender()`), sem esperar o grupo todo;
+    (e) prévias: imagem de até 400 px do quadro-chave de cada grupo (`S.previa`, limite de 32 MB, saem as mais longe
+    do quadro atual), feitas ao decodificar um grupo, em segundo plano quando não há mais nada a fazer (espaçadas por
+    igual se não couberem todas) e, com o dedo arrastando (`S.arrasto`, `barra.js`), na hora, para o grupo debaixo
+    do dedo; com o dedo arrastando, `nextJob` só faz prévias. `S.semFundo` para as prévias de fundo durante a
+    medição; o `pump` para quando o rastreamento começa. **Há esperas no meio da alimentação** (leitura, fila): a cada
+    passo, `decodeGop` confere se outro vídeo foi aberto (`S.gen`), e o `pump` não tenta de novo nem mostra erro de
+    um vídeo já trocado (sem isso, abrir um vídeo durante as prévias de fundo do anterior mostrava por um instante
+    "Não consegui decodificar este trecho"). O play (`tick`, `navegacao.js`) só avança para o próximo
+    quadro quando chega a hora dele e ele já está decodificado; atrasado, o relógio recomeça desse quadro.
+
 ## Testes
 
 Os testes abrem a página, servida por um servidor local que o próprio `helpers.py` sobe, num **Google Chrome de verdade** (o Chromium do Playwright não decodifica H.264),
@@ -250,9 +275,10 @@ python tests/test_tema.py                  # cores dos dois temas, contraste de 
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas (Diagnóstico com "Medir este vídeo"), tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412), sem liberar o em pé: aviso "Gire o celular", abre em tela cheia, etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, Voltar uma vez só (pinça e Esc duplo), alça a 640 × 360, temas, arquivo que não é vídeo
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
+python tests/test_desempenho.py            # fase 1, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
-python tests/medir_desempenho.py [--software] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
+python tests/medir_desempenho.py [--software] [--leitura-lenta] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
 ```
 
 Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Variáveis opcionais: `CHROME_PATH`
@@ -293,17 +319,22 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      0. ~~Medir no celular~~ (feito em 21/11/2026; falta o autor medir um vídeo que trava): o diagnóstico mostra
         quadros por grupo, taxa de bits, tempo por quadro e limite de memória, e ganhou **"Medir este vídeo"**
         (`js/medicao.js`), que roda no celular os mesmos testes do computador.
-     1. A imagem acompanha o dedo: o quadro pedido aparece assim que sai do decodificador (o resto do grupo vem
-        depois); o trabalho velho é cancelado quando o dedo muda de lugar; **durante o arrasto** da barra e das
-        alças, **prévia pelo quadro-chave mais próximo** (miniaturas dos quadros-chave preparadas em segundo plano ao
-        abrir o vídeo), marcada como prévia, com o número do quadro exato; **ao parar o dedo, o quadro exato** (o
-        início e o fim continuam no quadro certo); o play não pausa entre grupos e, quando o celular não dá conta,
-        **desacelera e mostra todos os quadros** (decisão do autor). Teste novo `test_desempenho.py` com vídeos 4K e
-        1080p60 gerados e decodificação por software; metas: imagem na tela em pelo menos 90 % do arrasto, quadro
-        exato em até 0,5 s depois de soltar, play sem pausas, quadro mostrado sempre o certo.
+     1. ~~A imagem acompanha o dedo~~ (feito em 21/11/2026; falta o autor testar no celular). A medição do autor
+        (vídeo `Test_videos/de_sei_lá.mp4`, 848 × 480, 4,1 MB, grupos de 30) mostrou que o principal culpado era a
+        **leitura do arquivo** (0,96 s para 0,2 MB no celular, 3 ms no computador), e não a memória; a leitura em
+        blocos entrou como primeiro item. Feito: leitura em blocos (`leitor.js`), grupo alimentado aos poucos e
+        abandonado quando o dedo sai dele, quadro na tela assim que sai do decodificador, prévias no arrasto, play
+        que desacelera e mostra todos os quadros (armadilha 22). Com a leitura lenta simulada (0,9 s por leitura, o
+        que reproduz os números do celular), antes → depois: vídeo do autor, salto 0,92 s → 0,03 s, arrasto com
+        imagem do lugar 5 % → 98 % do tempo, quadro exato depois de soltar 1,39 s → 0,03 s, play 66 de 121 quadros →
+        todos em velocidade real; 4K 30 q/s com decodificação por software, arrasto 5 % → 100 %, depois de soltar
+        2,89 s → 0,68 s, play 11 de 121 quadros → todos a 86 % da velocidade real.
      2. Memória: limite que conta o tamanho do vídeo e o do decodificador (em 4K, menos quadros guardados e
-        resolução cheia só para o quadro atual e o próximo da marcação); um decodificador só no rastreamento;
-        leitura do arquivo em pedaços; memória liberada com a página em segundo plano.
+        resolução cheia só para o quadro atual e o próximo da marcação; num vídeo de até 960 px, a "resolução
+        cheia" é uma segunda cópia idêntica de cada quadro: 47 MB desperdiçados no vídeo do autor); um decodificador
+        só no rastreamento; grupos muito longos lidos aos poucos também no rastreamento (ele ainda pede o grupo
+        inteiro de uma vez ao leitor; a decodificação comum já lê amostra por amostra); memória liberada com a página
+        em segundo plano.
      3. Só se 1 e 2 não bastarem (com os números do celular): cópia leve para navegar (540p com quadros-chave
         frequentes, feita uma vez ao abrir o vídeo; navegação e play nela, marcação, zoom e rastreamento no original).
      Dica de gravação ("grave em 1080p"): não, por hora; fica para a versão beta (decisão do autor).

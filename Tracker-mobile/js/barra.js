@@ -3,6 +3,9 @@
 // Tocar ou arrastar no trilho muda o quadro. Arrastar uma alça (abaixo do trilho) muda o início ou o fim, sempre num
 // quadro inteiro (a alça gruda no quadro mais próximo), e mostra no vídeo o quadro em que ela está. Os botões
 // "Início no quadro atual" e "Fim no quadro atual" continuam no Parâmetros do Intervalo, para o ajuste fino com −1/+1.
+// Enquanto o dedo arrasta (no trilho ou numa alça), a imagem é a prévia do quadro-chave mais próximo (S.arrasto,
+// decodificador.js), que sai rápido mesmo em vídeos pesados; quando o dedo para (0,25 s parado) ou solta, vem o
+// quadro exato. O número do quadro é sempre o exato. Um toque sem arrastar vai direto ao quadro exato.
 
 import { persist } from "./analise.js";
 import { render } from "./desenho.js";
@@ -36,6 +39,26 @@ function mudarAlca(qual, i) {
 }
 function soltarAlca() { persist(); renderPanels(); render(); }
 
+// ---------- prévia durante o arrasto ----------
+const PARADO_MS = 250;
+let parado = 0;
+// o dedo mexeu: prévias até ele parar
+function mexeu() {
+  S.arrasto = true;
+  clearTimeout(parado);
+  parado = setTimeout(pararArrasto, PARADO_MS);
+}
+// o dedo parou ou soltou: o quadro exato
+function pararArrasto() {
+  clearTimeout(parado);
+  if (!S.arrasto) return;
+  S.arrasto = false;
+  show(S.cur);
+}
+// para a medição (medicao.js): o mesmo caminho do dedo na barra
+export function arrastarPara(i) { mexeu(); if (i !== S.cur) { show(i); atualizarBarra(); } }
+export function soltarArrasto() { pararArrasto(); }
+
 // arrasto: sobre o trilho muda o quadro; abaixo dele, perto de uma alça, muda o início ou o fim
 let arr = null;
 bar.addEventListener("pointerdown", (e) => {
@@ -56,12 +79,13 @@ bar.addEventListener("pointermove", (e) => {
   if (!arr || e.pointerId !== arr.id) return;
   if (arr.alca === "?") { if (Math.abs(e.clientX - arr.x0) < 3) return; arr.alca = e.clientX < arr.x0 ? "ini" : "fim"; }
   const i = quadroEm(e.clientX);
-  if (arr.alca) mudarAlca(arr.alca, i);
-  else if (i !== S.cur) { show(i); atualizarBarra(); }
+  if (arr.alca) { if (i !== (arr.alca === "ini" ? S.start : S.end)) { mexeu(); mudarAlca(arr.alca, i); } }
+  else if (i !== S.cur) { mexeu(); show(i); atualizarBarra(); }
 });
 function fim(e) {
   if (!arr || e.pointerId !== arr.id) return;
   const a = arr; arr = null;
+  pararArrasto();
   if (a.alca && a.alca !== "?") soltarAlca();
 }
 bar.addEventListener("pointerup", fim);

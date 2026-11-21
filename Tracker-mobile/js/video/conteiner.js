@@ -7,11 +7,14 @@ import { S, support } from "../estado.js";
 import { show } from "../navegacao.js";
 import { renderPanels, resetVideo, setControls, setSrc } from "../paineis.js";
 import { $, esc, fmt, fmtBytes } from "../util.js";
+import { lerBytes } from "./leitor.js";
 
 async function topBoxes(file) {
   const out = []; let pos = 0;
   while (pos + 8 <= file.size && out.length < 2000) {
-    const dv = new DataView(await file.slice(pos, Math.min(file.size, pos + 16)).arrayBuffer());
+    // pelo leitor em blocos (leitor.js): no celular cada leitura do arquivo custa caro, e as caixas do começo do
+    // arquivo (e o índice, num arquivo pequeno) vêm num bloco só
+    const b = await lerBytes(file, pos, pos + 16), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     let size = dv.getUint32(0);
     const type = String.fromCharCode(dv.getUint8(4), dv.getUint8(5), dv.getUint8(6), dv.getUint8(7));
     if (size === 1) { if (dv.byteLength < 16) break; size = Number(dv.getBigUint64(8)); }
@@ -48,9 +51,9 @@ export async function openFile(file, isSample) {
     if (!moov) throw new Error("Não encontrei o índice do vídeo (caixa moov). O arquivo pode estar incompleto ou não ser MP4/MOV.");
     if (moov.size > 200e6) throw new Error("O índice do vídeo é grande demais para abrir no celular.");
     const ftyp = boxes.find((b) => b.type === "ftyp");
-    const head = ftyp ? new Uint8Array(await file.slice(ftyp.start, ftyp.start + ftyp.size).arrayBuffer())
+    const head = ftyp ? (await lerBytes(file, ftyp.start, ftyp.start + ftyp.size)).slice()
       : new Uint8Array([0, 0, 0, 20, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0, 105, 115, 111, 109]);
-    const moovBytes = new Uint8Array(await file.slice(moov.start, moov.start + moov.size).arrayBuffer());
+    const moovBytes = await lerBytes(file, moov.start, moov.start + moov.size);
     const joined = new Uint8Array(head.length + moovBytes.length);
     joined.set(head, 0); joined.set(moovBytes, head.length);
     const ab = joined.buffer;
@@ -133,6 +136,9 @@ export function computeDims() {
   const kl = Math.min(1, 960 / long), kf = Math.min(1, 2560 / long);
   S.lw = Math.max(2, Math.round(S.dispW * kl)); S.lh = Math.max(2, Math.round(S.dispH * kl));
   S.fullW = Math.max(2, Math.round(S.dispW * kf)); S.fullH = Math.max(2, Math.round(S.dispH * kf));
+  // prévias dos quadros-chave (decodificador.js): lado maior ≤ 400 px
+  const kp = Math.min(1, 400 / long);
+  S.pw = Math.max(2, Math.round(S.dispW * kp)); S.ph = Math.max(2, Math.round(S.dispH * kp));
   const n = Math.max(8, Math.min(61, Math.floor(S.lowBudget / (S.lw * S.lh * 4))));
   S.win = [Math.floor(n / 4), n - 1 - Math.floor(n / 4)];
 }
