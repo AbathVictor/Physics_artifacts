@@ -65,12 +65,17 @@ def endereco():
     return f"http://127.0.0.1:{_servidor.server_address[1]}/"
 
 
-async def abrir(p):
+async def abrir(p, retrato=True):
+    """Abre a página num Chrome com tela de celular em pé. Por hora a página só funciona deitada (em pé, o aviso
+    "Gire o celular" cobre tudo); retrato=True libera a diagramação em pé (localStorage "va-retrato"), que continua no
+    código e é onde a maior parte dos testes roda. O test_paisagem.py abre sem ela, como o aluno."""
     kw = {"executable_path": os.environ["CHROME_PATH"]} if os.environ.get("CHROME_PATH") else {"channel": "chrome"}
     nav = await p.chromium.launch(**kw)
     ctx = await nav.new_context(viewport={"width": 412, "height": 915}, device_scale_factor=2.6, is_mobile=True, has_touch=True)
     # pedidos a outros endereços que não o servidor local (a página não deve depender de nenhum)
     ctx.on("request", lambda r: EXTERNOS.append(r.url) if r.url.startswith("http") and not r.url.startswith(endereco()) else None)
+    if retrato:
+        await ctx.add_init_script("try { localStorage.setItem('va-retrato', '1'); } catch (e) {}")
     pagina = await ctx.new_page()
     erros = []
     pagina.on("pageerror", lambda e: erros.append(str(e)))

@@ -1,7 +1,8 @@
 """Lupa da escala: aparece só ao arrastar uma ponta da fita de calibração (não nos eixos, na mira, ao marcar ou ao
 arrastar a imagem); fica acima do dedo, passa para baixo perto do topo da tela e para o outro lado perto das bordas
 laterais; acompanha o dedo; o centro mostra o pixel do vídeo onde está a ponta; aumento de 2,5× a vista (de 3 a 12 px
-de tela por pixel do vídeo); some ao soltar. Em pé (412 × 915) e deitado (915 × 412).
+de tela por pixel do vídeo); some ao soltar. Em pé (412 × 915) e deitado (915 × 412, na tela cheia, como a página
+abre).
 
 Usa o vídeo de exemplo. Uso:  python tests/test_lupa.py
 """
@@ -84,11 +85,12 @@ async def caso(R, pg, cdp, nome):
     R.conferir(sum(abs(a - b) for a, b in zip(pv[:3], pl)) < 40 and pv[3] and pl[0] > 150 and pl[1] < 120, f"[{nome}] o centro da lupa mostra o pixel da ponta (a massa vermelha), da imagem em resolução cheia ({pl} × {pv[:3]})")
     if nome == "deitado":
         await pg.screenshot(path=__import__("os").environ.get("FOTO_LUPA", "nul") ) if __import__("os").environ.get("FOTO_LUPA") else None
-    # acompanha o dedo
-    await d.ir(d.x - 30, d.y - 20)
+    # acompanha o dedo (para baixo: subir poderia cruzar o limite em que a lupa passa para baixo do dedo, como na
+    # tela cheia, onde o vídeo ocupa a altura toda e a massa fica a uns 200 px do topo)
+    await d.ir(d.x - 30, d.y + 20)
     await quadro(pg)
     L2 = await pg.evaluate(LUPA)
-    R.conferir(L2 and abs(L2["cx"] - d.x) < 1 and abs((L2["cy"] - L["cy"]) - (-20)) < 1.5, "a lupa acompanha o dedo")
+    R.conferir(L2 and abs(L2["cx"] - d.x) < 1 and abs((L2["cy"] - L["cy"]) - 20) < 1.5, f"[{nome}] a lupa acompanha o dedo")
     # perto do topo da tela: passa para baixo do dedo
     await d.ir(d.x, 40)
     await quadro(pg)

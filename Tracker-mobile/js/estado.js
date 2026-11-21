@@ -17,8 +17,9 @@ export const S = {
   // objetos (massas e centro de massa, ver objetos.js), unidade das massas e contador de alterações; S.marks
   // (pontos do objeto ativo) é definido em objetos.js
   objs: [], ativo: 0, massUnit: "g", ver: 0,
-  // celular deitado (paisagem.js): etapa e aba do painel escolhidas e tela cheia; não vão no salvamento por vídeo
-  etapa: "intervalo", aba: "param", telaCheia: false,
+  // celular deitado (paisagem.js): etapa e aba do painel escolhidas e tela cheia; não vão no salvamento por vídeo.
+  // A página abre em tela cheia (pedido do autor, 21/11/2026); sair dela é escolha do aluno, no botão do canto de cima
+  etapa: "intervalo", aba: "param", telaCheia: true,
 };
 // exposto para os testes (não remova); globalThis é o window no navegador e também existe no Node
 globalThis.__va = S;

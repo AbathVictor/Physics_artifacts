@@ -7,8 +7,9 @@
 <meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#121619" media="(prefers-color-scheme: dark)">
 <title>Videoanálise Móvel</title>
-<!-- app instalável (Chrome ⋮ → Instalar app): o manifesto abre o app sempre deitado ("orientation": "landscape").
-     Numa aba comum, quem gira a tela é o celular: o Chrome só deixa a página travar a orientação em tela cheia -->
+<!-- app instalável (Chrome ⋮ → Instalar app): o manifesto abre o app sempre deitado e em tela cheia
+     ("orientation": "landscape", "display": "fullscreen"). Numa aba comum, quem gira a tela é o celular (o Chrome só
+     deixa a página travar a orientação em tela cheia); em pé, o aviso "Gire o celular" cobre a página -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="img/icone-192.png" type="image/png">
 <!-- tema escolhido à mão (js/tema.js), aplicado antes de a página aparecer para não piscar no tema errado -->
@@ -268,6 +269,15 @@
 <!-- gravar com a câmera direto (capture), usado pela gaveta; a escolha comum fica no passo 1 (fileIn) -->
 <input type="file" class="oculto" id="camIn" accept="video/*" capture="environment" tabindex="-1" aria-hidden="true">
 <div class="toast" id="toast" hidden></div>
+<!-- celular em pé (js/paisagem.js): por hora a página só funciona deitada; este aviso cobre a diagramação em pé -->
+<div class="gire" id="gire" role="dialog" aria-modal="true" aria-labelledby="gireT" hidden>
+  <div class="gire-caixa">
+    <span class="gire-icone" id="gireIcone" aria-hidden="true"></span>
+    <h2 id="gireT">Gire o celular</h2>
+    <p>Por enquanto, a Videoanálise funciona só com o celular deitado.</p>
+    <button type="button" class="btn" id="gireBtn">Deitar em tela cheia</button>
+  </div>
+</div>
 
 <!-- biblioteca de leitura de MP4 (cópia local, para funcionar sem internet); expõe MP4Box e DataStream -->
 <script src="vendor/mp4box.all.min.js"></script>

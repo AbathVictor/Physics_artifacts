@@ -185,6 +185,17 @@ details.diag[open] summary { margin-bottom: 10px; }
 details.diag > div { display: flex; flex-direction: column; gap: 10px; }
 textarea.fallback { width: 100%; min-height: 140px; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); padding: 8px; color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.86rem; z-index: 50; max-width: calc(100% - 32px); text-align: center; }
+/* celular em pé (js/paisagem.js): por hora a página só funciona deitada; o aviso cobre tudo, acima da gaveta ≡ e
+   das mensagens */
+.gire { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.gire[hidden] { display: none; }
+body.gire-on { overflow: hidden; }
+.gire-caixa { max-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.gire-icone svg { width: 72px; height: 72px; color: var(--accent); }
+.gire h2 { margin: 0; font-size: 1.3rem; color: var(--ink); }
+.gire p { margin: 0; color: var(--ink-soft); }
+.gire .btn { min-height: 48px; padding: 10px 18px; font-size: 1rem; }
+.gire .btn[hidden] { display: none; }
 /* lupa da escala: canvas fixo na tela, acima de tudo menos da gaveta; não recebe toques */
 .lupa { position: fixed; left: 0; top: 0; z-index: 25; pointer-events: none; border-radius: 50%; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
 .oculto { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; left: 0; top: 0; }

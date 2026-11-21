@@ -1,4 +1,6 @@
-"""Celular deitado (915 × 412, com toque): diagramação em três colunas (etapas · vídeo e controles · painel),
+"""Celular deitado (915 × 412, com toque), sem liberar a diagramação em pé (por hora a página só funciona deitada:
+em pé, o aviso "Gire o celular" cobre tudo; a página abre em tela cheia e o aluno sai dela no botão), diagramação em
+três colunas (etapas · vídeo e controles · painel),
 etapas com selos, barra de controles e barra de quadros com as duas alças do intervalo, pinça, gaveta dos objetos
 (alça numa linha só com y(t)/x(t), abrir, fechar por alça, toque fora, Esc e Voltar, escolha das massas do cm),
 rodapé Marcar ponto/Rastrear à vista e gráfico com altura útil no pior caso (10 massas e 2 cm, também com 356 px de
@@ -56,6 +58,12 @@ async def centro(pg, sel):
 
 def perto(a, b, tol=1.5):
     return all(abs(x - y) <= tol for x, y in zip(a, b))
+
+
+async def aviso_gire(pg):
+    """O aviso "Gire o celular" está à vista e cobre o centro e os cantos da tela?"""
+    return await pg.evaluate("""(() => { const g = document.getElementById('gire'); if (g.hidden) return false;
+      return [[innerWidth / 2, innerHeight / 2], [2, 2], [innerWidth - 2, innerHeight - 2]].every(([x, y]) => g.contains(document.elementFromPoint(x, y))); })()""")
 
 
 async def gaveta_aberta(pg):
@@ -215,10 +223,28 @@ async def janela_do_grafico(pg, R):
 async def main():
     R = Resultado()
     async with async_playwright() as p:
-        nav, ctx, pg, erros = await abrir(p)
+        # sem liberar a diagramação em pé: a página como o aluno a vê
+        nav, ctx, pg, erros = await abrir(p, retrato=False)
         pg.on("console", lambda m: print("        " + m.text) if m.text.startswith("coberto") else None)
+
+        print("só deitado (por hora)")
+        R.conferir(await aviso_gire(pg), "em pé: o aviso \"Gire o celular\" cobre a página inteira")
+        R.conferir(await pg.evaluate("!document.getElementById('gireBtn').hidden") and await dentro(pg, "#gireBtn"),
+                   "com o botão \"Deitar em tela cheia\" (pede a tela cheia e trava a orientação deitada)")
+        for nome, esquema in (("claro", "light"), ("escuro", "dark")):
+            await pg.emulate_media(color_scheme=esquema)
+            c = await pg.evaluate(CONTRASTE)
+            R.conferir(not c["ruins"], f"[{nome}] contraste ≥ 4,5:1 no aviso" + ("" if not c["ruins"] else ": " + "; ".join(c["ruins"][:5])))
+        await pg.emulate_media(color_scheme="light")
         await pg.set_viewport_size(DEITADO)
         await pg.wait_for_function("document.body.classList.contains('paisagem')")
+        await pg.wait_for_timeout(200)
+        R.conferir(not await aviso_gire(pg) and await pg.evaluate("document.getElementById('gire').hidden"), "deitado: o aviso some")
+        R.conferir(await pg.evaluate("document.body.classList.contains('pais-c') && __va.telaCheia && document.getElementById('btnTela').getAttribute('aria-label') === 'Sair da tela cheia'"),
+                   "abre em tela cheia, com o botão de sair no canto de cima")
+        await pg.click("#btnTela")
+        await pg.wait_for_function("!document.body.classList.contains('pais-c')")
+        R.conferir(await pg.evaluate("!__va.telaCheia && document.getElementById('btnTela').getAttribute('aria-label') === 'Tela cheia'"), "sair da tela cheia é escolha do aluno, no botão")
 
         print("variação B (vídeo de exemplo, em pé)")
         R.conferir(await pg.evaluate("document.body.classList.contains('pais-b') && document.getElementById('pGrafB').contains(document.getElementById('plotBox'))"),
@@ -387,6 +413,8 @@ async def main():
         await pg.wait_for_timeout(200)
         depois = await pg.evaluate("JSON.stringify([__va.etapa, __va.ativo, __va.cur, __va.cross, __va.view, __va.mode, __va.objs.map((o) => o.marks ? [...o.marks.keys()] : o.massas)])")
         R.conferir(antes == depois, "em pé: etapa, objeto ativo, quadro, mira, zoom, ferramenta e marcas iguais")
+        # por hora a diagramação em pé fica coberta pelo aviso, mas continua montada por baixo (os elementos voltam)
+        R.conferir(await aviso_gire(pg), "em pé: o aviso \"Gire o celular\" cobre a diagramação em pé")
         lugar = await pg.evaluate("""[document.querySelector('.stage').contains(document.getElementById('viewer')),
           [...document.querySelectorAll('main .panel > .block')].map((b) => b.dataset.etapa).join(),
           document.querySelector('header.top').contains(document.getElementById('menuBtn')),
@@ -441,6 +469,15 @@ async def main():
         await escolher(pg, "[data-obj='0']")
         await pg.click("#pFechaPainel"); await pg.wait_for_timeout(260)
         await janela_do_grafico(pg, R)
+        # na tela cheia, girar em pé e deitar de novo: o aviso cobre a página, e a tela cheia continua
+        await pg.set_viewport_size(EM_PE)
+        await pg.wait_for_function("!document.body.classList.contains('paisagem')")
+        await pg.wait_for_timeout(200)
+        R.conferir(await aviso_gire(pg) and await pg.evaluate("__va.telaCheia"), "tela cheia e em pé: o aviso cobre a página, e a tela cheia fica guardada")
+        await pg.set_viewport_size(DEITADO)
+        await pg.wait_for_function("document.body.classList.contains('pais-c')")
+        await pg.wait_for_timeout(200)
+        R.conferir(not await aviso_gire(pg), "deitado de novo: volta à tela cheia, sem o aviso")
         await pg.click("#btnTela")
         await pg.wait_for_function("!document.body.classList.contains('pais-c')")
         R.conferir(await pg.evaluate("document.getElementById('pAbasBtns').contains(document.getElementById('menuBtn')) && document.getElementById('pGraf').contains(document.getElementById('plotBox')) && document.getElementById('pPainel').contains(document.getElementById('pObjs')) && document.getElementById('pAlca').contains(document.getElementById('plotSeg'))"),

@@ -43,8 +43,8 @@ async def main():
         R.conferir(m["url"].endswith("/manifest.webmanifest") and not m.get("errors"),
                    "o Chrome lê o manifesto sem erros" + (f": {m.get('errors')}" if m.get("errors") else ""))
         dados = json.loads(m.get("data") or "{}")
-        R.conferir(dados.get("orientation") == "landscape" and dados.get("display") == "standalone",
-                   f"o app instalado abre deitado ({dados.get('orientation')}, {dados.get('display')})")
+        R.conferir(dados.get("orientation") == "landscape" and dados.get("display") == "fullscreen",
+                   f"o app instalado abre deitado e em tela cheia ({dados.get('orientation')}, {dados.get('display')})")
         R.conferir(urljoin(m["url"], dados.get("start_url", "")) == urljoin(pg.url, "./"), "o app abre na própria página (start_url)")
         ic = [(i["src"], tamanho_png(PASTA / i["src"]), tuple(map(int, i["sizes"].split("x"))), i.get("purpose")) for i in dados.get("icons", [])]
         R.conferir(ic and all(t == s for _, t, s, _ in ic) and {192, 512} <= {s[0] for _, _, s, _ in ic} and any(p == "maskable" for *_, p in ic),

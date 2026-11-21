@@ -30,6 +30,26 @@ import { $, esc } from "./util.js";
 
 export const MQ = matchMedia("(orientation: landscape) and (max-height: 500px)");
 
+// ---------- só deitado (por hora) ----------
+// Pedido do autor em 21/11/2026: por hora a página funciona só com o celular deitado. Em pé, o aviso "Gire o
+// celular" (#gire) cobre a página, com um botão que deita a tela em tela cheia (o Chrome só trava a orientação em
+// tela cheia, e a tela cheia exige um toque). A diagramação em pé continua no código, intacta: localStorage
+// "va-retrato" = "1" a libera (os testes usam; para voltar a ter em pé, basta trocar SO_DEITADO para false).
+const SO_DEITADO = true;
+const RETRATO_LIBERADO = !SO_DEITADO || (() => { try { return localStorage.getItem("va-retrato") === "1"; } catch { return false; } })();
+const EM_PE = matchMedia("(orientation: portrait)");
+function avisoGire() {
+  const on = !RETRATO_LIBERADO && EM_PE.matches;
+  $("gire").hidden = !on;
+  document.body.classList.toggle("gire-on", on);
+}
+$("gireIcone").innerHTML = IC.girar;
+// o botão só aparece onde dá para pedir tela cheia e travar a orientação
+$("gireBtn").hidden = !(document.documentElement.requestFullscreen && screen.orientation && screen.orientation.lock);
+$("gireBtn").addEventListener("click", () => entrarTelaCheia());
+EM_PE.addEventListener("change", avisoGire);
+avisoGire();
+
 // aba: a que abre ao escolher a etapa (Parâmetros nas de preparação, Gráfico em Marcar e Dados)
 const ETAPAS = [
   { id: "intervalo", rotulo: "Intervalo", icone: IC.intervalo, modo: "nav", aba: "param" },
@@ -191,6 +211,10 @@ function telaCheiaUI() {
   $("btnTela").setAttribute("aria-label", S.telaCheia ? "Sair da tela cheia" : "Tela cheia");
 }
 $("btnTela").addEventListener("click", () => { if (S.telaCheia) sairTelaCheia(); else entrarTelaCheia(); });
+// a página abre em tela cheia (S.telaCheia começa true, estado.js): o botão já começa como "Sair da tela cheia".
+// Numa aba comum do Chrome é a diagramação de tela cheia, com as barras do navegador (pedir a tela cheia do sistema
+// exige um toque); no app instalado, o manifesto ("display": "fullscreen") já tira as barras
+telaCheiaUI();
 // saiu da tela cheia pelo sistema (Voltar do Android, Esc): volta à diagramação normal
 document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && S.telaCheia) { S.telaCheia = false; telaCheiaUI(); layout(); } });
 // na tela cheia, o painel (Parâmetros e Tabela) abre como gaveta pelo botão do painel, no canto de cima, e fecha no ✕
@@ -254,8 +278,9 @@ document.addEventListener("va:paineis", atualizarEtapas);
 
 // ---------- girar o celular ----------
 MQ.addEventListener("change", () => {
-  // em pé, a tela cheia sai
-  if (!MQ.matches && S.telaCheia) sairTelaCheia();
+  // em pé, a tela cheia sai (só com a diagramação em pé liberada; senão o aviso cobre a página e, ao deitar de
+  // novo, a tela cheia continua como estava)
+  if (!MQ.matches && S.telaCheia && RETRATO_LIBERADO) sairTelaCheia();
   prepararLayout();
   if (S.frames.length) layout();
   drawPlot();
