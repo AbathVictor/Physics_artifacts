@@ -55,6 +55,32 @@ async def main():
                 if await numero_do_quadro(pg, k, W, H, rot) != k:
                     seq += 1
             R.conferir(seq == 0, f"avanço de +1 em +1 sem erro ({seq} errados)")
+        print("tempo como no Tracker (salto_carimbo.mp4: 33 ms a mais no quadro 100, sem quadro perdido)")
+        # o de_money.mp4 do autor tem um carimbo assim; o Tracker usa o mesmo Δt para todos os quadros (a média do
+        # intervalo de análise), e a página também, desde 21/11/2026
+        assert await abrir_video(pg, "salto_carimbo.mp4"), "salto_carimbo.mp4 não abriu: rode tests/gerar_videos.py"
+        tf = await pg.evaluate("__va.frames.map((f) => f.t)")
+        R.conferir(abs((tf[100] - tf[99]) - 2 / 30) < 1e-4 and await pg.evaluate("__va.timing.variable"),
+                   "o tempo do arquivo guarda o salto de 66,7 ms (o diagnóstico continua mostrando taxa variável)")
+        await pg.evaluate("(() => { const S = __va; S.start = 20; S.end = 140; const o = S.objs[S.ativo]; o.marks.clear(); for (let i = 20; i <= 140; i += 5) o.marks.set(i, { x: 100 + i, y: 50 }); S.ver++; })()")
+        await pg.evaluate("import('./js/paineis.js').then((m) => m.renderPanels())")
+        dt = (tf[140] - tf[20]) / 120
+        tab = await pg.evaluate("[...document.querySelectorAll('#table tr[data-i]')].map((tr) => [Number(tr.dataset.i), parseFloat(tr.children[1].textContent.replace(',', '.'))])")
+        erro = max(abs(t - (i - 20) * dt) for i, t in tab)
+        R.conferir(len(tab) == 25 and erro < 1e-4, f"tabela: o mesmo Δt para todos os quadros, {dt * 1000:.3f} ms, a média do intervalo, com t = 0 no início (erro máx {erro * 1e6:.0f} µs)")
+        await pg.check("input[name=fmt][value=intl]")
+        await pg.evaluate("window.__salvo = null; __va.dl = { save: async (r) => { window.__salvo = r; return { status: 'saved' }; } }; document.getElementById('exportCsv').disabled = false;")
+        await pg.click("#exportCsv")
+        await pg.wait_for_function("window.__salvo", timeout=5000)
+        linhas = (await pg.evaluate("window.__salvo.data")).lstrip("﻿").split("\r\n")
+        tcsv = [float(l.split(",")[0]) for l in linhas[5:] if l]
+        erro = max(abs(t - k * 5 * dt) for k, t in enumerate(tcsv))
+        R.conferir(len(tcsv) == 25 and erro < 2e-6, f"CSV com o mesmo tempo da tabela (erro máx {erro * 1e6:.1f} µs)")
+        await ir_para(pg, 120)
+        rt = float((await pg.evaluate("document.getElementById('rT').textContent")).replace(",", "."))
+        info = await pg.evaluate("document.getElementById('kvInt').textContent")
+        R.conferir(abs(rt - 100 * dt) < 1e-4 and "como no Tracker" in info, f"tempo na tela no quadro 120: {rt} s (o arquivo diria {tf[120] - tf[20]:.4f} s); o intervalo mostra o tempo por quadro")
+
         print("hevc.mp4")
         try:
             ok = await abrir_video(pg, "hevc.mp4")

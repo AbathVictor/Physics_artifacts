@@ -1,7 +1,7 @@
 // Dados: tabela t, x, y e gráfico do objeto ativo; copiar tabela e exportar CSV com todos os objetos, no formato
 // do Tracker (formatos Excel e internacional).
 
-import { inInterval, persist, phys, unidade, unitPerPx } from "./analise.js";
+import { inInterval, persist, phys, tempo, unidade, unitPerPx } from "./analise.js";
 import { decOf } from "./desenho.js";
 import { S } from "./estado.js";
 import { show, stopPlay } from "./navegacao.js";
@@ -13,8 +13,9 @@ import { $, esc, fmt, parseNum, toast } from "./util.js";
 // linhas de um objeto dentro do intervalo de análise, com t contado a partir do início
 function rows(o) {
   if (!o) return [];
-  const pts = pontosDe(o), t0 = S.frames[S.start] ? S.frames[S.start].t : 0;
-  return [...pts.keys()].sort((a, b) => a - b).filter(inInterval).map((i) => { const p = phys(pts.get(i)); return { i, t: S.frames[i].t - t0, x: p ? p.x : NaN, y: p ? p.y : NaN }; });
+  const pts = pontosDe(o);
+  // tempo como no Tracker: Δt médio do intervalo (analise.js)
+  return [...pts.keys()].sort((a, b) => a - b).filter(inInterval).map((i) => { const p = phys(pts.get(i)); return { i, t: tempo(i), x: p ? p.x : NaN, y: p ? p.y : NaN }; });
 }
 function posDec(extra) { const k = unitPerPx(); return k > 0 ? Math.max(0, Math.min(8, Math.ceil(-Math.log10(k)) + extra)) : 3; }
 export function renderData() {
@@ -177,9 +178,8 @@ function exportText(kind) {
   else {
     const por = exp.map((e) => new Map(e.R.map((r) => [r.i, r])));
     const quadros = [...new Set(exp.flatMap((e) => e.R.map((r) => r.i)))].sort((a, b) => a - b);
-    const t0 = S.frames[S.start].t;
     for (const i of quadros) {
-      const c = [num(S.frames[i].t - t0, 6)];
+      const c = [num(tempo(i), 6)];
       for (const m of por) { const r = m.get(i); c.push(r ? num(r.x, pd) : "", r ? num(r.y, pd) : ""); }
       lines.push(c.join(delim));
     }

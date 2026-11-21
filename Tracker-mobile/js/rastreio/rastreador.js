@@ -1,7 +1,7 @@
 // Rastreamento automático: medição do alvo ao tocar, preparo do modelo, busca em dois níveis e o laço
 // que decodifica os quadros com um decodificador próprio (o pump fica parado durante o rastreamento).
 
-import { inInterval, persist } from "../analise.js";
+import { inInterval, persist, tempo } from "../analise.js";
 import { ensureVisible, render } from "../desenho.js";
 import { S } from "../estado.js";
 import { objAtivo } from "../objetos.js";
@@ -160,7 +160,7 @@ async function runTrack() {
   // um decodificador só por vez (fase 2 do plano de memória): o da página é fechado; o pump cria outro depois
   if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
   const gen = S.gen, F = S.frames;
-  const st = { hist: [{ p: { x: S.cross.x, y: S.cross.y }, t: F[startI].t }], last: startI, n: 0, lost: null, err: null, score: 1, minScore: 1, dirty: false };
+  const st = { hist: [{ p: { x: S.cross.x, y: S.cross.y }, t: tempo(startI) }], last: startI, n: 0, lost: null, err: null, score: 1, minScore: 1, dirty: false };
   const order = []; let q = 0;
   const dec = new VideoDecoder({
     output: (f) => {
@@ -176,7 +176,7 @@ async function runTrack() {
         if (k < startI || k > endI || (k - startI) % every || !TR.tf) return;
         // previsão a partir dos últimos pontos (aceleração ou velocidade constante); o raio de busca acompanha
         // o deslocamento previsto (se a previsão falhar, a segunda busca, 2,5× maior, cobre o erro)
-        const tk = F[k].t, H = st.hist, p1 = H[H.length - 1].p;
+        const tk = tempo(k), H = st.hist, p1 = H[H.length - 1].p;
         const pq = predictNext(H, tk, S.dispW, S.dispH);
         let Sr = Math.max(12, TR.R);
         if (H.length >= 2) Sr = Math.max(6, 0.5 * TR.R, 2 * Math.hypot(pq.x - p1.x, pq.y - p1.y));

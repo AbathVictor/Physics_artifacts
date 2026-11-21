@@ -67,17 +67,30 @@ abertura de vídeo da câmera ou da galeria, navegação, play, reprodução do 
 janela de download do CSV, fluidez. O rastreamento automático foi testado num vídeo real de pêndulo
 (1080p, massa de 28 px): funciona depois da medição automática do tamanho do alvo (ver armadilha 9).
 
-**Rastreamento comparado com o Tracker de computador** (21/11/2026, `Test_videos/Pendulum_test.mp4`, 1080p, 254
-quadros, rastreamento automático nos dois; arquivos `Pendulum_test_desktop_version.trk/.txt` e
-`Pendulum_test_mobile_version.csv`): as duas trajetórias, ambas sem escala (1 px por unidade), cobrem os mesmos 254
-quadros. Descontadas a diferença de origem dos eixos (6,1; −108,5 px) e uma inclinação de 0,80° dos eixos no celular
-(no Tracker, ângulo 0; a diferença em y acompanhava x, correlação −0,98), elas diferem em média 0,28 px por quadro
-(RMS 0,32 px, máximo 0,82 px; 0,24 px RMS em x e 0,20 px em y). Período por cruzamentos: 2,1241 s no Tracker e
-2,1235 s no celular; amplitude em x: 103,28 e 103,41 px. Observações: o arquivo do celular chegou como planilha (.xlsx
-com nome .csv) com o CSV "Internacional/Python" inteiro numa coluna, porque foi aberto numa planilha em português
-(para isso, o formato certo é o "Excel/Planilhas Google"); e o CSV do celular não guarda a origem, o ângulo dos eixos
-nem a escala (o .trk guarda), por isso a comparação precisou ajustar a origem e o ângulo. Desde então, o CSV
-tem a linha `calibração:` (especificação, "Estrutura do CSV").
+**Rastreamento comparado com o Tracker de computador** (21/11/2026, rastreamento automático nos dois programas, no
+mesmo vídeo; arquivos em `Test_videos/`, fora do git):
+- `Pendulum_test.mp4` (1080p, 254 quadros; `Pendulum_test_desktop_version.trk/.txt` × `Pendulum_test_mobile_version.csv`
+  já com a linha de calibração): levando o CSV do celular a pixels da imagem pela própria calibração (eixos em
+  (948,50; 775,45) px, inclinados −0,86°; 1 px por u.a.), **sem ajuste nenhum**, a diferença para os pixels do .trk é
+  quase toda constante, (−1,2; −1,7) px desde o primeiro quadro (o ponto onde a mira foi posta em cada programa), com
+  0,24 px de variação em x e 0,22 px em y; descontada a constante, 0,29 px em média (máximo 0,82 px). Período por
+  cruzamentos: 2,1241 s no Tracker e 2,1235 s no celular.
+- `de_money.mp4` (640 × 480, 667 quadros; `de_money_desktop_version.txt`, só massa A, em m, sem .trk ×
+  `de_money_trajetoria_mobile_version.csv`, massa A, massa B e cm A): descontadas a escala, a rotação e a origem
+  (ajuste), a massa A difere 0,12 px em média (RMS 0,15 px, máximo 0,54 px; 0,2 mm). As calibrações diferem: escala
+  do Tracker ~570,6 px/m (estimada) × 586,5 px/m no celular (2,7 %), por isso a amplitude difere 3,4 %. A oscilação
+  rápida (sobre uma deriva lenta) tem o mesmo período nos dois: **0,4424 s**. O cm A do celular é a média de A e B
+  (massas iguais) até 0,005 mm.
+- **Carimbo de tempo errado no `de_money.mp4`**: o arquivo tem um intervalo de 66,7 ms antes do quadro 256 (t = 8,567 s),
+  mas a imagem não pula (a velocidade muda suave quadro a quadro, e o ciclo que contém o salto mede 0,475 s contra
+  0,440–0,446 s dos outros): nenhum quadro foi perdido, o carimbo é que está errado. A página usa os carimbos (decisão
+  da especificação, para vídeos de taxa variável), então herda o erro ali: um ciclo 33 ms mais longo e a velocidade
+  daquele intervalo pela metade. O Tracker espalha o tempo por igual (33,383 ms por quadro, 0,15 % a mais em todo o
+  vídeo, até 20 ms fora de lugar perto do salto). Com o salto tirado, os dois dão 0,4424 s. **Decidido pelo autor:
+  fazer como o Tracker** (armadilha 2): desde então, os tempos da página no `de_money.mp4` coincidem com os do
+  Tracker até 5 µs.
+- Observações: um arquivo do celular chegou como planilha (.xlsx com nome .csv) com o CSV "Internacional/Python" numa
+  coluna só, por ter sido aberto numa planilha em português (para planilha, o formato certo é "Excel/Planilhas Google").
 
 ## Arquitetura
 
@@ -148,8 +161,15 @@ do eixo x medido no sentido anti-horário.
 1. **WebCodecs + mp4box.js 0.5.4** (build UMD, globais `MP4Box` e `DataStream`, cópia local em `vendor/`).
    Só `ftyp` + `moov` vão para o mp4box; os dados (`mdat`) são lidos sob demanda com `File.slice`, por grupo de
    quadros. O `onReady` do mp4box exige `ftyp`; se o arquivo não tiver, um `ftyp` falso é usado.
-2. O **tempo de cada quadro vem do carimbo do arquivo** (`cts`), não de uma taxa fixa: vídeos de celular podem ter
-   taxa variável. t = 0 no quadro de início do intervalo.
+2. **Tempo de cada quadro**: o carimbo do arquivo (`cts`) é lido e guardado em `S.frames[i].t` (play, diagnóstico,
+   "taxa variável"). Na análise (tabela, gráfico, CSV, tempo na tela, previsão dos pontos e do rastreamento), desde
+   21/11/2026 o tempo é **como no Tracker** (decisão do autor): `tempo(i)` (`analise.js`) usa o mesmo Δt para todos
+   os quadros, a média do intervalo de análise (tempo do arquivo no quadro de fim − no de início, ÷ número de
+   passos), com t = 0 no quadro de início. Conferido no `de_money.mp4`: o Tracker dá 33,38338 ms por quadro (a média
+   do intervalo analisado; a do vídeo inteiro seria 33,3505 ms), e os tempos da página coincidem com os do .txt do
+   Tracker até 5 µs. Mudar o início ou o fim do intervalo muda um pouco o Δt, como no Tracker; o bloco do intervalo
+   mostra o "tempo por quadro". Antes, a análise usava o carimbo de cada quadro, e um carimbo errado no arquivo virava
+   um ciclo mais longo e uma velocidade pela metade. Teste: `salto_carimbo.mp4` (`gerar_videos.py`).
 3. O quadro que sai do decodificador é identificado pela **ordem dentro do grupo** (de um quadro-chave ao próximo),
    não pelo carimbo de tempo: o decodificador do Chrome às vezes altera o carimbo de saída em vídeos com quadros B.
    O diagnóstico conta as divergências (`S.tsMismatch`).
@@ -313,7 +333,7 @@ no topo da imagem).
 ```bash
 pip install -r tests/requirements.txt      # Playwright e Pillow; não precisa de "playwright install"
 python tests/gerar_videos.py               # uma vez; precisa do ffmpeg no PATH (libx265 é opcional)
-python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, HEVC
+python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, tempo como no Tracker (salto_carimbo.mp4), HEVC
 python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos (com a calibração), play sincronizado com o gráfico, a tabela e a barra, recuperação
 python tests/test_rastreamento.py          # medição do alvo, precisão, um decodificador só, perda do alvo, botão Parar
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração

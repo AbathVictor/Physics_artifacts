@@ -85,6 +85,18 @@ export function phys(p) {
 export const handleLen = () => 0.22 * Math.min(S.dispW, S.dispH);
 export const axisHandle = () => ({ x: S.axes.o.x + handleLen() * Math.cos(S.axes.ang), y: S.axes.o.y - handleLen() * Math.sin(S.axes.ang) });
 export const inInterval = (i) => i >= S.start && i <= S.end;
+// Tempo de cada quadro na análise, como no Tracker (decisão do autor, 21/11/2026): o mesmo Δt para todos os quadros, a
+// média do intervalo de análise (tempo do arquivo no quadro de fim − no de início, ÷ número de passos), com t = 0 no
+// quadro de início. Conferido com o Tracker de computador: no de_money.mp4 ele dá 33,38338 ms = 22,2333 s ÷ 666, a
+// média do intervalo analisado (a do vídeo inteiro seria 33,3505 ms). Um carimbo errado no arquivo (o de_money.mp4 tem
+// um intervalo de 66,7 ms sem quadro perdido) fica espalhado por igual, em vez de virar um ciclo 33 ms mais longo e a
+// velocidade daquele intervalo pela metade. S.frames[i].t continua sendo o tempo do arquivo (play e diagnóstico).
+export function dtMedio() {
+  const F = S.frames, a = S.start, b = S.end;
+  if (F[a] && F[b] && b > a && F[b].t > F[a].t) return (F[b].t - F[a].t) / (b - a);
+  return S.timing && S.timing.med > 0 ? S.timing.med : 1 / 30;
+}
+export const tempo = (i) => (i - S.start) * dtMedio();
 export const sortedMarks = () => [...S.marks.keys()].sort((a, b) => a - b);
 export function predict(j) {
   const ks = sortedMarks().filter((k) => k < j);
@@ -92,7 +104,7 @@ export function predict(j) {
   const b = ks[ks.length - 1], pb = S.marks.get(b);
   if (ks.length < 2) return { x: pb.x, y: pb.y };
   const a = ks[ks.length - 2], pa = S.marks.get(a);
-  const ta = S.frames[a].t, tb = S.frames[b].t, tj = S.frames[j].t;
+  const ta = tempo(a), tb = tempo(b), tj = tempo(j);
   if (tb - ta <= 0) return { x: pb.x, y: pb.y };
   const f = (tj - tb) / (tb - ta);
   return { x: clampF(pb.x + (pb.x - pa.x) * f, 0, S.dispW), y: clampF(pb.y + (pb.y - pa.y) * f, 0, S.dispH) };

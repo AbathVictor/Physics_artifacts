@@ -88,6 +88,8 @@ def main():
     # taxa variável exata: grava em 30 fps e reescreve os carimbos de tempo
     gerar("base30.mp4", 640, 360, 150, 30, h264 + ["-g", "30", "-bf", "0", "-video_track_timescale", "90000"])
     remux("vfr2.mp4", "-i", str(PASTA / "base30.mp4"), "-c", "copy", "-bsf:v", "setts=ts=round((N/30+0.008*sin(N))/TB)", "-video_track_timescale", "90000")
+    # carimbo errado como o do de_money.mp4 do autor: a partir do quadro 100, 33 ms a mais, sem quadro perdido
+    remux("salto_carimbo.mp4", "-i", str(PASTA / "base30.mp4"), "-c", "copy", "-bsf:v", "setts=ts=round((N/30+trunc(N/100)/30)/TB)", "-video_track_timescale", "90000")
     # rotação guardada nos metadados, como nos vídeos gravados em pé
     remux("rot90.mp4", "-display_rotation", "90", "-i", str(PASTA / "norot.mp4"), "-c", "copy")
     remux("rot270.mp4", "-display_rotation", "270", "-i", str(PASTA / "norot.mp4"), "-c", "copy")

@@ -1,7 +1,7 @@
 // Painéis: linha de situação do vídeo (setSrc), liberar os controles, leitura do quadro atual, informações da
 // escala e atualização dos painéis dos passos (renderPanels).
 
-import { UA, escalaReal, inInterval } from "./analise.js";
+import { UA, dtMedio, escalaReal, inInterval, tempo } from "./analise.js";
 import { atualizarBarra } from "./barra.js";
 import { renderData } from "./dados.js";
 import { ctx, cv } from "./desenho.js";
@@ -26,7 +26,7 @@ export function setControls(on) {
 export function updateReadout() {
   const f = S.frames[S.cur]; if (!f) return;
   $("rN").textContent = String(S.cur);
-  $("rT").textContent = fmt(f.t - S.frames[S.start].t, 4);
+  $("rT").textContent = fmt(tempo(S.cur), 4);
   $("seek").value = String(S.cur);
   const tag = $("rTag");
   if (!inInterval(S.cur)) { tag.hidden = false; tag.className = "tag out"; tag.textContent = "fora do intervalo"; }
@@ -81,6 +81,8 @@ export function renderPanels() {
     ["início", `quadro ${S.start} · ${fmt(f0.t, 3)} s do vídeo`],
     ["fim", `quadro ${S.end} · ${fmt(f1.t, 3)} s do vídeo`],
     ["duração", `${fmt(f1.t - f0.t, 3)} s · ${S.end - S.start + 1} quadros`],
+    // como no Tracker: o mesmo Δt para todos os quadros do intervalo (analise.js)
+    ["tempo por quadro", `${fmt(dtMedio() * 1000, 3)} ms (média do intervalo, como no Tracker)`],
   ]);
   $("stInt").textContent = S.start === 0 && S.end === S.frames.length - 1 ? "vídeo inteiro" : "definido";
   // escala
