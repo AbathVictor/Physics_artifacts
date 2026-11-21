@@ -13,6 +13,8 @@ export const S = {
   // segundo plano (durante a medição)
   previa: new Map(), previaBytes: 0, previaFalhou: new Set(), fundo: null, pw: 0, ph: 0,
   arrasto: false, naPrevia: false, semFundo: false,
+  // sessões do decodificador começadas num quadro-chave (decodificador.js; os testes contam os recomeços)
+  sessoes: 0,
   // a página está em segundo plano (decodificador.js devolve a memória dos quadros)
   oculta: false,
   // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo

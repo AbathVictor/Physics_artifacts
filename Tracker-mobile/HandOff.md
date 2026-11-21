@@ -265,7 +265,24 @@ do eixo x medido no sentido anti-horário.
     segundo plano (`visibilitychange`, `S.oculta`), os quadros guardados, menos o atual, e o decodificador são
     devolvidos (o arquivo e as prévias ficam); ao voltar, o `pump` refaz a janela. Durante o rastreamento e a
     medição, nada é devolvido. Teto de tudo num aparelho de 8 GB: ~96 MB de baixa + 2 quadros em cheia + 32 MB de
-    prévias + até 128 MB do arquivo. O play (`tick`, `navegacao.js`) só avança para o próximo
+    prévias + até 128 MB do arquivo.
+24. **Sessão do decodificador e grupos longos** (21/11/2026, depois do teste da fase 2 no celular: engasgos no play
+    do `Test_videos/Pendulum_test.mp4`, 1080p com só 2 grupos de até 158 quadros). Cada pedido decodificava do
+    quadro-chave até o fim do grupo e esvaziava o decodificador (`flush`, que exige um quadro-chave depois): no play,
+    cada reposição da janela recomeçava do quadro-chave (127 recomeços em 300 quadros no `gop150.mp4` de teste).
+    Agora `keep` é uma **sessão**: o grupo, até onde foi alimentado (`fed`) e quantos quadros já saíram (`k`). Um
+    pedido no mesmo grupo cujo menor quadro que falta ainda não saiu **continua** de onde a sessão parou; o pedido
+    alimenta só até o último quadro que quer, mais `MARGEM` (3) amostras que empurram os quadros para fora do
+    decodificador; a reposição não passa do fim da janela. A sessão só termina (`terminarSessao`, com o `flush` e a
+    lista de saída refeita) ao trocar de grupo, voltar para trás no grupo, fazer uma prévia, chegar ao fim do grupo
+    ou quando o quadro atual pedido não sai logo. Cuidados que apareceram nos testes: (a) guardar tudo o que sai
+    dentro da janela **atual** (um quadro preso no decodificador sai durante um pedido seguinte, que começa mais à
+    frente); (b) o descarte da baixa resolução tira primeiro os quadros fora da janela, depois os de trás, e os da
+    frente por último (o descarte pelos usados há mais tempo tirava justamente os quadros à frente no play, guardados
+    antes e ainda não mostrados); (c) um quadro que já entrou e não saiu (`pendente()`) não conta como faltando; (d)
+    resultado "pendente" (com quadros B, um quadro P fica preso até entrarem os B anteriores a ele) e "abandonado"
+    não são falha, e um grupo só é marcado como falho se o quadro ainda era o que se queria (sem isso, um salto no
+    meio de um pedido marcava o grupo e a página nunca mais o decodificava). `S.sessoes` conta as sessões. O play (`tick`, `navegacao.js`) só avança para o próximo
     quadro quando chega a hora dele e ele já está decodificado; atrasado, o relógio recomeça desse quadro.
 
 ## Testes
@@ -286,7 +303,7 @@ python tests/test_tema.py                  # cores dos dois temas, contraste de 
 python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas (Diagnóstico com "Medir este vídeo"), tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412), sem liberar o em pé: aviso "Gire o celular", abre em tela cheia, etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, Voltar uma vez só (pinça e Esc duplo), alça a 640 × 360, temas, arquivo que não é vídeo
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
-python tests/test_desempenho.py            # fases 1 e 2, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, abrir vídeo durante a decodificação do anterior, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros, memória dentro dos limites, segundo plano, vídeo de até 960 px sem cópia repetida
+python tests/test_desempenho.py            # fases 1 e 2, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, abrir vídeo durante a decodificação do anterior, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros, play com grupos longos sem recomeçar do quadro-chave (gop150.mp4), memória dentro dos limites, segundo plano, vídeo de até 960 px sem cópia repetida
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
 python tests/medir_desempenho.py [--software] [--leitura-lenta] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
@@ -349,6 +366,12 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
         num vídeo de até 960 px, sem a segunda cópia idêntica; um decodificador só no rastreamento, lendo amostra por
         amostra; memória devolvida com a página em segundo plano. No vídeo do autor, com a leitura lenta simulada:
         quadros guardados 161 MB (190 MB antes da fase 1) → 94 MB, com salto, arrasto e play iguais aos da fase 1.
+        **Testado pelo autor no celular**: no `de_sei_lá.mp4`, 94 MB e tudo bem; no `Pendulum_test.mp4` (1080p, 2
+        grupos de até 158 quadros), engasgos no play (70 % da velocidade). Corrigido no mesmo dia com a sessão do
+        decodificador (armadilha 24): com a leitura lenta e a decodificação por software simuladas, o play do
+        Pendulum foi de 77 % para 100 % da velocidade real; saltos de 0,14 a 0,73 s e 0,47 s depois de soltar (o
+        limite de um vídeo com grupos tão longos: um quadro no meio do grupo exige decodificar desde o quadro-chave; a
+        prévia cobre a espera). Falta o autor testar no celular.
      3. Só se 1 e 2 não bastarem (com os números do celular): cópia leve para navegar (540p com quadros-chave
         frequentes, feita uma vez ao abrir o vídeo; navegação e play nela, marcação, zoom e rastreamento no original).
      Dica de gravação ("grave em 1080p"): não, por hora; fica para a versão beta (decisão do autor).

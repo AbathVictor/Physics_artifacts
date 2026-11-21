@@ -120,6 +120,25 @@ async def main():
         pulos = [(a, b) for a, b in zip(v, v[1:]) if b - a > 1]
         R.conferir(not pulos and v[-1] == 420, f"o play mostra todos os quadros de 300 a 420, sem pular nenhum (de {v[0]} a {v[-1]}, {len(set(v))} quadros)" + (f" (pulou: {pulos[:3]})" if pulos else ""))
 
+        print("play com grupos longos (um quadro-chave a cada 150 quadros)")
+        # como o Pendulum_test.mp4 do autor: cada reposição da janela recomeçava do quadro-chave e decodificava o grupo
+        # inteiro; agora a sessão do decodificador continua de onde parou
+        await abrir_video(pg, "gop150.mp4")
+        await pg.evaluate("(() => { const S = __va; S.start = 0; S.end = 299; })()")
+        await pg.click("#lInicio")
+        await pg.wait_for_function("__va.low.has(0) && __va.cur === 0 && !__va.busy", timeout=30000)
+        s0 = await pg.evaluate("__va.sessoes")
+        await pg.evaluate("""(() => { const v = window.__vistos = [__va.cur]; let comecou = false; window.__fimPlay = false;
+          const f = () => { if (__va.playing) comecou = true; else if (comecou) { v.push(__va.cur); window.__fimPlay = true; return; } v.push(__va.cur); requestAnimationFrame(f); };
+          requestAnimationFrame(f); })()""")
+        await pg.click("#lPlay")
+        await pg.wait_for_function("window.__fimPlay === true", timeout=60000)
+        v = await pg.evaluate("window.__vistos")
+        recomecos = await pg.evaluate("__va.sessoes") - s0
+        pulos = [(a, b) for a, b in zip(v, v[1:]) if b - a > 1]
+        R.conferir(not pulos and v[-1] == 299 and recomecos <= 3,
+                   f"play de 0 a 299 sem pular quadros, recomeçando do quadro-chave {recomecos} vez(es) para 2 grupos" + (f" (pulou: {pulos[:3]})" if pulos else ""))
+
         print("vídeo 1080p")
         await abrir_video(pg, "hd1080.mp4")
         lido = await pg.evaluate("import('./js/video/leitor.js').then((m) => ({ ...m.leitura }))")

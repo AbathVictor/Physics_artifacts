@@ -24,7 +24,8 @@ async def visivel_na_tela(pg):
 async def abrir_gaveta(pg):
     await pg.click("#menuBtn")
     await pg.wait_for_function(aberta)
-    await pg.wait_for_timeout(260)  # fim da animação
+    # fim da animação: espera a gaveta chegar à borda direita (com a máquina carregada, 260 ms fixos não bastavam)
+    await pg.wait_for_function("(() => { const r = document.getElementById('gaveta').getBoundingClientRect(); return Math.abs(r.right - innerWidth) < 1 && !document.getElementById('gaveta').getAnimations().length; })()", timeout=3000)
 
 
 async def fechada(pg):

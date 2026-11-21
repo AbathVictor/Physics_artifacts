@@ -78,6 +78,9 @@ def main():
     gerar("cfr_moovend.mp4", 640, 360, 150, 30, h264 + ["-g", "30"])  # índice no fim, como o Android grava
     gerar("bframes.mp4", 640, 360, 150, 30, h264 + ["-profile:v", "high", "-bf", "3", "-g", "60"])
     gerar("slowmo240_biggop.mp4", 640, 360, 300, 240, h264 + ["-g", "240"])
+    # grupos longos (um quadro-chave a cada 5 s), como o Pendulum_test.mp4 do autor: o play não pode recomeçar do
+    # quadro-chave a cada reposição da janela (test_desempenho.py)
+    gerar("gop150.mp4", 960, 540, 300, 30, h264 + ["-bf", "0", "-x264-params", "keyint=150:min-keyint=150:scenecut=0"])
     gerar("norot.mp4", 640, 360, 90, 30, h264 + ["-g", "30"])
     gerar("long720.mp4", 1280, 720, 600, 30, h264 + ["-g", "30", "-bf", "2"])
     gerar("occl.mp4", 640, 360, 120, 30, h264 + ["-g", "30"], some_em=70)

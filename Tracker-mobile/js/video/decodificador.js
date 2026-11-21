@@ -49,7 +49,13 @@ export function putCache(which, i, bmp) {
   if (which === "low") S.lowBytes += bytes; else S.fullBytes += bytes;
   const total = () => which === "low" ? S.lowBytes : S.fullBytes;
   if (total() > budget) {
-    const order = [...map.entries()].filter(([k]) => which === "low" ? Math.abs(k - S.cur) > 2 : k !== S.cur && k !== i).sort((a, b) => a[1].used - b[1].used);
+    // baixa resolução: saem primeiro os quadros fora da janela (os mais longe primeiro), depois os que já ficaram para
+    // trás, e os da frente só por último (antes saíam os usados há mais tempo, e os quadros à frente no play, guardados
+    // antes e ainda não mostrados, eram os primeiros a sair); resolução cheia: os usados há mais tempo
+    const custo = (k) => { const d = k - S.cur; return d < -S.win[0] || d > S.win[1] + MARGEM + 1 ? 2e6 + Math.abs(d) : d < 0 ? 1e6 - d : d; };
+    const order = which === "low"
+      ? [...map.entries()].filter(([k]) => Math.abs(k - S.cur) > 2 && k !== i).sort((a, b) => custo(b[0]) - custo(a[0]))
+      : [...map.entries()].filter(([k]) => k !== S.cur && k !== i).sort((a, b) => a[1].used - b[1].used);
     for (const [k, v] of order) {
       if (total() <= budget) break;
       if (v.bmp === S.lastBmp) S.lastBmp = null;
@@ -112,7 +118,7 @@ function serve(pMin, pMax) {
 
 // O decodificador entrega os quadros na ordem de apresentação: o k-ésimo quadro que sai é o k-ésimo dessa ordem
 // entre os que entraram.
-let keep = null;
+let keep = null;  // a sessão do decodificador (ver terminarSessao e decodeGop)
 function onFrame(frame) {
   try {
     const i = keep && keep.k < keep.P.length ? keep.P[keep.k] : null;
@@ -120,7 +126,11 @@ function onFrame(frame) {
     if (frame.displayWidth && frame.displayHeight && (S.fw !== frame.displayWidth || S.fh !== frame.displayHeight)) resizeSource(frame.displayWidth, frame.displayHeight);
     if (!keep || i == null) return;
     if (i === keep.chave) guardarPrevia(keep.g0, i, frame);
-    if (i >= keep.lo && i <= keep.hi && !S.low.has(i)) putCache("low", i, copyFrame(frame, "low"));
+    // guarda o que o pedido quer e tudo o que cai na janela atual em volta do quadro atual, até as MARGEM amostras
+    // depois dela: um quadro que estava preso no decodificador sai durante um pedido seguinte (que começa mais à
+    // frente), e, se fosse descartado, a sessão teria de recomeçar do quadro-chave para buscá-lo
+    const naJanela = i >= S.cur - S.win[0] && i <= S.cur + S.win[1] + MARGEM + 1;
+    if ((naJanela || (i >= keep.lo && i <= keep.hi)) && !S.low.has(i)) putCache("low", i, copyFrame(frame, "low"));
     if (keep.full && keep.full.has(i) && !S.full.has(i) && !cheiaIgual()) putCache("full", i, copyFrame(frame, "full"));
     // o quadro pedido (ou a prévia dele) chegou: aparece já, sem esperar o resto do grupo
     if (i === S.cur || (i === keep.chave && gopOf(S.cur) === keep.g0)) { agendarRender(); busyUI(); }
@@ -145,63 +155,122 @@ function resizeSource(w, h) {
   S.needLayout = true;
   limparPrevias();
 }
-// Decodifica o grupo do quadro job.i (só o quadro-chave, com job.soChave). Devolve "abandonado" se parou no meio
-// porque o quadro atual saiu do grupo.
-async function decodeGop(job) {
-  const gen = S.gen;
-  const d = S.frames[job.i].d, g0 = S.gopStart[d], g1 = job.soChave ? g0 : S.gopEnd[d];
-  const t0 = performance.now();
-  const P = []; for (let k = g0; k <= g1; k++) P.push(S.presOf[k]);
-  P.sort((a, b) => a - b);
-  const pMin = P[0], pMax = P[P.length - 1];
-  keep = { P, k: 0, lo: job.lo, hi: job.hi, full: job.full, g0, chave: S.presOf[g0] };
-  S.err = null;
-  const dec = getDecoder();
-  let fim = g1;
-  for (let k = g0; k <= g1; k++) {
-    // outro vídeo aberto enquanto este grupo era alimentado (há esperas no meio): S.frames e S.samples já são os dele
-    if (gen !== S.gen) { keep = null; return "abandonado"; }
-    if (k > g0 && !serve(pMin, pMax)) { fim = k - 1; break; }
-    const data = await lerAmostra(k);
-    if (gen !== S.gen) { keep = null; return "abandonado"; }
-    if (dec.state !== "configured") break;
-    dec.decode(new EncodedVideoChunk({ type: k === g0 ? "key" : "delta", timestamp: Math.round(S.samples[k].cts * 1e6 / S.ts), data }));
-    if (dec.decodeQueueSize > 3) await andar(dec);
-  }
-  if (fim < g1) {
+// Sessão do decodificador (keep): o grupo que está sendo decodificado, até onde ele foi alimentado (fed) e quantos
+// quadros já saíram (k). Um pedido seguinte no mesmo grupo CONTINUA de onde o anterior parou, sem voltar ao
+// quadro-chave, se os quadros que ele quer ainda não saíram do decodificador: no play de um vídeo com grupos longos
+// (Pendulum_test.mp4, do autor: 2 grupos de até 158 quadros), cada reposição da janela recomeçava do quadro-chave e
+// decodificava o grupo inteiro (~1 s no celular), e o play andava a 70 % da velocidade, engasgando. A sessão só termina
+// (flush, que exige um quadro-chave depois) ao trocar de grupo, voltar para trás no grupo, fazer uma prévia, chegar
+// ao fim do grupo ou quando o quadro pedido não sai do decodificador logo.
+const MARGEM = 3;  // amostras além do último quadro pedido, que empurram os quadros para fora do decodificador
+async function terminarSessao() {
+  const s = keep;
+  if (!s) return;
+  if (s.gen !== S.gen || s.dec !== S.decoder || s.dec.state !== "configured") { keep = null; return; }
+  if (s.fed <= s.g1) {
     // parou no meio: os quadros que ainda vão sair são os que entraram e não saíram, na ordem de apresentação
     // (com quadros B, não são os seguintes da ordem do grupo inteiro)
-    const saiu = new Set(keep.P.slice(0, keep.k)), entrou = [];
-    for (let k = g0; k <= fim; k++) entrou.push(S.presOf[k]);
+    const saiu = new Set(s.P.slice(0, s.k)), entrou = [];
+    for (let k = s.g0; k < s.fed; k++) entrou.push(S.presOf[k]);
     entrou.sort((a, b) => a - b);
-    keep.P = keep.P.slice(0, keep.k).concat(entrou.filter((x) => !saiu.has(x)));
+    s.P = s.P.slice(0, s.k).concat(entrou.filter((x) => !saiu.has(x)));
   }
   const avg = S.gopMs.length ? S.gopMs.reduce((a, b) => a + b, 0) / S.gopMs.length : 0;
   let timer = null;
   const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error("o decodificador parou de responder")), Math.max(8000, 6 * avg)); });
-  try { await Promise.race([dec.flush(), timeout]); } catch (e) { S.err = S.err || e; }
+  const t0 = performance.now();
+  try { await Promise.race([s.dec.flush(), timeout]); } catch (e) { S.err = S.err || e; }
   clearTimeout(timer);
-  const complete = keep.k === keep.P.length;
-  keep = null;
-  if (gen !== S.gen) return "abandonado";
+  s.ms += performance.now() - t0;
+  const complete = s.k === s.P.length;
+  if (keep === s) keep = null;
+  if (s.gen !== S.gen) return;
   if (S.err) {
     const e = S.err; S.err = null;
-    try { if (dec.state !== "closed") dec.close(); } catch {}
-    S.decoder = null;
+    try { if (s.dec.state !== "closed") s.dec.close(); } catch {}
+    if (S.decoder === s.dec) S.decoder = null;
     throw e;
   }
   if (!complete) S.countErr++;
-  if (fim === g1 && !job.soChave) {
-    S.gopMs.push(performance.now() - t0); S.gopFrames.push(g1 - g0 + 1);
+  if (s.n && !s.soChave) {
+    S.gopMs.push(s.ms); S.gopFrames.push(s.n);
     if (S.gopMs.length > 200) { S.gopMs.shift(); S.gopFrames.shift(); }
   }
-  return fim < g1 ? "abandonado" : "ok";
+}
+// Decodifica o que o pedido quer do grupo do quadro job.i (só o quadro-chave, com job.soChave), continuando a sessão
+// quando dá. Devolve "abandonado" se parou de alimentar porque o quadro atual saiu do grupo, e "pendente" se o quadro
+// pedido entrou mas ainda não saiu (a sessão fica aberta nos dois casos; nenhum dos dois é falha).
+async function decodeGop(job) {
+  const gen = S.gen;
+  const d = S.frames[job.i].d, g0 = S.gopStart[d], gEnd = S.gopEnd[d], g1 = job.soChave ? g0 : gEnd;
+  const t0 = performance.now();
+  // quadros que o pedido quer e ainda não estão guardados: o último deles, na ordem de decodificação, diz até onde
+  // alimentar (antes, o grupo inteiro era decodificado, também depois do último quadro pedido)
+  let ultimo = d, menor = job.i;
+  if (!job.soChave) {
+    const quer = (q) => (q >= job.lo && q <= job.hi && !S.low.has(q)) || (job.full && job.full.has(q) && !S.full.has(q));
+    for (let k = g0; k <= gEnd; k++) { const q = S.presOf[k]; if (quer(q)) { if (k > ultimo) ultimo = k; if (q < menor) menor = q; } }
+  }
+  // continua a sessão aberta? (mesmo grupo, mesmo decodificador, e o menor quadro que falta ainda não saiu)
+  const s0 = keep;
+  const continua = !job.soChave && s0 && !s0.soChave && s0.gen === gen && s0.g0 === g0 && s0.dec === S.decoder && s0.dec.state === "configured"
+    && s0.k < s0.P.length && menor >= s0.P[s0.k];
+  if (!continua) {
+    await terminarSessao();
+    if (gen !== S.gen) return "abandonado";
+    const P = []; for (let k = g0; k <= g1; k++) P.push(S.presOf[k]);
+    P.sort((a, b) => a - b);
+        S.sessoes++;
+    keep = { dec: getDecoder(), gen, g0, g1, P, k: 0, fed: g0, chave: S.presOf[g0], soChave: !!job.soChave, ms: 0, n: 0 };
+  }
+  const s = keep, dec = s.dec, pMin = s.P[0], pMax = s.P[s.P.length - 1];
+  Object.assign(s, { lo: job.lo, hi: job.hi, full: job.full });
+  S.err = null;
+  // até onde alimentar: o último quadro pedido e mais MARGEM amostras; se o que falta já entrou e ainda não saiu,
+  // mais MARGEM amostras para empurrá-lo
+  let fimAlvo = Math.min(g1, Math.max(ultimo + MARGEM, s.fed + (continua ? MARGEM - 1 : 0)));
+  // a reposição (não o quadro atual) não passa do fim da janela: quadros além dela seriam os primeiros a sair
+  if (!job.fg && !job.soChave) {
+    const fimJanela = Math.min(S.frames.length - 1, S.cur + S.win[1] + MARGEM);
+    let teto = g0; for (let k = g0; k <= gEnd; k++) if (S.presOf[k] <= fimJanela) teto = k;
+    fimAlvo = Math.min(fimAlvo, teto);
+  }
+  let r = "ok";
+  for (let k = s.fed; k <= fimAlvo; k++) {
+    // outro vídeo aberto enquanto este grupo era alimentado (há esperas no meio): S.frames e S.samples já são os dele
+    if (gen !== S.gen) { keep = null; return "abandonado"; }
+    if (k > g0 && !serve(pMin, pMax)) { r = "abandonado"; break; }
+    const data = await lerAmostra(k);
+    if (gen !== S.gen) { keep = null; return "abandonado"; }
+    if (keep !== s || dec.state !== "configured") break;
+    dec.decode(new EncodedVideoChunk({ type: k === g0 ? "key" : "delta", timestamp: Math.round(S.samples[k].cts * 1e6 / S.ts), data }));
+    s.fed = k + 1; s.n++;
+    if (dec.decodeQueueSize > 3) await andar(dec);
+  }
+  // espera a fila esvaziar e o quadro pedido sair (o decodificador pode segurar um ou dois)
+  const saiu = () => keep !== s || (job.fullOnly ? S.full.has(job.i) || cheiaIgual() : S.low.has(job.i)) || (job.soChave && S.previa.has(g0));
+  for (let w = 0; w < 12 && !saiu() && dec.state === "configured"; w++) await andar(dec);
+  s.ms += performance.now() - t0;
+  if (gen !== S.gen) { keep = null; return "abandonado"; }
+  // o quadro atual foi para longe durante a espera: o pedido deixou de servir
+  if (r === "ok" && !job.soChave && !serve(pMin, pMax)) r = "abandonado";
+  // termina a sessão (flush) na prévia, no fim do grupo, ou se o quadro pedido não saiu (atual: logo; reposição:
+  // quando não há mais o que alimentar)
+  if (keep === s && r !== "abandonado" && (job.soChave || s.fed > s.g1 || (!saiu() && (job.fg || fimAlvo >= g1)))) await terminarSessao();
+  // com quadros B, um quadro P fica preso no decodificador até entrarem os B que vêm antes dele na apresentação
+  if (r === "ok" && keep === s && !saiu()) r = "pendente";
+  return r;
 }
 // quadros guardados em resolução cheia para o zoom: o atual e o próximo da marcação
 function fullSet(i) {
   const s = new Set([i]), j = i + S.every;
   if (j < S.frames.length && j <= S.end && gopOf(j) === gopOf(i)) s.add(j);
   return s;
+}
+// o quadro já entrou no decodificador e ainda não saiu (vai sair na próxima alimentação da sessão)
+function pendente(q) {
+  const s = keep;
+  return !!s && s.gen === S.gen && s.dec === S.decoder && !s.soChave && s.g0 === gopOf(q) && S.frames[q].d < s.fed && s.k < s.P.length && q >= s.P[s.k];
 }
 function nextJob() {
   // página em segundo plano: nada a fazer até ela voltar
@@ -216,7 +285,7 @@ function nextJob() {
   if (!S.low.has(c) && !S.failed.has(gc)) return { i: c, lo: S.playing ? c : c - S.win[0], hi: c + S.win[1], full: wantFull ? fullSet(c) : null, fg: true };
   if (wantFull && !S.full.has(c) && !S.failedFull.has(gc)) return { i: c, lo: c - S.win[0], hi: c + S.win[1], full: fullSet(c), fullOnly: true, fg: true };
   for (let k = c + 1; k <= Math.min(N - 1, c + S.win[1]); k++) {
-    if (S.low.has(k)) continue;
+    if (S.low.has(k) || pendente(k)) continue;
     if (S.failed.has(gopOf(k))) break;
     return { i: k, lo: k, hi: c + S.win[1], full: null };
   }
@@ -236,7 +305,7 @@ export async function pump() {
   S.busy = true; busyUI();
   const gen = S.gen;
   try {
-    for (let guard = 0; guard < 60; ) {
+    for (let guard = 0; guard < 240; ) {
       if (gen !== S.gen || S.tracking) break;
       const job = nextJob();
       if (!job) break;
@@ -255,8 +324,9 @@ export async function pump() {
         if (job.fg && !job.soChave) setSrc("Não consegui decodificar este trecho (" + S.lastErr + "). Toque em +1 ou −1 para tentar de novo.", true);
       }
       if (gen !== S.gen) break;
-      // abandonado porque o dedo foi para outro lugar não é falha: o grupo pode ser pedido de novo
-      if (r !== "abandonado") {
+      // abandonado (o dedo foi para outro lugar) ou pendente (o quadro sai na próxima alimentação) não é falha
+      // e só é falha se o quadro ainda é o que se quer (o atual, ou na janela em volta dele)
+      if (r === "ok" && (job.fg ? S.cur === job.i : Math.abs(job.i - S.cur) <= S.win[1])) {
         const g = gopOf(job.i);
         if (job.soChave) { if (!S.previa.has(g)) S.previaFalhou.add(g); }
         else if (!(job.fullOnly ? S.full.has(job.i) : S.low.has(job.i))) (job.fullOnly ? S.failedFull : S.failed).add(g);
