@@ -10,8 +10,9 @@ import { copiarTabela, exportarCsv, temDados } from "./dados.js";
 import { diagPairs, copiarDiagnostico } from "./diagnostico.js";
 import { S, support } from "./estado.js";
 import { IC } from "./icones.js";
+import { medindoAgora, medirVideo } from "./medicao.js";
 import { escolherTema, temaEscolhido } from "./tema.js";
-import { $, esc, kv } from "./util.js";
+import { $, esc, kv, toast } from "./util.js";
 
 const MENU = [
   { grupo: "Vídeo", itens: [
@@ -34,8 +35,22 @@ const TEMAS = [["auto", "Automático"], ["claro", "Claro"], ["escuro", "Escuro"]
 
 // páginas dentro da gaveta
 const PAGINAS = {
-  diag: { titulo: "Diagnóstico do aparelho", html: () => `<div class="gpag"><dl class="kv" id="gDiag"></dl><button class="btn soft small" id="gCopiarDiag" type="button">Copiar diagnóstico</button></div>`,
-    depois: () => { kv($("gDiag"), diagPairs()); $("gCopiarDiag").addEventListener("click", () => { copiarDiagnostico(); kv($("gDiag"), diagPairs()); }); } },
+  diag: { titulo: "Diagnóstico do aparelho", html: () => `<div class="gpag"><p class="note">Com o vídeo aberto, mede o salto entre quadros, o arrasto na barra, o play e o decodificador (uns 20 s, sem tocar na tela). O resultado entra no diagnóstico.</p><button class="btn small" id="gMedir" type="button">Medir este vídeo</button><dl class="kv" id="gDiag"></dl><button class="btn soft small" id="gCopiarDiag" type="button">Copiar diagnóstico</button></div>`,
+    depois: () => {
+      kv($("gDiag"), diagPairs());
+      $("gCopiarDiag").addEventListener("click", () => { copiarDiagnostico(); kv($("gDiag"), diagPairs()); });
+      const b = $("gMedir");
+      b.disabled = !S.frames.length || medindoAgora();
+      if (medindoAgora()) b.textContent = "Medindo…";
+      b.addEventListener("click", async () => {
+        const fases = { saltos: "saltos entre quadros", arrasto: "arrasto na barra", play: "play", decodificador: "decodificador" };
+        b.disabled = true;
+        const M = await medirVideo((f) => { b.textContent = `Medindo: ${fases[f]}…`; });
+        // a página da gaveta pode ter sido fechada durante a medição
+        if (b.isConnected) { b.textContent = "Medir de novo"; b.disabled = false; kv($("gDiag"), diagPairs()); }
+        toast(M ? "Medição pronta: copie o diagnóstico" : "Não deu para medir agora");
+      });
+    } },
   // a ajuda começa com as dicas que já estão em cada passo da página (o autor vai escrever o texto próprio depois)
   ajuda: { titulo: "Ajuda", html: ajudaHtml },
 };

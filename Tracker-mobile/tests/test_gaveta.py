@@ -73,6 +73,20 @@ async def main():
         await pg.click("[data-item=diag]")
         R.conferir(await pg.evaluate("document.getElementById('gavetaT').textContent === 'Diagnóstico do aparelho' && document.querySelectorAll('#gDiag dt').length > 10 && !document.getElementById('gavetaVolta').hidden"),
                    "Diagnóstico: os dados do aparelho, com ‹")
+        rotulos = await pg.evaluate("[...document.querySelectorAll('#gDiag dt')].map((d) => d.textContent)")
+        R.conferir(all(k in rotulos for k in ("quadros por grupo", "taxa de bits", "tempo por quadro", "limite de memória")) and not any(k.startswith("medição") for k in rotulos),
+                   "com o tamanho dos grupos, a taxa de bits, o tempo por quadro e o limite de memória (sem medição ainda)")
+        # "Medir este vídeo": mede salto, arrasto, play e decodificador e devolve tudo como estava
+        antes = await pg.evaluate("JSON.stringify([__va.cur, __va.start, __va.end, __va.mode, __va.objs.map((o) => o.marks ? [...o.marks.keys()] : o.massas)])")
+        await pg.click("#gMedir")
+        await pg.wait_for_function("document.getElementById('gMedir').textContent === 'Medir de novo'", timeout=90000)
+        linhas = await pg.evaluate("Object.fromEntries([...document.querySelectorAll('#gDiag dt')].map((d) => [d.textContent, d.nextElementSibling.textContent]))")
+        med = {k: v for k, v in linhas.items() if k.startswith("medição")}
+        R.conferir(list(med) == ["medição: salto", "medição: arrasto", "medição: play", "medição: decodificador", "medição: memória"]
+                   and "erro" not in med["medição: decodificador"] and med["medição: salto"].count(" s") == 5,
+                   f"Medir este vídeo: salto, arrasto, play, decodificador e memória no diagnóstico ({med.get('medição: decodificador')})")
+        depois = await pg.evaluate("JSON.stringify([__va.cur, __va.start, __va.end, __va.mode, __va.objs.map((o) => o.marks ? [...o.marks.keys()] : o.massas)])")
+        R.conferir(antes == depois and await pg.evaluate("!__va.playing && __va.low.has(__va.cur)"), "depois de medir, quadro, intervalo, ferramenta e marcas como estavam")
         await pg.click("#gavetaVolta")
         await pg.wait_for_function("document.getElementById('gavetaT').textContent === 'Menu'")
         R.conferir(await pg.evaluate(aberta), "‹ volta ao menu")

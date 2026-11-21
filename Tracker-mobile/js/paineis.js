@@ -46,7 +46,7 @@ export function resetVideo() {
   if (S.decoder && S.decoder.state !== "closed") { try { S.decoder.close(); } catch {} }
   S.decoder = null; S.frames = []; S.samples = []; S.track = null; S.timing = null;
   S.failed = new Set(); S.failedFull = new Set();
-  S.gopMs = []; S.gopFrames = []; S.tsMismatch = 0; S.countErr = 0; S.restarts = 0; S.lastErr = "";
+  S.gopMs = []; S.gopFrames = []; S.tsMismatch = 0; S.countErr = 0; S.restarts = 0; S.lastErr = ""; S.medicao = null;
   S.cur = 0; S.hw = null; S.err = null; S.fw = S.fh = 0; S.dispW = S.dispH = 0; S.rot = 0; objetosIniciais(); renderObjs(); S.view = { z: 1, vx: 0, vy: 0 };
   setControls(false); setMode("nav");
   ["rN", "rT"].forEach((id) => { $(id).textContent = "—"; });

@@ -47,7 +47,7 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Saída | **Copiar tabela** (tabulação) e **Exportar CSV** em dois formatos que o aluno escolhe: *Excel/Planilhas Google* (`;` entre colunas, vírgula decimal, com marca UTF-8 no início) e *Internacional/Python* (`,` entre colunas, ponto decimal) |
 | Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=3)`. O Laboratório de Oscilações lê os dois formatos (testado) | Com vários objetos, o formato de várias trilhas do Tracker (`ExportDataDialog`): uma linha por massa (`massa A: …`), uma linha por centro de massa (`cm A: massa A + massa B · …`), `unidades`, `#multi:`, a linha dos nomes `;massa A;;massa B;;cm A;;`, o cabeçalho `t;x;y;x;y;x;y;` e os dados (célula vazia no quadro em que o objeto não tem ponto). Com um objeto só, o formato continua o de antes |
 | Descartado | botão "Enviar para o Laboratório de Oscilações" |
-| Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir** |
+| Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir**. Mudança decidida em 21/11/2026, a fazer na fase 1 do plano de memória e decodificação: quando o celular não der conta de um vídeo pesado, o play **desacelera e mostra todos os quadros** (o intuito é avaliar o movimento, não precisa ser em tempo real); no máximo, velocidade real |
 | Marcação | **zoom de pinça** no próprio vídeo + **toque posiciona a mira** (substituiu uma lupa lateral, que o autor achou pior) |
 | Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
 | Gráfico na tela cheia | decidido em 15/11/2026: o gráfico fica numa **janela móvel** sobre o vídeo, que se arrasta por **qualquer ponto** (o dedo precisa andar 8 px para virar arrasto; antes disso é toque) e nunca sai da tela, e se **redimensiona pelas quatro bordas e pelos quatro cantos** (18 px de toque nas bordas, que passam 12 px para fora da janela; mínimo de 220 × 140 px; marca no canto de baixo à direita). **Toque duplo** maximiza na área do vídeo livre dos controles flutuantes (da coluna de etapas à borda direita, do topo até a barra de quadros), e outro toque duplo volta ao tamanho e ao lugar de antes. Maximizada, não se move, e Marcar ponto e Rastrear somem (play, ±1 e a barra de quadros continuam funcionando). **Sem botão de maximizar** no cabeçalho, só o toque duplo (pedido do autor). Um toque simples no gráfico espera 0,25 s antes de ir ao quadro, para não confundir com o toque duplo. O cabeçalho tem só recolher e y(t)/x(t) (o objeto ativo fica na alça dos objetos, no canto de cima). A janela fica acima do vídeo e abaixo dos controles flutuantes. Lugar, tamanho e se está recolhida ficam em `localStorage` (`va-grafico`, em frações da tela), fora do salvamento por vídeo; ao entrar na tela cheia, a janela nunca vem maximizada |
@@ -105,6 +105,8 @@ js/gestos.js               pinça, arrastar, toque
 js/rastreio/modelo.js      cálculo do rastreamento: recorte, máscara, correlação, subpixel, evolução com âncora
 js/rastreio/previsao.js    predictNext (pura: recebe as dimensões da imagem)
 js/rastreio/rastreador.js  TR, autoSizeAt, initTemplate, trackFrame, runTrack
+js/medicao.js              "Medir este vídeo" (≡ → Diagnóstico): salto, arrasto, play e decodificador à parte, no
+                           próprio celular; o resultado (S.medicao) entra no diagnóstico
 js/navegacao.js · ferramentas.js · paineis.js · dados.js · entradas.js · arquivos.js · diagnostico.js
 ```
 
@@ -245,11 +247,12 @@ python tests/test_marcacao.py              # play, intervalo, pinça, marcação
 python tests/test_rastreamento.py          # medição do alvo, precisão, perda do alvo, botão Parar
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
-python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas, tema, cada ação
+python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toque fora, Esc, Voltar), páginas (Diagnóstico com "Medir este vídeo"), tema, cada ação
 python tests/test_paisagem.py              # deitado (915 × 412), sem liberar o em pé: aviso "Gire o celular", abre em tela cheia, etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, Voltar uma vez só (pinça e Esc duplo), alça a 640 × 360, temas, arquivo que não é vídeo
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
 python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
+python tests/medir_desempenho.py [--software] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
 ```
 
 Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Variáveis opcionais: `CHROME_PATH`
@@ -275,11 +278,35 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
 - **Roteiro combinado em 14/11/2026** (fases em ordem):
   0. ~~Dividir em módulos e usar cópias locais do mp4box e das fontes~~ (feito).
   1. ~~Funcionamento sem internet (service worker)~~ (feito).
-  2. Memória e decodificação: travamentos em alguns vídeos no celular. Hipóteses e plano já levantados: grupos
-     longos lidos e enviados de uma vez ao decodificador (confirmado no computador: vídeo 4K com um só quadro-chave
-     leva 3 s por salto), memória de vídeo do Android dividida entre os caches e o decodificador por hardware, e dois
-     decodificadores abertos durante o rastreamento. O Tracker não guarda quadros (decodifica sob demanda; ver
-     `CVVideo`, `XuggleVideo` e `JSMovieVideo`). Antes de mudar, pedir ao autor o diagnóstico de um vídeo que trava.
+  2. **Memória e decodificação** (plano aprovado pelo autor em 21/11/2026; fases em ordem, commit e push ao fim de
+     cada uma e teste do autor no celular antes da seguinte). Problema relatado: com vídeos grandes, o play trava e
+     a escolha do início e do fim fica comprometida. Medido no computador (`tests/medir_desempenho.py --software`,
+     decodificação por software, mais perto do celular; vídeos sintéticos com um quadro-chave por segundo, 4K a
+     30 q/s e 1080p a 60 q/s): arrastando na barra, o quadro pedido fica na tela só 0 a 2 % do tempo; depois de
+     soltar, 0,3 a 0,8 s até aparecer; salto de 0,1 a 0,7 s; play com 81 a 85 % dos quadros na hora; decodificar só
+     o quadro-chave custa 0,02 s (1080p) e 0,09 s (4K). Com o hardware do computador (~9× mais rápido que o do
+     celular do autor) tudo passa. Causas no código: para mostrar um quadro, o grupo inteiro é decodificado antes;
+     o trabalho não é cancelado quando o dedo muda de lugar; o play espera o decodificador esvaziar a cada grupo;
+     até 192 MB de quadros guardados na mesma memória de vídeo do decodificador por hardware, e dois
+     decodificadores abertos no rastreamento; o grupo é lido do arquivo de uma vez (151 MB no vídeo com um só
+     quadro-chave).
+     0. ~~Medir no celular~~ (feito em 21/11/2026; falta o autor medir um vídeo que trava): o diagnóstico mostra
+        quadros por grupo, taxa de bits, tempo por quadro e limite de memória, e ganhou **"Medir este vídeo"**
+        (`js/medicao.js`), que roda no celular os mesmos testes do computador.
+     1. A imagem acompanha o dedo: o quadro pedido aparece assim que sai do decodificador (o resto do grupo vem
+        depois); o trabalho velho é cancelado quando o dedo muda de lugar; **durante o arrasto** da barra e das
+        alças, **prévia pelo quadro-chave mais próximo** (miniaturas dos quadros-chave preparadas em segundo plano ao
+        abrir o vídeo), marcada como prévia, com o número do quadro exato; **ao parar o dedo, o quadro exato** (o
+        início e o fim continuam no quadro certo); o play não pausa entre grupos e, quando o celular não dá conta,
+        **desacelera e mostra todos os quadros** (decisão do autor). Teste novo `test_desempenho.py` com vídeos 4K e
+        1080p60 gerados e decodificação por software; metas: imagem na tela em pelo menos 90 % do arrasto, quadro
+        exato em até 0,5 s depois de soltar, play sem pausas, quadro mostrado sempre o certo.
+     2. Memória: limite que conta o tamanho do vídeo e o do decodificador (em 4K, menos quadros guardados e
+        resolução cheia só para o quadro atual e o próximo da marcação); um decodificador só no rastreamento;
+        leitura do arquivo em pedaços; memória liberada com a página em segundo plano.
+     3. Só se 1 e 2 não bastarem (com os números do celular): cópia leve para navegar (540p com quadros-chave
+        frequentes, feita uma vez ao abrir o vídeo; navegação e play nela, marcação, zoom e rastreamento no original).
+     Dica de gravação ("grave em 1080p"): não, por hora; fica para a versão beta (decisão do autor).
   3. ~~Modelo de dados com vários objetos, no molde do Tracker, com migração do que os alunos já salvaram~~ (feito
      em 14/11/2026, antes da fase 2, a pedido do autor; junto vieram a interface para até 10 massas, o centro de
      massa e a escala genérica).

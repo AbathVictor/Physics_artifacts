@@ -8,6 +8,8 @@ export const S = {
   oc: {}, octx: {}, decoder: null, busy: false, failed: new Set(), failedFull: new Set(),
   cur: 0, lastBmp: null, playing: false, view: { z: 1, vx: 0, vy: 0 }, viewFull: false, viewNeedsFull: false,
   gopMs: [], gopFrames: [], tsMismatch: 0, countErr: 0, restarts: 0, lastErr: "", err: null,
+  // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo
+  medicao: null,
   // análise
   mode: "nav", start: 0, end: 0, every: 1, trail: true, zoom: 4, plotVar: "y", fmt: "excel",
   trR: 20, trThr: 0.7, trAuto: true, objR: 0, tracking: false,
