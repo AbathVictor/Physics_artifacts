@@ -39,17 +39,28 @@ export function renderData() {
   $("copyTable").disabled = !exp.length;
   $("exportCsv").disabled = !exp.length || !S.dl;
   $("exportNote").innerHTML = exp.length > 1
-    ? `No Python: <code>pd.read_csv(arquivo, skiprows=${cabecalho(exp).length - 1})</code> pula as linhas das massas, das unidades e dos nomes; as colunas de cada objeto ficam x, y, x.1, y.1… na ordem dos nomes.`
-    : "No Python: <code>pd.read_csv(arquivo, skiprows=3)</code> pula as linhas da massa, das unidades e do nome do objeto.";
+    ? `No Python: <code>pd.read_csv(arquivo, skiprows=${cabecalho(exp).length - 1})</code> pula as linhas das massas, das unidades, da calibração e dos nomes; as colunas de cada objeto ficam x, y, x.1, y.1… na ordem dos nomes.`
+    : "No Python: <code>pd.read_csv(arquivo, skiprows=4)</code> pula as linhas da massa, das unidades, da calibração e do nome do objeto.";
   drawPlot();
   // a coluna das etapas (celular deitado) atualiza os selos: renderData roda depois de toda mudança de dados
   document.dispatchEvent(new Event("va:paineis"));
 }
+// a linha do quadro atual fica destacada e à vista: a tabela rola dentro do quadro dela (nunca a página), só o
+// necessário para a linha aparecer abaixo do cabeçalho fixo; também durante o play
 export function renderTableCursor() {
   const tb = $("table");
   tb.querySelectorAll("tr.cur").forEach((r) => r.classList.remove("cur"));
   const tr = tb.querySelector(`tr[data-i="${S.cur}"]`);
-  if (tr) tr.classList.add("cur");
+  if (tr) {
+    tr.classList.add("cur");
+    const w = $("tblWrap");
+    if (w.clientHeight) {
+      const rw = w.getBoundingClientRect(), rr = tr.getBoundingClientRect(), th = tb.querySelector("thead");
+      const topo = rw.top + (th ? th.getBoundingClientRect().height : 0);
+      if (rr.top < topo) w.scrollTop -= topo - rr.top;
+      else if (rr.bottom > rw.bottom) w.scrollTop += rr.bottom - rw.bottom;
+    }
+  }
   drawPlot();
 }
 $("table").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-i]"); if (tr) { stopPlay(); show(Number(tr.dataset.i)); } });
@@ -65,6 +76,8 @@ export function drawPlot() {
   const sc = o && o.tipo === "cm" ? situacaoCm(o) : null;
   $("plotEmpty").textContent = sc && sc.bad ? "O centro de massa ainda não tem posições." : "Os pontos marcados aparecem aqui.";
   plotMap = null;
+  // quadro que o gráfico mostra como o atual (anel âmbar); os testes conferem que acompanha o vídeo no play
+  S.graficoNoQuadro = S.cur;
   if (!R.length) return;
   const cs = getComputedStyle(document.documentElement), tok = (n) => cs.getPropertyValue(n).trim();
   // pontos na cor do objeto, com contorno fino (escuro no tema claro, claro no escuro); os futuros (depois do
@@ -126,12 +139,22 @@ function massaTxt(m, num) {
   const md = Math.max(decOf(m.massa.val), Number.isFinite(ms) ? decOf(m.massa.sig) : 0);
   return mv > 0 ? (ms >= 0 ? `(${num(mv, md)} ± ${num(ms, md)}) ${S.massUnit}` : `${num(mv, md)} ${S.massUnit}`) : "não informada";
 }
+// Calibração, com o que o .trk do Tracker guarda no sistema de coordenadas da imagem (ImageCoordSystem: xorigin,
+// yorigin, angle, xscale): origem dos eixos em pixels da imagem (x para a direita e y para baixo, a partir do canto
+// de cima à esquerda), ângulo do eixo x no sentido anti-horário (em graus e em radianos, como no .trk) e escala em
+// pixels por unidade (sem escala, 1 px por u.a.). Pedido do autor em 21/11/2026, depois de comparar uma trajetória
+// com a do Tracker: sem isso, era preciso adivinhar a origem e o ângulo. Sem o separador de colunas na linha (no
+// formato internacional, nenhuma vírgula), para as planilhas e o Laboratório de Oscilações a lerem como texto.
+function calibracaoTxt(num) {
+  const a = S.axes.ang || 0;
+  return `calibração: origem x0 = ${num(S.axes.o.x, 2)} px · y0 = ${num(S.axes.o.y, 2)} px · ângulo ${num(a * 180 / Math.PI, 2)}° (${num(a, 6)} rad) · escala ${num(1 / unitPerPx(), 4)} px por ${unidade()}`;
+}
 // linhas antes dos dados (a última é a dos nomes das colunas)
 function cabecalho(exp, kind = "excel") {
   const { delim, num } = formato(kind), u = unidade();
   if (exp.length === 1) {
     const o = exp[0].o;
-    return [`massa: ${massaTxt(o, num)}`, `unidades: t em s · x e y em ${u}`, delim + o.nome, ["t", "x", "y"].join(delim)];
+    return [`massa: ${massaTxt(o, num)}`, `unidades: t em s · x e y em ${u}`, calibracaoTxt(num), delim + o.nome, ["t", "x", "y"].join(delim)];
   }
   const L = [];
   for (const { o } of exp) if (o.tipo === "massa") L.push(`${o.nome}: ${massaTxt(o, num)}`);
@@ -141,7 +164,7 @@ function cabecalho(exp, kind = "excel") {
     const md = Math.max(0, ...s.membros.map((m) => decOf(m.massa.val)));
     L.push(`${cm.nome}: ${nomes}` + (s.faltam.length ? ` · ${avisoFaltam(s.faltam)}` : s.generica ? " · massas iguais (1 u.a. cada)" : s.pesos ? ` · massa total ${num(s.total, md)} ${S.massUnit}` : ""));
   }
-  L.push(`unidades: t em s · x e y em ${u}`, "#multi:");
+  L.push(`unidades: t em s · x e y em ${u}`, calibracaoTxt(num), "#multi:");
   L.push(delim + exp.map((e) => e.o.nome + delim + delim).join(""));
   L.push("t" + delim + exp.map(() => "x" + delim + "y" + delim).join(""));
   return L;

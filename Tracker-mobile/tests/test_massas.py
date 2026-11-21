@@ -128,14 +128,14 @@ async def main():
         L = await csv_excel(pg)
         R.conferir(L[:4] == ["massa A: não informada", "massa B: não informada", "cm A: massa A + massa B · massas iguais (1 u.a. cada)", "cm B: massa A · massas iguais (1 u.a. cada)"],
                    f"cabeçalho com as massas e o sistema de cada cm ({L[:4]})")
-        R.conferir(L[4] == "unidades: t em s · x e y em cm" and L[5] == "#multi:" and L[6] == ";massa A;;massa B;;cm A;;cm B;;" and L[7] == "t;x;y;x;y;x;y;x;y;",
-                   "linhas #multi:, nomes e colunas como no Tracker")
-        dados = [l.split(";") for l in L[8:] if l]
+        R.conferir(L[4] == "unidades: t em s · x e y em cm" and L[5].startswith("calibração: origem x0 = ") and L[6] == "#multi:" and L[7] == ";massa A;;massa B;;cm A;;cm B;;" and L[8] == "t;x;y;x;y;x;y;x;y;",
+                   "linhas de unidades, calibração, #multi:, nomes e colunas como no Tracker")
+        dados = [l.split(";") for l in L[9:] if l]
         xa, xb, xc, xd = (num(dados[2][k]) for k in (1, 3, 5, 7))
         R.conferir(len(dados) == 10 and all(len(d) == 9 for d in dados) and abs(xc - (xa + xb) / 2) < 0.002 and abs(xd - xa) < 0.002,
                    f"10 linhas com 9 colunas; x do cm A no meio de A e B ({xc}), cm B igual a A")
         nota = await txt("#exportNote")
-        R.conferir("skiprows=7" in nota, f"a dica do Python conta as linhas de cabeçalho ({nota[:45]}…)")
+        R.conferir("skiprows=8" in nota, f"a dica do Python conta as linhas de cabeçalho ({nota[:45]}…)")
 
         print("recarregar")
         await pg.wait_for_timeout(500)

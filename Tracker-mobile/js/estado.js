@@ -15,6 +15,8 @@ export const S = {
   arrasto: false, naPrevia: false, semFundo: false,
   // sessões do decodificador começadas num quadro-chave (decodificador.js; os testes contam os recomeços)
   sessoes: 0,
+  // quadro que o gráfico mostra como o atual (dados.js; os testes conferem que acompanha o vídeo no play)
+  graficoNoQuadro: -1,
   // a página está em segundo plano (decodificador.js devolve a memória dos quadros)
   oculta: false,
   // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo

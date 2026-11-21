@@ -8,6 +8,7 @@ import asyncio
 import csv
 import io
 import math
+import re
 
 from playwright.async_api import async_playwright
 
@@ -115,11 +116,44 @@ async def main():
             sv = await pg.evaluate("window.__salvo")
             texto = sv["data"].lstrip("﻿")
             linhas_csv = texto.splitlines()
-            R.conferir(linhas_csv[0].startswith("massa: (") and linhas_csv[3] == delim.join(["t", "x", "y"]), f"{fmt}: cabeçalho com massa, unidades, objeto e t{delim}x{delim}y")
-            dados = list(csv.reader(io.StringIO("\n".join(linhas_csv[4:])), delimiter=delim))
+            R.conferir(linhas_csv[0].startswith("massa: (") and linhas_csv[2].startswith("calibração: ") and linhas_csv[4] == delim.join(["t", "x", "y"]),
+                       f"{fmt}: cabeçalho com massa, unidades, calibração, objeto e t{delim}x{delim}y")
+            # calibração como o .trk do Tracker guarda (origem em px, ângulo em graus e radianos, px por unidade), com os
+            # valores da página e sem o separador de colunas (as planilhas e o Laboratório a leem como texto)
+            cal = linhas_csv[2]
+            m = re.search(r"x0 = (-?[\d.,]+) px · y0 = (-?[\d.,]+) px · ângulo (-?[\d.,]+)° \((-?[\d.,]+) rad\) · escala ([\d.,]+) px por (\S+)", cal)
+            v = [float(g.replace(",", ".")) for g in m.groups()[:5]] if m else []
+            e = await pg.evaluate("import('./js/analise.js').then((a) => [__va.axes.o.x, __va.axes.o.y, __va.axes.ang * 180 / Math.PI, __va.axes.ang, 1 / a.unitPerPx(), a.unidade()])")
+            R.conferir(bool(m) and delim not in cal and abs(v[0] - e[0]) < 0.006 and abs(v[1] - e[1]) < 0.006 and abs(v[2] - e[2]) < 0.006 and abs(v[3] - e[3]) < 1e-6
+                       and abs(v[4] - e[4]) < 1e-4 * max(1, e[4]) and m.group(6) == e[5], f"{fmt}: calibração com os valores da página ({cal})")
+            dados = list(csv.reader(io.StringIO("\n".join(linhas_csv[5:])), delimiter=delim))
             yv = float(dados[1][2].replace(",", "."))
             R.conferir(len(dados) == 40 and abs(yv - y_cm(1 / 30)) < 0.05, f"{fmt}: 40 linhas e valores corretos (y₁ = {yv})")
             R.conferir(sv["filename"] == "exemplo_trajetoria.csv", f"{fmt}: nome do arquivo {sv['filename']}")
+
+        print("play sincronizado com o gráfico, a tabela e a barra")
+        # antes, o play só redesenhava o vídeo: o ponto do gráfico, a linha da tabela e a barra ficavam parados
+        await pg.evaluate("""(() => { const A = window.__sinc = { n: 0, ruins: [], fim: false };
+          const f = () => { if (A.fim) return; const S = __va;
+            if (S.playing) {
+              A.n++;
+              const tr = document.querySelector('#table tr.cur'), temLinha = !!document.querySelector(`#table tr[data-i="${S.cur}"]`);
+              const w = document.getElementById('tblWrap'), rw = w.getBoundingClientRect(), th = document.querySelector('#table thead').getBoundingClientRect().height;
+              const avista = !tr || !w.clientHeight || (() => { const r = tr.getBoundingClientRect(); return r.top >= rw.top + th - 1 && r.bottom <= rw.bottom + 1; })();
+              const barra = Math.abs(parseFloat(document.getElementById('fbar').style.getPropertyValue('--cur')) - S.cur / (S.frames.length - 1)) < 1e-6;
+              if (S.graficoNoQuadro !== S.cur || (temLinha && (!tr || Number(tr.dataset.i) !== S.cur)) || !avista || !barra) A.ruins.push([S.cur, S.graficoNoQuadro, tr && tr.dataset.i, avista, barra]);
+            }
+            requestAnimationFrame(f); };
+          requestAnimationFrame(f); })()""")
+        await ir_para(pg, 0)
+        await pg.evaluate("document.getElementById('tblWrap').scrollTop = 1e6")  # a tabela rolada até o fim: o play a traz de volta
+        await pg.click("#bPlay")
+        await pg.wait_for_timeout(1500)
+        await pg.click("#bPlay")
+        s = await pg.evaluate("(() => { window.__sinc.fim = true; return window.__sinc; })()")
+        alt = await pg.evaluate("document.getElementById('tblWrap').clientHeight")
+        R.conferir(s["n"] > 20 and not s["ruins"] and alt > 0,
+                   f"no play, o ponto do gráfico, a linha destacada da tabela (à vista) e a barra seguem o quadro do vídeo ({s['n']} amostras" + (f"; fora: {s['ruins'][:3]}" if s["ruins"] else "") + ")")
 
         print("recuperação após recarregar")
         await pg.reload()

@@ -1,6 +1,7 @@
 // Navegação e reprodução: ir para um quadro, botões de avanço, play em velocidade real, intervalo e teclado.
 
 import { clampI } from "./analise.js";
+import { atualizarBarra } from "./barra.js";
 import { renderTableCursor } from "./dados.js";
 import { ensureVisible, render } from "./desenho.js";
 import { S } from "./estado.js";
@@ -16,9 +17,13 @@ export async function show(i) {
   const changed = i !== S.cur;
   S.cur = i;
   if (S.mode === "marcar" && changed && S.marks.has(i)) { const m = S.marks.get(i); S.cross = { x: m.x, y: m.y }; ensureVisible(S.cross); }
-  render(); renderTableCursor(); busyUI();
+  quadroMudou();
   pump();
 }
+// tudo o que acompanha o quadro atual: o vídeo com as marcas, a linha da tabela (destacada e à vista), o ponto do
+// gráfico e o indicador da barra de quadros. O play passa por aqui também (antes só redesenhava o vídeo, e o gráfico
+// e a tabela ficavam parados até o play parar)
+function quadroMudou() { render(); renderTableCursor(); atualizarBarra(); busyUI(); }
 const step = (n) => { stopTrack(); stopPlay(); show(S.cur + n); };
 let raf = 0;
 function playEnd() { return S.cur <= S.end ? S.end : S.frames.length - 1; }
@@ -35,6 +40,7 @@ export function startPlay() {
   S.playing = true; S.playEnd = endI;
   S.wall0 = performance.now(); S.t0 = S.frames[S.cur].t; S.lastShownPlay = S.cur;
   iconePlay();
+  quadroMudou();  // já no começo: a tabela e o gráfico podiam estar em outro lugar
   raf = requestAnimationFrame(tick);
 }
 // reprodução automática do intervalo: vai ao quadro de início, espera o quadro ficar pronto e toca até o fim
@@ -77,7 +83,7 @@ export function tick(now) {
       // em dia, segue a grade de tempo do vídeo; atrasado (esperou o quadro), recomeça agora
       S.wall0 = now - hora > ATRASO_MS ? now : hora; S.t0 = S.frames[i].t;
       $("seek").value = String(i);
-      render(); busyUI(); pump();
+      quadroMudou(); pump();
     } else if (now >= hora) pump();
   }
   if (S.cur >= S.playEnd) {

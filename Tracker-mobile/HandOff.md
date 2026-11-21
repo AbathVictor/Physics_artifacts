@@ -45,7 +45,7 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Fluxo | vídeo (câmera ou galeria) → intervalo → escala → eixos → massa → marcação → tabela e gráfico |
 | Dados | apenas **t, x, y** por quadro de cada objeto, mais a **massa** de cada um (valor ± incerteza, g ou kg). Velocidade e aceleração ficaram de fora por decisão |
 | Saída | **Copiar tabela** (tabulação) e **Exportar CSV** em dois formatos que o aluno escolhe: *Excel/Planilhas Google* (`;` entre colunas, vírgula decimal, com marca UTF-8 no início) e *Internacional/Python* (`,` entre colunas, ponto decimal) |
-| Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=3)`. O Laboratório de Oscilações lê os dois formatos (testado) | Com vários objetos, o formato de várias trilhas do Tracker (`ExportDataDialog`): uma linha por massa (`massa A: …`), uma linha por centro de massa (`cm A: massa A + massa B · …`), `unidades`, `#multi:`, a linha dos nomes `;massa A;;massa B;;cm A;;`, o cabeçalho `t;x;y;x;y;x;y;` e os dados (célula vazia no quadro em que o objeto não tem ponto). Com um objeto só, o formato continua o de antes |
+| Estrutura do CSV | igual à do Tracker, com metadados antes: `massa: (0,250 ± 0,001) kg`, `unidades: t em s · x e y em cm`, `calibração: origem x0 = 946,37 px · y0 = 668,52 px · ângulo 0,80° (0,013963 rad) · escala 12,8000 px por cm` (desde 21/11/2026, pedido do autor, para ficar em conformidade com o .trk do Tracker, que guarda a calibração: os mesmos xorigin, yorigin, angle e xscale do sistema de coordenadas da imagem; origem em pixels da imagem, x para a direita e y para baixo; ângulo do eixo x no sentido anti-horário; escala em pixels por unidade, 1 px por u.a. sem escala; a linha não tem o separador de colunas), linha do objeto (`;massa A`), cabeçalho `t;x;y`, dados. No Python: `pd.read_csv(arquivo, skiprows=4)`. O Laboratório de Oscilações lê os dois formatos (testado; a linha de calibração é texto de uma célula, como as outras de metadados) | Com vários objetos, o formato de várias trilhas do Tracker (`ExportDataDialog`): uma linha por massa (`massa A: …`), uma linha por centro de massa (`cm A: massa A + massa B · …`), `unidades`, `calibração`, `#multi:`, a linha dos nomes `;massa A;;massa B;;cm A;;`, o cabeçalho `t;x;y;x;y;x;y;` e os dados (célula vazia no quadro em que o objeto não tem ponto). Com um objeto só, o formato continua o de antes |
 | Descartado | botão "Enviar para o Laboratório de Oscilações" |
 | Reprodução | play em **velocidade real** (sem câmera lenta) e botão **Reproduzir do início ao fim**, com opção **Repetir**. Desde 21/11/2026 (fase 1 do plano de memória e decodificação, decisão do autor): o play **mostra todos os quadros**, um de cada vez, **no máximo em velocidade real**; quando o celular não dá conta, **desacelera** em vez de pular quadros (o intuito é avaliar o movimento, não precisa ser em tempo real). Consequência: vídeo com mais quadros por segundo que a tela (câmera lenta de 120 ou 240 q/s) toca mais devagar que o real, um quadro por quadro de tela |
 | Arrastar na barra (prévia) | decidido em 21/11/2026 (fase 1): enquanto o dedo arrasta a barra de quadros ou uma alça do intervalo, a imagem é a **prévia** do quadro-chave mais próximo (imagem pequena, com a etiqueta "prévia" no alto do vídeo), que sai rápido mesmo em vídeos pesados; quando o dedo **para** (0,25 s) ou **solta**, aparece o **quadro exato**. O número do quadro é sempre o exato, e o início e o fim do intervalo ficam no quadro certo. Um toque sem arrastar vai direto ao quadro exato |
@@ -76,7 +76,8 @@ quadros. Descontadas a diferença de origem dos eixos (6,1; −108,5 px) e uma i
 2,1235 s no celular; amplitude em x: 103,28 e 103,41 px. Observações: o arquivo do celular chegou como planilha (.xlsx
 com nome .csv) com o CSV "Internacional/Python" inteiro numa coluna, porque foi aberto numa planilha em português
 (para isso, o formato certo é o "Excel/Planilhas Google"); e o CSV do celular não guarda a origem, o ângulo dos eixos
-nem a escala (o .trk guarda), por isso a comparação precisou ajustar a origem e o ângulo.
+nem a escala (o .trk guarda), por isso a comparação precisou ajustar a origem e o ângulo. Desde então, o CSV
+tem a linha `calibração:` (especificação, "Estrutura do CSV").
 
 ## Arquitetura
 
@@ -293,7 +294,13 @@ do eixo x medido no sentido anti-horário.
     antes e ainda não mostrados); (c) um quadro que já entrou e não saiu (`pendente()`) não conta como faltando; (d)
     resultado "pendente" (com quadros B, um quadro P fica preso até entrarem os B anteriores a ele) e "abandonado"
     não são falha, e um grupo só é marcado como falho se o quadro ainda era o que se queria (sem isso, um salto no
-    meio de um pedido marcava o grupo e a página nunca mais o decodificava). `S.sessoes` conta as sessões. O play (`tick`, `navegacao.js`) só avança para o próximo
+    meio de um pedido marcava o grupo e a página nunca mais o decodificava). `S.sessoes` conta as sessões.
+25. **Tudo acompanha o quadro atual** (21/11/2026, pedido do autor): `quadroMudou()` (`navegacao.js`) redesenha o
+    vídeo com as marcas, destaca a linha da tabela e a rola para a vista dentro do `#tblWrap` (nunca a página; só o
+    necessário para ficar abaixo do cabeçalho fixo), redesenha o gráfico (anel âmbar no ponto do quadro atual;
+    `S.graficoNoQuadro`) e move o indicador da barra de quadros. `show()`, o avanço do play (`tick`) e o começo do
+    play passam por ela: antes o play só redesenhava o vídeo, e o gráfico, a tabela e a barra ficavam parados até
+    o play parar. O play (`tick`, `navegacao.js`) só avança para o próximo
     quadro quando chega a hora dele e ele já está decodificado; atrasado, o relógio recomeça desse quadro.
 
 ## Testes
@@ -307,7 +314,7 @@ no topo da imagem).
 pip install -r tests/requirements.txt      # Playwright e Pillow; não precisa de "playwright install"
 python tests/gerar_videos.py               # uma vez; precisa do ffmpeg no PATH (libx265 é opcional)
 python tests/test_decodificacao.py         # quadro certo, tempo de cada quadro, taxa variável, quadros B, rotação, HEVC
-python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos, recuperação
+python tests/test_marcacao.py              # play, intervalo, pinça, marcação, CSV nos dois formatos (com a calibração), play sincronizado com o gráfico, a tabela e a barra, recuperação
 python tests/test_rastreamento.py          # medição do alvo, precisão, um decodificador só, perda do alvo, botão Parar
 python tests/test_massas.py                # escala genérica, duas massas, cm vazio e escolha das massas, dois cm, CSV com vários objetos, migração
 python tests/test_tema.py                  # cores dos dois temas, contraste de todo texto, theme-color, tema manual, mira, pontos futuros, cor da massa
