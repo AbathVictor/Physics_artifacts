@@ -1,4 +1,6 @@
-// Ferramentas (Navegar, Escala, Eixos, Marcar), textos de ajuda e marcar ou apagar pontos.
+/**
+ * @file Ferramentas (Navegar, Escala, Eixos, Marcar), textos de ajuda de cada uma e marcar ou apagar pontos.
+ */
 
 import { inInterval, persist, predict } from "./analise.js";
 import { ensureVisible, render } from "./desenho.js";
@@ -16,6 +18,11 @@ const HINTS = {
   eixos: "Pince para aproximar. Arraste o círculo da origem até o ponto de referência; para girar os eixos, arraste o círculo na ponta do eixo x.",
   marcar: "Pince com dois dedos para aproximar e arraste com um dedo para mover a imagem. Toque no centro da massa para pôr a mira ali e depois em Marcar ponto.",
 };
+/**
+ * Troca a ferramenta: para o rastreamento e o play, ajusta os botões e a barra de marcação e, em Marcar, põe a
+ * mira no ponto já marcado do quadro ou na posição prevista; avisa a diagramação deitada (evento va:modo).
+ * @param {"nav"|"escala"|"eixos"|"marcar"} m A ferramenta.
+ */
 export function setMode(m) {
   stopTrack(); stopPlay();
   S.mode = m;
@@ -33,6 +40,10 @@ export function setMode(m) {
   // a etapa da diagramação deitada acompanha a ferramenta
   document.dispatchEvent(new Event("va:modo"));
 }
+/**
+ * Mostra o texto de ajuda da ferramenta atual, com os avisos de Marcar: o centro de massa é calculado (escolher
+ * uma massa) e quadro fora do intervalo de análise.
+ */
 export function renderHint() {
   const el = $("modeHint");
   let txt = HINTS[S.mode], warn = false;
@@ -49,6 +60,10 @@ document.querySelectorAll("[data-goto-mode]").forEach((b) => b.addEventListener(
   setMode(b.dataset.gotoMode);
   $("viewer").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
 }));
+/**
+ * Marca o ponto da massa ativa no quadro atual, na posição da mira, e avança para o próximo quadro da marcação
+ * (passo "a cada"), com a mira na posição prevista; no fim do intervalo, avisa.
+ */
 export function markPoint() {
   if (!S.frames.length || !S.cross || S.tracking) return;
   if (!ativoEhMassa()) { toast("Escolha uma massa para marcar: o centro de massa é calculado."); return; }
@@ -67,6 +82,9 @@ export function markPoint() {
     render();
   }
 }
+/**
+ * Apaga o ponto da massa ativa no quadro atual.
+ */
 export function deletePoint() {
   if (!ativoEhMassa() || !S.marks.has(S.cur)) return;
   S.marks.delete(S.cur); persist(); renderPanels(); render();

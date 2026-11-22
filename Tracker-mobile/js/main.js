@@ -1,6 +1,11 @@
-// Ponto de entrada da Videoanálise Móvel.
-// Importa todos os módulos na ordem das antigas seções do arquivo único: vários deles só registram os eventos
-// da página ao carregar (botões, gestos, teclado), então precisam ser importados mesmo sem nada usado daqui.
+/**
+ * @file Ponto de entrada do aplicativo Videoanálise Móvel.
+ *
+ * Importa todos os módulos na ordem das antigas seções do arquivo único: vários deles só registram os eventos do
+ * aplicativo ao carregar (botões, gestos, teclado), então precisam ser importados mesmo sem nada usado daqui. Depois
+ * registra o service worker (sw.js, funcionamento sem internet) e abre o vídeo de exemplo.
+ */
+
 import "./util.js";
 import "./tema.js";
 import "./estado.js";
@@ -32,6 +37,11 @@ import { setSrc } from "./paineis.js";
 import { $ } from "./util.js";
 import { openFile } from "./video/conteiner.js";
 
+/**
+ * Inicia o aplicativo: cores do desenho, troca de tema, textos de ajuda, salvamento de arquivos (permissão de
+ * downloads do visualizador no claude.ai, ou download direto do navegador no GitHub Pages), confere o mp4box e o
+ * WebCodecs e abre o vídeo de exemplo.
+ */
 function iniciar() {
   readOV();
   new MutationObserver(() => { readOV(); render(); drawPlot(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -62,8 +72,8 @@ function iniciar() {
   openFile(sampleFile(), true);
 }
 
-// funcionamento sem internet: o service worker (sw.js) guarda uma cópia de todos os arquivos da página no aparelho.
-// Exige a página servida por http(s), como no GitHub Pages ou num servidor local (os módulos também exigem).
+// funcionamento sem internet: o service worker (sw.js) guarda uma cópia de todos os arquivos do aplicativo no aparelho.
+// Exige o aplicativo servido por http(s), como no GitHub Pages ou num servidor local (os módulos também exigem).
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch((e) => { S.lastErr = "service worker: " + (e.message || e); });
 }

@@ -1,5 +1,7 @@
-// Entradas dos passos: liga ao estado os campos e botões de intervalo, escala, eixos, passo, trilha,
-// rastreamento e Apagar as marcações da massa ativa (as massas ficam em massas.js).
+/**
+ * @file Entradas dos passos: liga ao estado os campos e botões de intervalo, escala, eixos, passo da marcação,
+ * trilha, rastreamento e "Apagar as marcações" da massa ativa (as massas ficam em massas.js).
+ */
 
 import { persist } from "./analise.js";
 import { renderData } from "./dados.js";
@@ -20,6 +22,10 @@ $("axAng").addEventListener("change", (e) => { if (!S.axes) return; const v = pa
 $("axZero").addEventListener("click", () => { if (!S.axes) return; S.axes.ang = 0; persist(); renderPanels(); render(); });
 $("every").addEventListener("change", (e) => { S.every = Number(e.target.value); persist(); pump(); });
 $("trail").addEventListener("change", (e) => { S.trail = e.target.checked; persist(); render(); });
+/**
+ * Mostra o tamanho do alvo do rastreamento (círculo, em pixels do vídeo) e, com a medição automática, o tamanho
+ * medido da massa; redesenha o vídeo com o círculo.
+ */
 export function renderTrR() {
   $("trR").value = String(S.trR);
   $("trRv").textContent = `círculo de ${2 * Math.round(S.trR) + 1} px do vídeo` + (S.trAuto && S.objR ? ` · massa com cerca de ${Math.round(2 * S.objR)} px` : "");

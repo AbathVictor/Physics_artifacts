@@ -1,19 +1,24 @@
-// Decodificação com WebCodecs: grupos de quadros (de um quadro-chave ao próximo), caches em baixa resolução e em
-// resolução cheia, prévias dos quadros-chave, fila de trabalhos (pump/nextJob) e vigia do decodificador.
-//
-// Fase 1 do plano de memória e decodificação (21/11/2026), a partir da medição no celular do autor (cada leitura do
-// arquivo ~1 s; abrir um decodificador ~0,25 s; decodificar um quadro 480p ~3 ms):
-// - o arquivo é lido em blocos grandes guardados na memória (leitor.js), e não mais um grupo por leitura;
-// - o grupo é alimentado aos poucos: o quadro pedido aparece assim que sai do decodificador, sem esperar o resto do
-//   grupo; se o quadro atual sair do grupo (o dedo foi para outro lugar), a alimentação para, o que já entrou termina
-//   logo, e o decodificador não é recriado;
-// - prévias: uma imagem pequena do quadro-chave de cada grupo, mostrada enquanto o dedo arrasta a barra (S.arrasto,
-//   barra.js) e enquanto o quadro exato não chega (desenho.js, com a etiqueta "prévia"); feitas em segundo plano
-//   depois de abrir o vídeo e, com o dedo arrastando, na hora, para o grupo debaixo do dedo.
-//
-// Fase 2 (memória): num vídeo de até 960 px não há cópia em "resolução cheia" (ela é a própria baixa); a resolução
-// cheia guarda só o quadro atual e o próximo da marcação; com a página em segundo plano (outro app, tela apagada), os
-// quadros guardados (menos o atual) e o decodificador são devolvidos, e voltam a ser feitos quando ela volta.
+/**
+ * @file Decodificação com WebCodecs: grupos de quadros (de um quadro-chave ao próximo), caches em baixa resolução e em
+ * resolução cheia, prévias dos quadros-chave, fila de trabalhos (pump/nextJob) e vigia do decodificador.
+ *
+ * Fase 1 do plano de memória e decodificação (21/11/2026), a partir da medição no celular do autor (cada leitura do
+ * arquivo ~1 s; abrir um decodificador ~0,25 s; decodificar um quadro 480p ~3 ms):
+ * - o arquivo é lido em blocos grandes guardados na memória (leitor.js), e não mais um grupo por leitura;
+ * - o grupo é alimentado aos poucos: o quadro pedido aparece assim que sai do decodificador, sem esperar o resto do
+ *   grupo; se o quadro atual sair do grupo (o dedo foi para outro lugar), a alimentação para, o que já entrou termina
+ *   logo, e o decodificador não é recriado;
+ * - prévias: uma imagem pequena do quadro-chave de cada grupo, mostrada enquanto o dedo arrasta a barra (S.arrasto,
+ *   barra.js) e enquanto o quadro exato não chega (desenho.js, com a etiqueta "prévia"); feitas em segundo plano
+ *   depois de abrir o vídeo e, com o dedo arrastando, na hora, para o grupo debaixo do dedo.
+ *
+ * Fase 2 (memória): num vídeo de até 960 px não há cópia em "resolução cheia" (ela é a própria baixa); a resolução
+ * cheia guarda só o quadro atual e o próximo da marcação; com o aplicativo em segundo plano (outro app, tela apagada),
+ * os quadros guardados (menos o atual) e o decodificador são devolvidos, e voltam a ser feitos quando ele volta.
+ *
+ * Sessão do decodificador (keep, a partir do play engasgado do Pendulum_test.mp4): um pedido seguinte no mesmo grupo
+ * continua de onde o anterior parou, sem voltar ao quadro-chave (ver terminarSessao e decodeGop).
+ */
 
 import { agendarRender, layout, render } from "../desenho.js";
 import { S } from "../estado.js";
@@ -22,13 +27,22 @@ import { $ } from "../util.js";
 import { cheiaIgual, computeDims } from "./conteiner.js";
 import { lerBytes } from "./leitor.js";
 
+/**
+ * Devolve o decodificador aberto ou abre um novo, com a configuração do vídeo (S.cfg).
+ * @returns {VideoDecoder} O decodificador.
+ */
 function getDecoder() {
   if (S.decoder && S.decoder.state === "configured") return S.decoder;
   S.decoder = new VideoDecoder({ output: onFrame, error: (e) => { S.err = e; } });
   S.decoder.configure(S.cfg);
   return S.decoder;
 }
-// Copia o quadro, já girado, para uma imagem do tamanho pedido e devolve o quadro ao decodificador na hora.
+/**
+ * Copia o quadro, já girado, para uma imagem do tamanho pedido e devolve o quadro ao decodificador na hora.
+ * @param {VideoFrame} frame O quadro decodificado.
+ * @param {"low"|"full"|"previa"} which Baixa resolução, resolução cheia ou prévia.
+ * @returns {ImageBitmap} A imagem.
+ */
 export function copyFrame(frame, which) {
   const w = which === "low" ? S.lw : which === "previa" ? S.pw : S.fullW, h = which === "low" ? S.lh : which === "previa" ? S.ph : S.fullH;
   let oc = S.oc[which];
@@ -41,6 +55,15 @@ export function copyFrame(frame, which) {
   g.drawImage(frame, -rw / 2, -rh / 2, rw, rh);
   return oc.transferToImageBitmap();
 }
+/**
+ * Guarda uma imagem num cache e, acima do orçamento, tira outras. Baixa resolução: saem primeiro os quadros fora da
+ * janela (os mais longe primeiro), depois os que já ficaram para trás, e os da frente só por último (antes saíam os usados
+ * há mais tempo, e os quadros à frente no play, guardados antes e ainda não mostrados, eram os primeiros a sair).
+ * Resolução cheia: saem os usados há mais tempo. O quadro atual nunca sai.
+ * @param {"low"|"full"} which O cache.
+ * @param {number} i Quadro.
+ * @param {ImageBitmap} bmp A imagem.
+ */
 export function putCache(which, i, bmp) {
   const map = which === "low" ? S.low : S.full, budget = which === "low" ? S.lowBudget : S.fullBudget;
   const bytes = bmp.width * bmp.height * 4;
@@ -68,7 +91,19 @@ export function putCache(which, i, bmp) {
 
 // ---------- prévias dos quadros-chave ----------
 const LIMITE_PREVIAS = 32e6;
+/**
+ * Grupo de um quadro: a amostra do quadro-chave dele (ordem de decodificação).
+ * @param {number} i Quadro (ordem de apresentação).
+ * @returns {number} Índice da amostra do quadro-chave.
+ */
 export const gopOf = (i) => S.gopStart[S.frames[i].d];
+/**
+ * Guarda a prévia do grupo (imagem pequena do quadro-chave); acima de 32 MB, saem as prévias mais longe do quadro
+ * atual.
+ * @param {number} g0 Grupo (amostra do quadro-chave).
+ * @param {number} i Quadro do quadro-chave (ordem de apresentação).
+ * @param {VideoFrame} frame O quadro decodificado.
+ */
 function guardarPrevia(g0, i, frame) {
   if (S.previa.has(g0)) return;
   const bmp = copyFrame(frame, "previa"), bytes = bmp.width * bmp.height * 4;
@@ -83,11 +118,17 @@ function guardarPrevia(g0, i, frame) {
     S.previa.delete(k); S.previaBytes -= v.bytes;
   }
 }
+/**
+ * Fecha e esquece todas as prévias (vídeo novo ou tamanho do quadro mudou).
+ */
 export function limparPrevias() {
   for (const v of S.previa.values()) { try { v.bmp.close(); } catch {} }
   S.previa.clear(); S.previaBytes = 0; S.fundo = null;
 }
-// próximo grupo sem prévia para o segundo plano: espaçados por igual quando não cabem todos no limite
+/**
+ * Próximo grupo sem prévia para o segundo plano: os grupos espaçados por igual quando não cabem todos no limite.
+ * @returns {number|null} O grupo (amostra do quadro-chave), ou nulo quando não falta nenhum.
+ */
 function previaDeFundo() {
   if (!S.fundo) {
     const g = []; for (let d = 0; d < S.gopStart.length; d++) if (S.gopStart[d] === d) g.push(d);
@@ -101,16 +142,37 @@ function previaDeFundo() {
 }
 
 // ---------- leitura e decodificação de um grupo ----------
+/**
+ * Lê de uma vez os bytes de um trecho de amostras.
+ * @param {number} d0 Primeira amostra.
+ * @param {number} d1 Última amostra.
+ * @returns {Promise<function(number): Uint8Array>} Função que dá os bytes de cada amostra do trecho.
+ */
 export async function readRange(d0, d1) {
   let lo = Infinity, hi = 0;
   for (let d = d0; d <= d1; d++) { const s = S.samples[d]; lo = Math.min(lo, s.offset); hi = Math.max(hi, s.offset + s.size); }
   const buf = await lerBytes(S.file, lo, hi);
   return (d) => { const s = S.samples[d]; return buf.subarray(s.offset - lo, s.offset - lo + s.size); };
 }
+/**
+ * Lê os bytes de uma amostra (pelo leitor em blocos, leitor.js).
+ * @param {number} d Amostra (ordem de decodificação).
+ * @returns {Promise<Uint8Array>} Os bytes.
+ */
 export const lerAmostra = (d) => { const s = S.samples[d]; return lerBytes(S.file, s.offset, s.offset + s.size); };
-// espera a fila do decodificador andar (evento dequeue), no máximo 10 ms
+/**
+ * Espera a fila do decodificador andar (evento dequeue), no máximo 10 ms.
+ * @param {VideoDecoder} dec O decodificador.
+ * @returns {Promise<void>}
+ */
 const andar = (dec) => new Promise((r) => { const t = setTimeout(r, 10); dec.addEventListener("dequeue", () => { clearTimeout(t); r(); }, { once: true }); });
-// o grupo ainda serve? Com o dedo arrastando, só se o quadro atual estiver nele; senão, se estiver na janela em volta
+/**
+ * Diz se o grupo ainda serve: com o dedo arrastando, só se o quadro atual estiver nele; senão, se estiver na janela em
+ * volta do quadro atual.
+ * @param {number} pMin Primeiro quadro do grupo (ordem de apresentação).
+ * @param {number} pMax Último quadro do grupo.
+ * @returns {boolean} Ainda serve.
+ */
 function serve(pMin, pMax) {
   if (S.arrasto) return S.cur >= pMin && S.cur <= pMax;
   return S.cur + S.win[1] >= pMin && S.cur - S.win[0] <= pMax;
@@ -119,6 +181,14 @@ function serve(pMin, pMax) {
 // O decodificador entrega os quadros na ordem de apresentação: o k-ésimo quadro que sai é o k-ésimo dessa ordem
 // entre os que entraram.
 let keep = null;  // a sessão do decodificador (ver terminarSessao e decodeGop)
+/**
+ * Recebe cada quadro que sai do decodificador. Ele os entrega na ordem de apresentação: o k-ésimo quadro que sai é o
+ * k-ésimo dessa ordem entre os que entraram. Guarda a prévia (quadro-chave), o que o pedido quer e tudo o que cai na
+ * janela em volta do quadro atual, até MARGEM amostras depois dela (um quadro preso no decodificador sai durante um
+ * pedido seguinte, que começa mais à frente; se fosse descartado, a sessão teria de recomeçar do quadro-chave), e a
+ * resolução cheia pedida. O quadro pedido (ou a prévia dele) aparece já, sem esperar o resto do grupo.
+ * @param {VideoFrame} frame O quadro (fechado ao final).
+ */
 function onFrame(frame) {
   try {
     const i = keep && keep.k < keep.P.length ? keep.P[keep.k] : null;
@@ -140,6 +210,12 @@ function onFrame(frame) {
     frame.close();
   }
 }
+/**
+ * Acompanha o tamanho real do quadro, que pode diferir do índice: recalcula as dimensões e leva as marcações (escala,
+ * eixos, mira, pontos) na mesma proporção.
+ * @param {number} w Largura do quadro.
+ * @param {number} h Altura do quadro.
+ */
 function resizeSource(w, h) {
   // o tamanho real do quadro pode diferir do índice; as marcações acompanham a mudança
   const ow = S.dispW, oh = S.dispH;
@@ -163,6 +239,13 @@ function resizeSource(w, h) {
 // (flush, que exige um quadro-chave depois) ao trocar de grupo, voltar para trás no grupo, fazer uma prévia, chegar
 // ao fim do grupo ou quando o quadro pedido não sai do decodificador logo.
 const MARGEM = 3;  // amostras além do último quadro pedido, que empurram os quadros para fora do decodificador
+/**
+ * Termina a sessão do decodificador (flush, com limite de tempo), quando há uma. Se a alimentação parou no meio do
+ * grupo, os quadros que ainda vão sair são os que entraram e não saíram, na ordem de apresentação (com quadros B, não são
+ * os seguintes da ordem do grupo inteiro). Num erro, fecha o decodificador e repassa o erro; guarda o tempo do grupo
+ * para a medição.
+ * @returns {Promise<void>}
+ */
 async function terminarSessao() {
   const s = keep;
   if (!s) return;
@@ -197,9 +280,18 @@ async function terminarSessao() {
     if (S.gopMs.length > 200) { S.gopMs.shift(); S.gopFrames.shift(); }
   }
 }
-// Decodifica o que o pedido quer do grupo do quadro job.i (só o quadro-chave, com job.soChave), continuando a sessão
-// quando dá. Devolve "abandonado" se parou de alimentar porque o quadro atual saiu do grupo, e "pendente" se o quadro
-// pedido entrou mas ainda não saiu (a sessão fica aberta nos dois casos; nenhum dos dois é falha).
+/**
+ * Decodifica o que o pedido quer do grupo do quadro job.i (só o quadro-chave, com job.soChave), continuando a sessão
+ * quando dá (mesmo grupo, mesmo decodificador, e o menor quadro que falta ainda não saiu). Alimenta até o último quadro
+ * pedido mais MARGEM amostras (a reposição, não o quadro atual, não passa do fim da janela), para de alimentar se o
+ * grupo deixar de servir e espera o quadro pedido sair. A sessão termina na prévia, no fim do grupo ou se o quadro
+ * pedido não saiu (atual: logo; reposição: quando não há mais o que alimentar).
+ * @param {{i: number, lo: number, hi: number, full: Set<number>|null, soChave?: boolean, fullOnly?: boolean, fg?: boolean, fundo?: boolean}} job
+ * O pedido: quadro, trecho a guardar em baixa resolução, quadros em resolução cheia e o tipo do pedido.
+ * @returns {Promise<"ok"|"abandonado"|"pendente">} "abandonado" se parou de alimentar porque o quadro atual saiu do
+ * grupo; "pendente" se o quadro pedido entrou mas ainda não saiu (com quadros B, um quadro P fica preso até entrarem os
+ * B que vêm antes dele); a sessão fica aberta nos dois casos, e nenhum dos dois é falha.
+ */
 async function decodeGop(job) {
   const gen = S.gen;
   const d = S.frames[job.i].d, g0 = S.gopStart[d], gEnd = S.gopEnd[d], g1 = job.soChave ? g0 : gEnd;
@@ -261,19 +353,33 @@ async function decodeGop(job) {
   if (r === "ok" && keep === s && !saiu()) r = "pendente";
   return r;
 }
-// quadros guardados em resolução cheia para o zoom: o atual e o próximo da marcação
+/**
+ * Quadros guardados em resolução cheia para o zoom: o atual e o próximo da marcação (se no mesmo grupo).
+ * @param {number} i Quadro atual.
+ * @returns {Set<number>} Os quadros.
+ */
 function fullSet(i) {
   const s = new Set([i]), j = i + S.every;
   if (j < S.frames.length && j <= S.end && gopOf(j) === gopOf(i)) s.add(j);
   return s;
 }
-// o quadro já entrou no decodificador e ainda não saiu (vai sair na próxima alimentação da sessão)
+/**
+ * Diz se o quadro já entrou no decodificador e ainda não saiu (vai sair na próxima alimentação da sessão).
+ * @param {number} q Quadro.
+ * @returns {boolean} Pendente.
+ */
 function pendente(q) {
   const s = keep;
   return !!s && s.gen === S.gen && s.dec === S.decoder && !s.soChave && s.g0 === gopOf(q) && S.frames[q].d < s.fed && s.k < s.P.length && q >= s.P[s.k];
 }
+/**
+ * Escolhe o próximo trabalho: nada com o aplicativo em segundo plano; com o dedo arrastando a barra, só a prévia do
+ * grupo debaixo do dedo; senão o quadro atual, a resolução cheia dele, os quadros à frente na janela, o próximo quadro da
+ * marcação em resolução cheia e, sem mais nada a fazer, as prévias dos outros grupos em segundo plano.
+ * @returns {object|null} O pedido para decodeGop, ou nulo.
+ */
 function nextJob() {
-  // página em segundo plano: nada a fazer até ela voltar
+  // aplicativo em segundo plano: nada a fazer até ele voltar
   if (S.oculta) return null;
   const c = S.cur, N = S.frames.length, gc = gopOf(c);
   // dedo arrastando a barra: só a prévia do grupo debaixo do dedo; o quadro exato vem quando o dedo para
@@ -300,6 +406,12 @@ function nextJob() {
   }
   return null;
 }
+/**
+ * Executa os trabalhos um depois do outro enquanto houver (não com o rastreamento, que tem decodificador próprio):
+ * num erro, tenta o grupo mais uma vez e, se falhar de novo, avisa (só para o quadro atual). Marca como falho o grupo
+ * cujo quadro, ainda querido, não saiu ("abandonado" e "pendente" não são falha). Redesenha a cada trabalho.
+ * @returns {Promise<void>}
+ */
 export async function pump() {
   if (S.busy || S.tracking || !S.frames.length) return;
   S.busy = true; busyUI();
@@ -340,11 +452,16 @@ export async function pump() {
     if (S.oculta) fecharDecodificador();
   }
 }
+/**
+ * Fecha o decodificador do aplicativo.
+ */
 function fecharDecodificador() {
   if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
 }
-// página em segundo plano: devolve os quadros guardados (menos o atual, para a tela voltar com ele) e o decodificador;
-// o arquivo e as prévias ficam. Com o rastreamento ou a medição em andamento, nada muda.
+/**
+ * Com o aplicativo em segundo plano, devolve os quadros guardados (menos o atual, para a tela voltar com ele) e o
+ * decodificador; o arquivo e as prévias ficam. Com o rastreamento ou a medição em andamento, nada muda.
+ */
 function liberarMemoria() {
   const solta = (map, which) => {
     for (const [k, v] of map) {
@@ -363,4 +480,7 @@ document.addEventListener("visibilitychange", () => {
   if (!S.frames.length || S.tracking || S.semFundo) return;
   if (S.oculta) liberarMemoria(); else pump();
 });
+/**
+ * Mostra o aviso de trabalho enquanto o quadro atual não está guardado.
+ */
 export function busyUI() { $("busy").hidden = !S.frames.length || S.low.has(S.cur); }

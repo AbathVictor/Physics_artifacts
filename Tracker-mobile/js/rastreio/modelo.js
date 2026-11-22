@@ -1,12 +1,28 @@
-// Modelo do rastreamento automático (cálculo, sem interface): recorte da imagem, máscara circular,
-// correlação normalizada nas cores, ajuste de subpixel e evolução do modelo com âncora.
+/**
+ * @file Modelo do rastreamento automático (cálculo, sem interface): recorte da imagem, máscara circular,
+ * correlação normalizada nas cores, ajuste de subpixel e evolução do modelo com âncora.
+ *
+ * Referência: TemplateMatcher (biblioteca osp) e AutoTracker (repositório tracker), GPL: só ideias, nenhum código
+ * copiado.
+ */
 
 import { S } from "../estado.js";
 import { clampF } from "../util.js";
 
 // tela de trabalho dos recortes, reaproveitada entre as chamadas (só cresce)
 const tela = { oc: null, g: null };
-// recorta a região da imagem exibida que começa em (x0, y0), em pixels do vídeo, com sc pixels de saída por pixel do vídeo
+/**
+ * Recorta uma região da imagem exibida (já girada) direto do quadro decodificado, numa tela de trabalho
+ * reaproveitada entre as chamadas.
+ * @param {VideoFrame} frame O quadro.
+ * @param {number} x0 Canto de cima à esquerda, x (pixels do vídeo).
+ * @param {number} y0 Canto de cima à esquerda, y (pixels do vídeo).
+ * @param {number} w Largura do recorte (pixels de saída).
+ * @param {number} h Altura do recorte (pixels de saída).
+ * @param {number} sc Pixels de saída por pixel do vídeo.
+ * @param {boolean} smooth Suavizar a imagem.
+ * @returns {Uint8ClampedArray} Os pixels RGBA do recorte.
+ */
 export function cropRGBA(frame, x0, y0, w, h, sc, smooth) {
   if (!tela.oc || tela.oc.width < w || tela.oc.height < h) { tela.oc = new OffscreenCanvas(Math.max(w, 128, tela.oc ? tela.oc.width : 0), Math.max(h, 128, tela.oc ? tela.oc.height : 0)); tela.g = tela.oc.getContext("2d"); }
   const g = tela.g;
@@ -18,9 +34,14 @@ export function cropRGBA(frame, x0, y0, w, h, sc, smooth) {
   g.drawImage(frame, -rw / 2, -rh / 2, rw, rh);
   return g.getImageData(0, 0, w, h).data;
 }
-// máscara circular inscrita no modelo, como a elipse do autotracker do Tracker: os cantos do quadrado, que quase
-// sempre são fundo, ficam de fora da comparação. Para cada linha y, guarda o primeiro e o último pixel dentro do
-// círculo (pelo centro do pixel) e conta os pixels de dentro (nm).
+/**
+ * Calcula a máscara circular inscrita no modelo, como a elipse do autotracker do Tracker: os cantos do quadrado,
+ * que quase sempre são fundo, ficam de fora da comparação.
+ * @param {number} w Largura do modelo.
+ * @param {number} h Altura do modelo.
+ * @returns {{runs: Int32Array, nm: number}} Para cada linha y, o primeiro e o último pixel dentro do círculo (pelo
+ * centro do pixel), e quantos pixels há dentro (nm).
+ */
 function maskRuns(w, h) {
   const runs = new Int32Array(2 * h), cx = w / 2, cy = h / 2;
   let nm = 0;
@@ -33,7 +54,12 @@ function maskRuns(w, h) {
   }
   return { runs, nm };
 }
-// média e desvios do modelo, só dentro da máscara; fora dela o desvio fica zero
+/**
+ * Prepara o modelo para a correlação: média e desvios das cores só dentro da máscara (fora dela o desvio fica
+ * zero) e a norma.
+ * @param {object} T Modelo com raw (cores), w e h; ganha runs, nm, z e norm.
+ * @returns {object} O próprio modelo.
+ */
 export function finalizeT(T) {
   if (!T.runs) { const mk = maskRuns(T.w, T.h); T.runs = mk.runs; T.nm = mk.nm; }
   const { w, h, runs, raw } = T, N = w * h, m = [0, 0, 0];
@@ -48,14 +74,33 @@ export function finalizeT(T) {
   T.norm = n;
   return T;
 }
+/**
+ * Cria o modelo a partir de uma região de uma imagem RGBA.
+ * @param {Uint8ClampedArray} data Pixels RGBA da imagem.
+ * @param {number} stride Largura da imagem (pixels por linha).
+ * @param {number} u Coluna do canto do modelo.
+ * @param {number} v Linha do canto do modelo.
+ * @param {number} w Largura do modelo.
+ * @param {number} h Altura do modelo.
+ * @returns {object} O modelo, já preparado (finalizeT).
+ */
 export function templateFrom(data, stride, u, v, w, h) {
   const raw = new Float32Array(w * h * 3);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((v + y) * stride + u + x) * 4, k = (y * w + x) * 3; raw[k] = data[i]; raw[k + 1] = data[i + 1]; raw[k + 2] = data[i + 2]; }
   return finalizeT({ raw, w, h });
 }
-// o modelo evolui: mistura a fração a da imagem nova e, em seguida, a fração ancora do modelo original
-// (T.raw0, do quadro de início). Como no Tracker (20% e 5%), a âncora impede que, num rastreamento longo,
-// o modelo vá virando fundo ou borrão aos poucos.
+/**
+ * Evolui o modelo: mistura a fração a da imagem nova e, em seguida, a fração ancora do modelo original (T.raw0,
+ * do quadro de início). Como no Tracker (20% e 5%), a âncora impede que, num rastreamento longo, o modelo vá virando
+ * fundo ou borrão aos poucos.
+ * @param {object} T O modelo.
+ * @param {Uint8ClampedArray} data Pixels RGBA da imagem nova.
+ * @param {number} stride Largura da imagem.
+ * @param {number} u Coluna do canto da região.
+ * @param {number} v Linha do canto da região.
+ * @param {number} a Fração da imagem nova (0 a 1).
+ * @param {number} ancora Fração do modelo original (0 a 1).
+ */
 export function evolve(T, data, stride, u, v, a, ancora) {
   const r = T.raw, r0 = T.raw0, t = r0 ? ancora : 0;
   for (let y = 0; y < T.h; y++) for (let x = 0; x < T.w; x++) {
@@ -64,7 +109,15 @@ export function evolve(T, data, stride, u, v, a, ancora) {
   }
   finalizeT(T);
 }
-// correlação normalizada nas cores, só com os pixels dentro da máscara do modelo
+/**
+ * Procura o modelo na imagem por correlação normalizada nas cores, só com os pixels dentro da máscara.
+ * @param {Uint8ClampedArray} I Pixels RGBA da região de busca.
+ * @param {number} Iw Largura da região.
+ * @param {number} Ih Altura da região.
+ * @param {object} T O modelo.
+ * @returns {{u: number, v: number, score: number, map: Float32Array, nu: number, nv: number}|null} A melhor posição
+ * (u, v), a semelhança (−1 a 1), o mapa de semelhança e as dimensões dele; null se o modelo não couber.
+ */
 export function nccSearch(I, Iw, Ih, T) {
   const tw = T.w, th = T.h, N = T.nm, z = T.z, tn = T.norm, runs = T.runs;
   const nu = Iw - tw + 1, nv = Ih - th + 1;
@@ -89,6 +142,11 @@ export function nccSearch(I, Iw, Ih, T) {
   }
   return { u: bu, v: bv, score: best, map, nu, nv };
 }
+/**
+ * Refina a melhor posição com uma parábola nos vizinhos do mapa de semelhança, em cada eixo.
+ * @param {{u: number, v: number, map: Float32Array, nu: number, nv: number}} r Resultado de nccSearch.
+ * @returns {{dx: number, dy: number}} Deslocamento de subpixel (entre −0,5 e 0,5).
+ */
 export function subpixel(r) {
   const { map, nu, nv, u, v } = r; let dx = 0, dy = 0;
   if (u > 0 && u < nu - 1) { const a = map[v * nu + u - 1], b = map[v * nu + u], c = map[v * nu + u + 1], d = a - 2 * b + c; if (d < 0) dx = clampF(0.5 * (a - c) / d, -0.5, 0.5); }

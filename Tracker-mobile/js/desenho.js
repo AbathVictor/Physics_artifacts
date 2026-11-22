@@ -1,5 +1,9 @@
-// Desenho: vista com zoom (S.view), imagem do quadro e sobreposições (escala, eixos, trilhas e pontos de cada
-// objeto, mira, alvo).
+/**
+ * @file Desenho: vista com zoom (S.view), imagem do quadro (exata, prévia ou a última mostrada) e sobreposições (eixos,
+ * escala, trilhas e pontos de cada objeto, mira, alvo do rastreamento, etiqueta "prévia" e lupa).
+ *
+ * Vista com zoom: S.view.z é o aumento; (vx, vy) é o canto superior esquerdo da região visível, em pixels do vídeo.
+ */
 
 import { axisHandle, escalaReal, handleLen, inInterval } from "./analise.js";
 import { drawPlot } from "./dados.js";
@@ -12,12 +16,20 @@ import { $, clampF, fmt, parseNum } from "./util.js";
 // Vista com zoom: S.view.z é o aumento; (vx, vy) é o canto superior esquerdo da região visível, em pixels do vídeo.
 export const cv = $("cv"), ctx = cv.getContext("2d");
 let cssW = 0, cssH = 0, dpr = 1, OV = null;
+/**
+ * Lê do CSS as cores das sobreposições (escala, eixos, contorno escuro, contorno das marcas no tema, borda, âmbar
+ * da mira e fonte); chamada ao iniciar e a cada troca de tema.
+ */
 export function readOV() {
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
   // edge: contorno fino das marcas e pontos (escuro no tema claro, claro no escuro); line: cor de borda do tema,
   // usada nos pontos fora do intervalo ou futuros; amber: a mira
   OV = { scale: g("--ov-scale"), axis: g("--ov-axis"), dark: g("--ov-dark"), edge: g("--ov-edge"), line: g("--line"), amber: g("--amber"), mono: g("--font-mono") };
 }
+/**
+ * Calcula o tamanho do vídeo na tela: deitado, a altura toda da área dele; em pé, até 60% da altura da tela; ajusta
+ * o canvas à densidade de pixels da tela e redesenha. Antes, avisa a diagramação deitada (evento va:antes-layout).
+ */
 export function layout() {
   // a diagramação deitada (paisagem.js) se ajusta antes de o vídeo ser medido
   document.dispatchEvent(new Event("va:antes-layout"));
@@ -35,17 +47,35 @@ export function layout() {
   clampView();
   render();
 }
-// aumento máximo: até 12 px de tela por pixel do vídeo
+/**
+ * Aumento máximo: até 12 px de tela por pixel do vídeo.
+ * @returns {number} O aumento máximo (de 1 a 40).
+ */
 export const maxZoom = () => Math.max(1, Math.min(40, 12 * S.dispW / Math.max(1, cssW)));
+/**
+ * Pixels de tela (CSS) por pixel do vídeo na vista atual.
+ * @returns {number} A escala da vista.
+ */
 export const viewK = () => S.view.z * cssW / S.dispW;
+/**
+ * Mantém a vista dentro do vídeo: aumento entre 1 e o máximo, região visível sem passar das bordas.
+ */
 export function clampView() {
   const v = S.view;
   v.z = clampF(v.z, 1, maxZoom());
   v.vx = clampF(v.vx, 0, Math.max(0, S.dispW - S.dispW / v.z));
   v.vy = clampF(v.vy, 0, Math.max(0, S.dispH - S.dispH / v.z));
 }
+/**
+ * Volta à vista sem zoom.
+ */
 export function resetView() { S.view = { z: 1, vx: 0, vy: 0 }; }
-// aproxima ou afasta mantendo parado o ponto da imagem que está sob (cx, cy), em px de tela dentro do vídeo
+/**
+ * Aproxima ou afasta mantendo parado o ponto da imagem que está sob (cx, cy).
+ * @param {number} cx x em px de tela dentro do vídeo.
+ * @param {number} cy y em px de tela dentro do vídeo.
+ * @param {number} z Aumento novo.
+ */
 export function zoomAt(cx, cy, z) {
   const k0 = viewK(), ix = S.view.vx + cx / k0, iy = S.view.vy + cy / k0;
   S.view.z = clampF(z, 1, maxZoom());
@@ -53,13 +83,21 @@ export function zoomAt(cx, cy, z) {
   S.view.vx = ix - cx / k1; S.view.vy = iy - cy / k1;
   clampView();
 }
-// com zoom, garante que o ponto p (a mira) fique na parte central da vista
+/**
+ * Com zoom, garante que o ponto p (a mira) fique na parte central da vista (move a vista se ele estiver a menos de
+ * 20% da borda).
+ * @param {{x: number, y: number}|null} p Ponto em pixels do vídeo.
+ */
 export function ensureVisible(p) {
   if (!p || S.view.z <= 1.001) return;
   const vw = S.dispW / S.view.z, vh = S.dispH / S.view.z;
   const rx = (p.x - S.view.vx) / vw, ry = (p.y - S.view.vy) / vh;
   if (rx < 0.2 || rx > 0.8 || ry < 0.2 || ry > 0.8) { S.view.vx = p.x - vw / 2; S.view.vy = p.y - vh / 2; clampView(); }
 }
+/**
+ * Redesenha agora o vídeo com as sobreposições, a leitura do quadro e a linha do zoom (cancela um redesenho já
+ * agendado).
+ */
 export function render() {
   if (rafR) { cancelAnimationFrame(rafR); rafR = 0; }
   if (!S.frames.length) return;
@@ -68,7 +106,16 @@ export function render() {
 // redesenho juntado num quadro de tela: os gestos chamam isto a cada movimento do dedo (o celular manda mais
 // movimentos por segundo do que a tela mostra); o vídeo e a lupa são desenhados uma vez só, no mesmo ciclo
 let rafR = 0;
+/**
+ * Agenda um redesenho para o próximo quadro de tela: os gestos chamam isto a cada movimento do dedo (o celular
+ * manda mais movimentos por segundo do que a tela mostra); o vídeo e a lupa são desenhados uma vez só, no mesmo ciclo.
+ */
 export function agendarRender() { if (!rafR) rafR = requestAnimationFrame(() => { rafR = 0; render(); }); }
+/**
+ * Desenha o quadro atual: a imagem reduzida enquanto basta, a resolução cheia com zoom; sem o quadro exato ainda
+ * (dedo arrastando a barra, salto), a prévia do quadro-chave do grupo dele, com a etiqueta "prévia"; sem prévia, o último
+ * quadro mostrado. Depois as sobreposições e a lupa (só ao arrastar uma ponta da escala).
+ */
 function drawMain() {
   const g = ctx, v = S.view, k = viewK();
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -101,6 +148,10 @@ function drawMain() {
   if (S.lupa && (S.grab === "p1" || S.grab === "p2") && S.mode === "escala") desenharLupa(S.scale[S.grab], S.lupa.x, S.lupa.y, k);
   else esconderLupa();
 }
+/**
+ * Atualiza a linha do zoom (aumento, aviso de "carregando a imagem em resolução cheia", botão de voltar sem zoom)
+ * e se um dedo arrasta a imagem (com zoom, também em Navegar).
+ */
 function updateZoomRow() {
   const row = $("zoomRow");
   row.hidden = !S.frames.length || (S.mode === "nav" && S.view.z <= 1.001);
@@ -111,22 +162,56 @@ function updateZoomRow() {
   // com zoom, um dedo arrasta a imagem também em Navegar; sem zoom, um dedo continua rolando a página
   $("viewer").classList.toggle("zoomed", S.view.z > 1.001);
 }
-// traço com contorno: escuro e mais grosso (escala, eixos, mira) ou fino na cor do tema (marcas e pontos, edge)
+/**
+ * Desenha um traço com contorno: escuro e mais grosso (escala, eixos, mira) ou fino na cor do tema (marcas e pontos,
+ * edge).
+ * @param {CanvasRenderingContext2D} g Contexto do canvas.
+ * @param {string} color Cor do traço.
+ * @param {number} w Espessura.
+ * @param {function(): void} path Monta o caminho.
+ * @param {string} [edge] Cor do contorno fino (sem ela, o contorno escuro).
+ */
 function stroke2(g, color, w, path, edge) {
   g.lineCap = "round"; g.lineJoin = "round";
   g.strokeStyle = edge || OV.dark; g.lineWidth = w + (edge ? 2 : 2.5); path(); g.stroke();
   g.strokeStyle = color; g.lineWidth = w; path(); g.stroke();
 }
+/**
+ * Desenha um círculo cheio ou só o anel, com contorno.
+ * @param {CanvasRenderingContext2D} g Contexto do canvas.
+ * @param {number} x Centro x (px da tela).
+ * @param {number} y Centro y (px da tela).
+ * @param {number} r Raio.
+ * @param {string} color Cor.
+ * @param {boolean} fill Cheio.
+ * @param {string} [edge] Cor do contorno fino.
+ */
 function circle(g, x, y, r, color, fill, edge) {
   if (fill) { g.fillStyle = edge || OV.dark; g.beginPath(); g.arc(x, y, r + (edge ? 1 : 1.5), 0, 2 * Math.PI); g.fill(); g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); }
   else stroke2(g, color, 2, () => { g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); }, edge);
 }
+/**
+ * Desenha uma etiqueta: texto num retângulo escuro de cantos arredondados.
+ * @param {CanvasRenderingContext2D} g Contexto do canvas.
+ * @param {string} text Texto.
+ * @param {number} x Centro x (px da tela).
+ * @param {number} y Centro y (px da tela).
+ * @param {string} color Cor do texto.
+ */
 function label(g, text, x, y, color) {
   g.font = "500 11px " + OV.mono; g.textAlign = "center"; g.textBaseline = "middle";
   const w = g.measureText(text).width + 10;
   g.fillStyle = OV.dark; g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, y - 9, w, 18, 4) : g.rect(x - w / 2, y - 9, w, 18); g.fill();
   g.fillStyle = color; g.fillText(text, x, y + 0.5);
 }
+/**
+ * Desenha as sobreposições: eixos (fortes na ferramenta Eixos), escala com a distância, trajetórias e pontos do
+ * quadro atual de todos os objetos (cada um na sua cor, o ativo por cima; com mais de um objeto, a letra da massa ou o
+ * nome do centro de massa; pontos fora do intervalo ou futuros na cor de borda do tema) e a mira âmbar com o círculo do
+ * alvo do rastreamento (só para marcar uma massa: o anel a distingue das marcas mesmo com uma massa de cor parecida).
+ * @param {CanvasRenderingContext2D} g Contexto do canvas.
+ * @param {{k: number, ox: number, oy: number}} T Escala da vista e deslocamento (px da tela).
+ */
 function drawOverlays(g, T) {
   const P = (p) => [p.x * T.k + T.ox, p.y * T.k + T.oy];
   const W = S.dispW, H = S.dispH, diag = Math.hypot(W, H);
@@ -213,5 +298,10 @@ function drawOverlays(g, T) {
     g.setLineDash([]);
   }
 }
+/**
+ * Casas decimais de um número digitado (no máximo 4), para mostrar valores com a mesma precisão.
+ * @param {*} s Texto digitado.
+ * @returns {number} Casas decimais.
+ */
 export const decOf = (s) => { const t = String(s).replace(",", "."); const i = t.indexOf("."); return i < 0 ? 0 : Math.min(4, t.length - i - 1); };
 window.addEventListener("resize", () => { if (S.frames.length) layout(); drawPlot(); });

@@ -1,11 +1,15 @@
-// Barra de quadros com o celular deitado: o trilho do vídeo inteiro, o trecho do intervalo de análise destacado,
-// duas alças em âmbar (início e fim do intervalo) e o indicador do quadro atual, também em âmbar.
-// Tocar ou arrastar no trilho muda o quadro. Arrastar uma alça (abaixo do trilho) muda o início ou o fim, sempre num
-// quadro inteiro (a alça gruda no quadro mais próximo), e mostra no vídeo o quadro em que ela está. Os botões
-// "Início no quadro atual" e "Fim no quadro atual" continuam no Parâmetros do Intervalo, para o ajuste fino com −1/+1.
-// Enquanto o dedo arrasta (no trilho ou numa alça), a imagem é a prévia do quadro-chave mais próximo (S.arrasto,
-// decodificador.js), que sai rápido mesmo em vídeos pesados; quando o dedo para (0,25 s parado) ou solta, vem o
-// quadro exato. O número do quadro é sempre o exato. Um toque sem arrastar vai direto ao quadro exato.
+/**
+ * @file Barra de quadros com o celular deitado: o trilho do vídeo inteiro, o trecho do intervalo de análise destacado,
+ * duas alças em âmbar (início e fim do intervalo) e o indicador do quadro atual, também em âmbar.
+ *
+ * Tocar ou arrastar no trilho muda o quadro. Arrastar uma alça (abaixo do trilho) muda o início ou o fim, sempre num
+ * quadro inteiro (a alça gruda no quadro mais próximo), e mostra no vídeo o quadro em que ela está. Os botões "Início no
+ * quadro atual" e "Fim no quadro atual" continuam no Parâmetros do Intervalo, para o ajuste fino com −1/+1. Enquanto o
+ * dedo arrasta (no trilho ou numa alça), a imagem é a prévia do quadro-chave mais próximo (S.arrasto, decodificador.js),
+ * que sai rápido mesmo em vídeos pesados; quando o dedo para (0,25 s parado) ou solta, vem o quadro exato. O número do
+ * quadro é sempre o exato. Um toque sem arrastar vai direto ao quadro exato. Teclado: setas mudam o quadro ou a alça em
+ * foco; Shift anda 10.
+ */
 
 import { persist } from "./analise.js";
 import { render } from "./desenho.js";
@@ -16,10 +20,28 @@ import { stopTrack } from "./rastreio/rastreador.js";
 import { $, clampF } from "./util.js";
 
 const bar = $("fbar"), trilho = $("fbarTrilho");
+/**
+ * Número de quadros do vídeo.
+ * @returns {number} Quantos quadros.
+ */
 const N = () => S.frames.length;
+/**
+ * Posição do quadro i na barra, de 0 (primeiro quadro) a 1 (último).
+ * @param {number} i Índice do quadro.
+ * @returns {number} Fração da largura do trilho.
+ */
 const frac = (i) => N() > 1 ? i / (N() - 1) : 0;
+/**
+ * Quadro inteiro mais próximo de uma posição x do trilho.
+ * @param {number} x Posição na tela (clientX).
+ * @returns {number} Índice do quadro.
+ */
 const quadroEm = (x) => { const r = trilho.getBoundingClientRect(); return Math.round(clampF((x - r.left) / r.width, 0, 1) * Math.max(0, N() - 1)); };
 
+/**
+ * Atualiza a barra: o trecho do intervalo, as duas alças e o indicador do quadro atual (variáveis CSS --ini,
+ * --fim e --cur) e os valores para leitores de tela.
+ */
 export function atualizarBarra() {
   if (!N()) return;
   bar.style.setProperty("--ini", frac(S.start));
@@ -31,32 +53,52 @@ export function atualizarBarra() {
   a(bar.querySelector("[data-alca=fim]"), S.end, `fim no quadro ${S.end}`);
 }
 
+/**
+ * Move a alça do início ou do fim do intervalo para o quadro i (o início nunca passa do fim, nem o fim do início)
+ * e mostra esse quadro no vídeo.
+ * @param {"ini"|"fim"} qual Qual alça.
+ * @param {number} i Índice do quadro.
+ */
 function mudarAlca(qual, i) {
   if (qual === "ini") S.start = Math.min(i, S.end);
   else S.end = Math.max(i, S.start);
   show(qual === "ini" ? S.start : S.end);
   atualizarBarra();
 }
+/**
+ * Ao soltar uma alça: guarda o intervalo (persist) e atualiza os painéis e o vídeo.
+ */
 function soltarAlca() { persist(); renderPanels(); render(); }
 
 // ---------- prévia durante o arrasto ----------
 const PARADO_MS = 250;
 let parado = 0;
-// o dedo mexeu: prévias até ele parar
+/**
+ * O dedo mexeu na barra: liga as prévias (S.arrasto) e reinicia o relógio de 0,25 s que, se o dedo ficar parado,
+ * pede o quadro exato.
+ */
 function mexeu() {
   S.arrasto = true;
   clearTimeout(parado);
   parado = setTimeout(pararArrasto, PARADO_MS);
 }
-// o dedo parou ou soltou: o quadro exato
+/**
+ * O dedo parou ou soltou: desliga as prévias e pede o quadro exato.
+ */
 function pararArrasto() {
   clearTimeout(parado);
   if (!S.arrasto) return;
   S.arrasto = false;
   show(S.cur);
 }
-// para a medição (medicao.js): o mesmo caminho do dedo na barra
+/**
+ * Arrasto programático, para a medição (medicao.js): o mesmo caminho do dedo na barra.
+ * @param {number} i Índice do quadro.
+ */
 export function arrastarPara(i) { mexeu(); if (i !== S.cur) { show(i); atualizarBarra(); } }
+/**
+ * Fim do arrasto programático da medição: o mesmo que soltar o dedo.
+ */
 export function soltarArrasto() { pararArrasto(); }
 
 // arrasto: sobre o trilho muda o quadro; abaixo dele, perto de uma alça, muda o início ou o fim
@@ -82,6 +124,10 @@ bar.addEventListener("pointermove", (e) => {
   if (arr.alca) { if (i !== (arr.alca === "ini" ? S.start : S.end)) { mexeu(); mudarAlca(arr.alca, i); } }
   else if (i !== S.cur) { mexeu(); show(i); atualizarBarra(); }
 });
+/**
+ * Fim do toque na barra: pede o quadro exato e, se arrastava uma alça, guarda o intervalo.
+ * @param {PointerEvent} e Evento pointerup ou pointercancel.
+ */
 function fim(e) {
   if (!arr || e.pointerId !== arr.id) return;
   const a = arr; arr = null;

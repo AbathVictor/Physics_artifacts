@@ -1,6 +1,15 @@
-// Ícones em SVG embutido (sem arquivos de fora): traço na cor do texto (currentColor), caixa de 24 × 24.
-// Usados pela gaveta ≡ e pela diagramação com o celular deitado.
+/**
+ * @file Ícones em SVG embutido (sem arquivos de fora): traço na cor do texto (currentColor), caixa de 24 × 24.
+ *
+ * Usados pela gaveta ≡ e pela diagramação com o celular deitado.
+ */
 
+/**
+ * Embrulha o desenho de um ícone na marca <svg> padrão (24 × 24, traço de 2 px na cor do texto, sem leitura
+ * por leitor de tela).
+ * @param {string} corpo Elementos SVG do desenho.
+ * @returns {string} O SVG completo, em texto.
+ */
 const svg = (corpo) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${corpo}</svg>`;
 
 export const IC = {

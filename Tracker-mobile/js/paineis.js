@@ -1,5 +1,7 @@
-// Painéis: linha de situação do vídeo (setSrc), liberar os controles, leitura do quadro atual, informações da
-// escala e atualização dos painéis dos passos (renderPanels).
+/**
+ * @file Painéis: linha de situação do vídeo (setSrc), liberar os controles, leitura do quadro atual, volta ao estado
+ * inicial ao abrir outro vídeo, informações da escala e atualização dos painéis dos passos (renderPanels).
+ */
 
 import { UA, dtMedio, escalaReal, inInterval, tempo } from "./analise.js";
 import { atualizarBarra } from "./barra.js";
@@ -14,7 +16,17 @@ import { ativoEhMassa, objAtivo, objetosIniciais } from "./objetos.js";
 import { stopTrack } from "./rastreio/rastreador.js";
 import { $, dist, fmt, kv, parseNum } from "./util.js";
 
+/**
+ * Escreve a linha de situação do vídeo (abaixo do botão Escolher vídeo), em vermelho se for um erro.
+ * @param {string} msg Texto.
+ * @param {boolean} [bad] É um erro.
+ */
 export function setSrc(msg, bad) { const el = $("srcLine"); el.textContent = msg; el.classList.toggle("bad", !!bad); }
+/**
+ * Liga ou desliga os controles de navegação, a barra de quadros e as ferramentas (desligados enquanto não há
+ * vídeo), e ajusta o tamanho do controle deslizante.
+ * @param {boolean} on Ligar.
+ */
 export function setControls(on) {
   ["bM10", "bM1", "bPlay", "bP1", "bP10", "seek", "bInt", "lPlay", "lInicio", "lM1", "lP1"].forEach((id) => { $(id).disabled = !on; });
   $("fbar").classList.toggle("off", !on);
@@ -23,6 +35,10 @@ export function setControls(on) {
   $("seek").max = Math.max(0, n - 1);
   $("rTot").textContent = n ? String(n - 1) : "—";
 }
+/**
+ * Atualiza a leitura do quadro atual: número, tempo (como no Tracker, analise.js), etiqueta (fora do intervalo,
+ * ponto marcado ou posição calculada), os botões Marcar ponto e Apagar ponto e a barra de quadros.
+ */
 export function updateReadout() {
   const f = S.frames[S.cur]; if (!f) return;
   $("rN").textContent = String(S.cur);
@@ -38,6 +54,10 @@ export function updateReadout() {
   if (S.mode === "marcar") renderHint();
   atualizarBarra();
 }
+/**
+ * Volta ao estado inicial antes de abrir outro vídeo: para o rastreamento e o play, libera os quadros guardados e
+ * as prévias, fecha o decodificador, zera o índice, os contadores e os objetos, e desliga os controles.
+ */
 export function resetVideo() {
   stopTrack(); stopPlay();
   for (const v of S.low.values()) { try { v.bmp.close(); } catch {} }
@@ -59,6 +79,10 @@ export function resetVideo() {
   $("restoreLine").hidden = true;
   renderData();
 }
+/**
+ * Mostra a situação da escala: definida (com o tamanho de 1 px) ou genérica (1 px = 1 u.a., como no Tracker,
+ * com a dica do que falta).
+ */
 export function renderScaleInfo() {
   const k = escalaReal(), d = dist(S.scale.p1, S.scale.p2);
   const st = $("stScale");
@@ -72,7 +96,16 @@ export function renderScaleInfo() {
       + `Enquanto isso, as posições ficam em pixels: 1 px = 1 ${UA} (unidade arbitrária), como no Tracker.`;
   }
 }
+/**
+ * Casas decimais para mostrar um valor com cerca de 3 algarismos significativos (de 0 a 8).
+ * @param {number} v Valor.
+ * @returns {number} Casas decimais.
+ */
 const sigDec = (v) => Math.max(0, Math.min(8, 2 - Math.floor(Math.log10(Math.abs(v)))));
+/**
+ * Atualiza os painéis dos passos a partir do estado: intervalo (com o tempo por quadro), escala, eixos, objetos e
+ * massas, marcação, rastreamento, gráfico e formato da tabela; por fim os dados (renderData).
+ */
 export function renderPanels() {
   if (!S.frames.length) return;
   // intervalo

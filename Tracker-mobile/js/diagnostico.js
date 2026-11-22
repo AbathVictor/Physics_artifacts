@@ -1,10 +1,18 @@
-// Diagnóstico do aparelho: dados do vídeo, do decodificador e do navegador, para copiar e enviar.
+/**
+ * @file Diagnóstico do aparelho: dados do vídeo, do decodificador, da leitura do arquivo e do navegador, e o resultado
+ * de "Medir este vídeo" (medicao.js), para copiar e enviar ao autor.
+ */
 
 import { S } from "./estado.js";
 import { $, fmt, fmtBytes, kv, toast } from "./util.js";
 import { friendlyCodec } from "./video/conteiner.js";
 import { leitura } from "./video/leitor.js";
 
+/**
+ * Monta as linhas do diagnóstico (arquivo, formato, resolução, quadros, hardware, tempos, grupos, taxa de bits,
+ * leitura do arquivo, memória e limites, medição, contadores de erro, sistema, navegador e tela).
+ * @returns {Array<[string, string]>} Pares [rótulo, valor].
+ */
 export function diagPairs() {
   const T = S.timing, vt = T ? S.track : null;
   const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
@@ -34,17 +42,28 @@ export function diagPairs() {
     ["tela", `${screen.width} × ${screen.height} · dpr ${fmt(window.devicePixelRatio || 1, 2)}`],
   ];
 }
-// tamanho dos grupos (de um quadro-chave ao próximo): decodificar um quadro exige decodificar o grupo até ele
+/**
+ * Resume o tamanho dos grupos (de um quadro-chave ao próximo): decodificar um quadro exige decodificar o grupo até
+ * ele, então grupos longos deixam os saltos lentos.
+ * @returns {string} Média, máximo e quantidade de grupos.
+ */
 function grupos() {
   const t = [];
   for (let d = 0; d < S.gopStart.length; d++) if (S.gopStart[d] === d) t.push(S.gopEnd[d] - d + 1);
   return `média ${fmt(t.reduce((a, b) => a + b, 0) / t.length, 1)} · máximo ${Math.max(...t)} · ${t.length} grupos`;
 }
+/**
+ * Calcula a taxa de bits média do vídeo.
+ * @returns {string} Em Mbit/s.
+ */
 function taxa() {
   const bytes = S.samples.reduce((a, s) => a + s.size, 0), dur = S.timing.dur + 1 / S.timing.fps;
   return `${fmt(bytes * 8 / dur / 1e6, 1)} Mbit/s`;
 }
-// resultado de "Medir este vídeo" (medicao.js), quando já foi feito
+/**
+ * Monta as linhas do resultado de "Medir este vídeo", quando já foi feito.
+ * @returns {Array<[string, string]>} Pares [rótulo, valor] (vazio sem medição).
+ */
 function medicaoPairs() {
   const M = S.medicao;
   if (!M) return [];
@@ -60,7 +79,10 @@ function medicaoPairs() {
   ];
 }
 $("diag").addEventListener("toggle", () => { if ($("diag").open) kv($("kvDiag"), diagPairs()); });
-// copiar o diagnóstico (botão do bloco Diagnóstico e gaveta ≡)
+/**
+ * Copia o diagnóstico em texto (botão do bloco Diagnóstico e gaveta ≡); sem acesso à área de transferência,
+ * mostra o texto selecionado para o aluno copiar pelo menu do sistema.
+ */
 export function copiarDiagnostico() {
   const txt = "Videoanálise Móvel · diagnóstico\n" + diagPairs().map(([k, v]) => `${k}: ${v}`).join("\n") + "\nuser agent: " + navigator.userAgent;
   kv($("kvDiag"), diagPairs());

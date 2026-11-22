@@ -1,12 +1,23 @@
-// Previsão da posição do objeto no próximo quadro (aceleração ou velocidade constante), como no Tracker.
+/**
+ * @file Previsão da posição do objeto no próximo quadro, como no autotracker do Tracker (aceleração ou velocidade
+ * constante). Função pura (recebe as dimensões da imagem), testada no Node.
+ */
 
 import { clampF } from "../util.js";
 
-// previsão da posição no instante tk, como no autotracker do Tracker, a partir dos até 4 últimos pontos (hist, do mais
-// antigo para o mais recente, cada um com posição p e tempo t). Em cada eixo: aceleração constante (parábola pelos três
-// últimos pontos) quando a aceleração é consistente; senão, velocidade constante quando a velocidade é consistente;
-// senão, fica parado. Usa o tempo real de cada quadro, o que vale para vídeos com taxa variável. W e H: tamanho da
-// imagem exibida, para manter a previsão dentro dela.
+/**
+ * Prevê a posição no instante tk a partir dos até 4 últimos pontos, como o autotracker do Tracker.
+ *
+ * Em cada eixo: aceleração constante (parábola pelos três últimos pontos) quando a aceleração é consistente; senão,
+ * velocidade constante quando a velocidade é consistente; senão, fica parado. Usa o tempo de cada ponto (desde
+ * 21/11/2026, o tempo como no Tracker: Δt médio do intervalo, analise.js).
+ * @param {Array<{p: {x: number, y: number}, t: number}>} hist Pontos, do mais antigo para o mais recente, com posição
+ * p (pixels do vídeo) e tempo t (s).
+ * @param {number} tk Instante da previsão (s).
+ * @param {number} W Largura da imagem exibida (pixels), para a previsão ficar dentro dela.
+ * @param {number} H Altura da imagem exibida (pixels).
+ * @returns {{x: number, y: number}} A posição prevista, em pixels do vídeo.
+ */
 export function predictNext(hist, tk, W, H) {
   const n = hist.length, c = n - 1;
   if (n < 2) return { x: hist[c].p.x, y: hist[c].p.y };

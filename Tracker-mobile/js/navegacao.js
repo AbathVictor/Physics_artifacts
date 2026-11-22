@@ -1,4 +1,7 @@
-// Navegação e reprodução: ir para um quadro, botões de avanço, play em velocidade real, intervalo e teclado.
+/**
+ * @file Navegação e reprodução: ir para um quadro (show), botões de avanço que repetem enquanto pressionados, play
+ * (todos os quadros, no máximo em velocidade real), reprodução do intervalo e teclado.
+ */
 
 import { clampI } from "./analise.js";
 import { atualizarBarra } from "./barra.js";
@@ -11,6 +14,12 @@ import { IC } from "./icones.js";
 import { $ } from "./util.js";
 import { busyUI, pump } from "./video/decodificador.js";
 
+/**
+ * Vai ao quadro i: guarda como atual (na ferramenta Marcar, a mira vai ao ponto já marcado), atualiza tudo o que
+ * acompanha o quadro e pede a decodificação.
+ * @param {number} i Índice do quadro (limitado ao vídeo).
+ * @returns {Promise<void>}
+ */
 export async function show(i) {
   if (!S.frames.length) return;
   i = clampI(i, 0, S.frames.length - 1);
@@ -20,19 +29,35 @@ export async function show(i) {
   quadroMudou();
   pump();
 }
-// tudo o que acompanha o quadro atual: o vídeo com as marcas, a linha da tabela (destacada e à vista), o ponto do
-// gráfico e o indicador da barra de quadros. O play passa por aqui também (antes só redesenhava o vídeo, e o gráfico
-// e a tabela ficavam parados até o play parar)
+/**
+ * Atualiza tudo o que acompanha o quadro atual: o vídeo com as marcas, a linha da tabela (destacada e à vista), o
+ * ponto do gráfico e o indicador da barra de quadros. O play passa por aqui também (antes só redesenhava o vídeo, e o
+ * gráfico e a tabela ficavam parados até o play parar).
+ */
 function quadroMudou() { render(); renderTableCursor(); atualizarBarra(); busyUI(); }
+/**
+ * Anda n quadros (botões −10, −1, +1, +10 e setas), parando o rastreamento e o play.
+ * @param {number} n Quantos quadros (negativo volta).
+ */
 const step = (n) => { stopTrack(); stopPlay(); show(S.cur + n); };
 let raf = 0;
+/**
+ * Quadro em que o play para: o fim do intervalo, ou o fim do vídeo se o quadro atual já passou do intervalo.
+ * @returns {number} Índice do quadro.
+ */
 function playEnd() { return S.cur <= S.end ? S.end : S.frames.length - 1; }
-// ícone dos dois botões de play (em pé e deitado)
+/**
+ * Troca o ícone e o rótulo dos dois botões de play (em pé e deitado) entre Reproduzir e Pausar.
+ */
 function iconePlay() {
   $("icPlay").hidden = S.playing; $("icPause").hidden = !S.playing;
   for (const id of ["bPlay", "lPlay"]) $(id).setAttribute("aria-label", S.playing ? "Pausar" : "Reproduzir");
   $("lPlay").innerHTML = S.playing ? IC.pausa : IC.play;
 }
+/**
+ * Começa o play do quadro atual (no fim, volta ao início do intervalo) até playEnd(); sincroniza a tabela e o
+ * gráfico já no começo.
+ */
 export function startPlay() {
   if (!S.frames.length || S.playing || S.tracking) return;
   let endI = playEnd();
@@ -45,6 +70,11 @@ export function startPlay() {
 }
 // reprodução automática do intervalo: vai ao quadro de início, espera o quadro ficar pronto e toca até o fim
 let intRun = 0;
+/**
+ * Reproduz o intervalo: vai ao quadro de início, espera ele ficar pronto (até 5 s) e toca até o fim; com
+ * "Repetir", recomeça (tick).
+ * @returns {Promise<void>}
+ */
 export async function playInterval() {
   if (!S.frames.length || S.end <= S.start) return;
   stopPlay();
@@ -59,6 +89,9 @@ export async function playInterval() {
   startPlay();
   S.intervalPlay = true;
 }
+/**
+ * Para o play (e cancela uma reprodução do intervalo que ainda esperava o quadro de início).
+ */
 export function stopPlay() {
   intRun++;
   S.intervalPlay = false;
@@ -73,6 +106,15 @@ export function stopPlay() {
 // quadro, sem correr para recuperar o atraso. Com mais quadros por segundo que a tela (câmera lenta), também
 // desacelera: um quadro por quadro de tela.
 const ATRASO_MS = 40;
+/**
+ * Avança o play um quadro por vez, no máximo em velocidade real (decisão do autor, 21/11/2026: o intuito é avaliar
+ * o movimento, não precisa ser em tempo real).
+ *
+ * O próximo quadro aparece quando chega a hora dele e ele já está decodificado; se o celular não deu conta, o play
+ * espera por ele (desacelera) e o relógio recomeça desse quadro, sem correr para recuperar o atraso. Com mais quadros por
+ * segundo que a tela (câmera lenta), também desacelera: um quadro por quadro de tela.
+ * @param {DOMHighResTimeStamp} now Instante do quadro de tela (requestAnimationFrame).
+ */
 export function tick(now) {
   if (!S.playing) return;
   const i = S.cur + 1;
@@ -94,7 +136,12 @@ export function tick(now) {
   }
   raf = requestAnimationFrame(tick);
 }
-// botão que repete enquanto está pressionado (−1, +1, −10, +10)
+/**
+ * Faz um botão de avanço repetir enquanto está pressionado (só ±1, a cada 60 ms depois de 0,38 s, e só quando o
+ * quadro atual já apareceu); também responde a Enter e espaço.
+ * @param {string} id Id do botão.
+ * @param {number} n Quantos quadros anda por toque.
+ */
 export function holdable(id, n) {
   const b = $(id); let t1 = null, t2 = null;
   const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };

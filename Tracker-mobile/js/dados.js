@@ -1,5 +1,8 @@
-// Dados: tabela t, x, y e gráfico do objeto ativo; copiar tabela e exportar CSV com todos os objetos, no formato
-// do Tracker (formatos Excel e internacional).
+/**
+ * @file Dados: tabela t, x, y e gráfico do objeto ativo (como no Tracker, uma tabela por objeto); copiar tabela e
+ * exportar CSV com todos os objetos, no formato do Tracker (formatos Excel e internacional), com as linhas de massas,
+ * unidades e calibração antes dos dados.
+ */
 
 import { inInterval, persist, phys, tempo, unidade, unitPerPx } from "./analise.js";
 import { decOf } from "./desenho.js";
@@ -10,14 +13,28 @@ import { avisoFaltam, cmsDe, objAtivo, pontosDe, sistemaCm } from "./objetos.js"
 import { renderPanels } from "./paineis.js";
 import { $, esc, fmt, parseNum, toast } from "./util.js";
 
-// linhas de um objeto dentro do intervalo de análise, com t contado a partir do início
+/**
+ * Linhas de um objeto dentro do intervalo de análise: quadro, tempo (como no Tracker, analise.js) e posição em
+ * unidades físicas.
+ * @param {object|null} o O objeto.
+ * @returns {Array<{i: number, t: number, x: number, y: number}>} As linhas, em ordem de quadro.
+ */
 function rows(o) {
   if (!o) return [];
   const pts = pontosDe(o);
   // tempo como no Tracker: Δt médio do intervalo (analise.js)
   return [...pts.keys()].sort((a, b) => a - b).filter(inInterval).map((i) => { const p = phys(pts.get(i)); return { i, t: tempo(i), x: p ? p.x : NaN, y: p ? p.y : NaN }; });
 }
+/**
+ * Casas decimais das posições conforme a escala (mais casas para escalas finas).
+ * @param {number} extra Casas a mais.
+ * @returns {number} Casas decimais (de 0 a 8).
+ */
 function posDec(extra) { const k = unitPerPx(); return k > 0 ? Math.max(0, Math.min(8, Math.ceil(-Math.log10(k)) + extra)) : 3; }
+/**
+ * Atualiza a tabela e o gráfico do objeto ativo, o aviso de pontos fora do intervalo, a situação do centro de
+ * massa, os botões de copiar e exportar e a dica do Python (skiprows); avisa a coluna das etapas (evento va:paineis).
+ */
 export function renderData() {
   const o = objAtivo(), n = S.marks.size, R = S.frames.length ? rows(o) : [], out = n - R.length;
   $("stMarks").textContent = `${R.length} ponto${R.length === 1 ? "" : "s"}`;
@@ -46,8 +63,10 @@ export function renderData() {
   // a coluna das etapas (celular deitado) atualiza os selos: renderData roda depois de toda mudança de dados
   document.dispatchEvent(new Event("va:paineis"));
 }
-// a linha do quadro atual fica destacada e à vista: a tabela rola dentro do quadro dela (nunca a página), só o
-// necessário para a linha aparecer abaixo do cabeçalho fixo; também durante o play
+/**
+ * Destaca a linha do quadro atual e a mantém à vista: a tabela rola dentro do quadro dela (nunca a página), só o
+ * necessário para a linha aparecer abaixo do cabeçalho fixo; também durante o play. Redesenha o gráfico.
+ */
 export function renderTableCursor() {
   const tb = $("table");
   tb.querySelectorAll("tr.cur").forEach((r) => r.classList.remove("cur"));
@@ -65,8 +84,17 @@ export function renderTableCursor() {
   drawPlot();
 }
 $("table").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-i]"); if (tr) { stopPlay(); show(Number(tr.dataset.i)); } });
+/**
+ * Passo "redondo" (1, 2, 5 ou 10 vezes uma potência de 10) para as marcas dos eixos do gráfico.
+ * @param {number} raw Passo aproximado.
+ * @returns {number} O passo redondo.
+ */
 function niceStep(raw) { const p = 10 ** Math.floor(Math.log10(raw)), r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; }
 let plotMap = null;
+/**
+ * Desenha o gráfico y(t) ou x(t) do objeto ativo: grade, números dos eixos, linha e pontos (os futuros na cor de
+ * borda) e o anel âmbar no ponto do quadro atual; guarda a escala para o toque no gráfico.
+ */
 export function drawPlot() {
   const c = $("plot"), g = c.getContext("2d");
   const r = c.getBoundingClientRect(), k = Math.min(3, window.devicePixelRatio || 1);
@@ -114,7 +142,10 @@ export function drawPlot() {
   }
   plotMap = { R, X };
 }
-// tocar no gráfico leva ao quadro do ponto mais perto (na horizontal) do toque
+/**
+ * Vai ao quadro do ponto do gráfico mais perto (na horizontal) de um toque.
+ * @param {number} clientX x do toque na tela.
+ */
 export function irAoPontoDoGrafico(clientX) {
   if (!plotMap) return;
   const r = $("plot").getBoundingClientRect(), x = clientX - r.left;
@@ -125,32 +156,59 @@ export function irAoPontoDoGrafico(clientX) {
 // na tela cheia, o toque no gráfico é tratado pela janela (janela.js), que espera para distinguir o toque duplo
 $("plot").addEventListener("click", (e) => { if (!document.body.classList.contains("pais-c")) irAoPontoDoGrafico(e.clientX); });
 
-// tabela para copiar e para o arquivo: mesma estrutura do Tracker, com as massas e as unidades antes.
-// Com um objeto só, uma linha com o nome e t, x, y. Com vários, como o Tracker exporta várias trilhas: a linha
-// "#multi:", a linha dos nomes (cada nome seguido de um separador por coluna) e t, x, y, x, y…; o quadro em que
-// um objeto não tem ponto fica com as células vazias.
+/**
+ * Objetos com pontos no intervalo, com as linhas de cada um, para copiar e exportar.
+ *
+ * Mesma estrutura do Tracker, com as massas e as unidades antes. Com um objeto só, uma linha com o nome e t, x, y. Com
+ * vários, como o Tracker exporta várias trilhas: a linha "#multi:", a linha dos nomes (cada nome seguido de um separador
+ * por coluna) e t, x, y, x, y…; o quadro em que um objeto não tem ponto fica com as células vazias.
+ * @returns {Array<{o: object, R: Array<object>}>} Objetos e linhas.
+ */
 const exportaveis = () => S.objs.map((o) => ({ o, R: rows(o) })).filter((e) => e.R.length);
+/**
+ * Separador de colunas e formatação dos números de cada formato.
+ * @param {"excel"|"intl"|"tsv"} kind Excel e Planilhas (; e vírgula decimal), internacional (, e ponto) ou tabulação.
+ * @returns {{delim: string, num: function(number, number): string}} O separador e a função que formata um número.
+ */
 function formato(kind) {
   const delim = kind === "intl" ? "," : kind === "tsv" ? "\t" : ";";
   const dec = kind === "intl" ? "." : ",";
   return { delim, num: (v, d) => Number.isFinite(v) ? v.toFixed(d).replace(".", dec) : "" };
 }
+/**
+ * Texto da massa para o cabeçalho: "(0,250 ± 0,001) kg", "250 g" ou "não informada".
+ * @param {object} m A massa.
+ * @param {function(number, number): string} num Formata um número.
+ * @returns {string} O texto.
+ */
 function massaTxt(m, num) {
   const mv = parseNum(m.massa.val), ms = parseNum(m.massa.sig);
   const md = Math.max(decOf(m.massa.val), Number.isFinite(ms) ? decOf(m.massa.sig) : 0);
   return mv > 0 ? (ms >= 0 ? `(${num(mv, md)} ± ${num(ms, md)}) ${S.massUnit}` : `${num(mv, md)} ${S.massUnit}`) : "não informada";
 }
-// Calibração, com o que o .trk do Tracker guarda no sistema de coordenadas da imagem (ImageCoordSystem: xorigin,
-// yorigin, angle, xscale): origem dos eixos em pixels da imagem (x para a direita e y para baixo, a partir do canto
-// de cima à esquerda), ângulo do eixo x no sentido anti-horário (em graus e em radianos, como no .trk) e escala em
-// pixels por unidade (sem escala, 1 px por u.a.). Pedido do autor em 21/11/2026, depois de comparar uma trajetória
-// com a do Tracker: sem isso, era preciso adivinhar a origem e o ângulo. Sem o separador de colunas na linha (no
-// formato internacional, nenhuma vírgula), para as planilhas e o Laboratório de Oscilações a lerem como texto.
+/**
+ * Linha de calibração do CSV, com o que o .trk do Tracker guarda no sistema de coordenadas da imagem
+ * (ImageCoordSystem: xorigin, yorigin, angle, xscale): origem dos eixos em pixels da imagem (x para a direita e y para
+ * baixo, a partir do canto de cima à esquerda), ângulo do eixo x no sentido anti-horário (em graus e em radianos, como
+ * no .trk) e escala em pixels por unidade (sem escala, 1 px por u.a.).
+ *
+ * Pedido do autor em 21/11/2026, depois de comparar uma trajetória com a do Tracker: sem isso, era preciso adivinhar a
+ * origem e o ângulo. Sem o separador de colunas na linha (no formato internacional, nenhuma vírgula), para as planilhas
+ * e o Laboratório de Oscilações a lerem como texto.
+ * @param {function(number, number): string} num Formata um número.
+ * @returns {string} A linha "calibração: …".
+ */
 function calibracaoTxt(num) {
   const a = S.axes.ang || 0;
   return `calibração: origem x0 = ${num(S.axes.o.x, 2)} px · y0 = ${num(S.axes.o.y, 2)} px · ângulo ${num(a * 180 / Math.PI, 2)}° (${num(a, 6)} rad) · escala ${num(1 / unitPerPx(), 4)} px por ${unidade()}`;
 }
-// linhas antes dos dados (a última é a dos nomes das colunas)
+/**
+ * Linhas antes dos dados: massas (e o sistema de cada centro de massa), unidades, calibração, "#multi:" (vários
+ * objetos), nomes e, por último, a dos nomes das colunas.
+ * @param {Array<object>} exp Objetos exportáveis.
+ * @param {"excel"|"intl"|"tsv"} [kind="excel"] Formato.
+ * @returns {string[]} As linhas.
+ */
 function cabecalho(exp, kind = "excel") {
   const { delim, num } = formato(kind), u = unidade();
   if (exp.length === 1) {
@@ -170,6 +228,11 @@ function cabecalho(exp, kind = "excel") {
   L.push("t" + delim + exp.map(() => "x" + delim + "y" + delim).join(""));
   return L;
 }
+/**
+ * Monta o texto da tabela para copiar ou exportar, com o cabeçalho e uma linha por quadro (tempo como no Tracker).
+ * @param {"excel"|"intl"|"tsv"} kind Formato.
+ * @returns {string} O texto, com fim de linha CRLF.
+ */
 function exportText(kind) {
   const exp = exportaveis(), { delim, num } = formato(kind), pd = posDec(2);
   if (!exp.length) return "";
@@ -186,10 +249,20 @@ function exportText(kind) {
   }
   return lines.join("\r\n") + "\r\n";
 }
+/**
+ * Nome-base do arquivo exportado: o do vídeo sem extensão e com só letras, números, "_" e "-" (até 60).
+ * @returns {string} O nome-base.
+ */
 function baseName() { return S.isSample ? "exemplo" : S.file.name.replace(/\.[^.]+$/, "").replace(/[^\w\-]+/g, "_").slice(0, 60) || "video"; }
-// há dados para copiar ou exportar (usado também pela gaveta ≡)
+/**
+ * Diz se há dados para copiar ou exportar (usado também pela gaveta ≡).
+ * @returns {boolean} Há dados.
+ */
 export const temDados = () => S.frames.length > 0 && exportaveis().length > 0;
-// copiar a tabela no formato escolhido no passo 7 (botão Copiar tabela e gaveta ≡)
+/**
+ * Copia a tabela no formato escolhido no passo 7 (botão Copiar tabela e gaveta ≡); sem acesso à área de
+ * transferência, mostra a tabela selecionada para copiar pelo menu do sistema.
+ */
 export function copiarTabela() {
   if (!temDados()) return;
   const txt = exportText(S.fmt === "intl" ? "intl" : "tsv"), fb = $("copyFallback");
@@ -197,7 +270,11 @@ export function copiarTabela() {
   try { navigator.clipboard.writeText(txt).then(() => { fb.hidden = true; toast("Tabela copiada"); }, fallback); } catch { fallback(); }
 }
 $("copyTable").addEventListener("click", copiarTabela);
-// exportar o CSV: kind "excel" (Excel e Planilhas Google) ou "intl" (Python); sem kind, o formato escolhido no passo 7
+/**
+ * Exporta o CSV (com a marca UTF-8 no começo no formato Excel, que só reconhece acentos e "±" com ela).
+ * @param {"excel"|"intl"} [kind] Formato; sem ele, o escolhido no passo 7.
+ * @returns {Promise<void>}
+ */
 export async function exportarCsv(kind) {
   if (!S.dl || !temDados()) return;
   kind = kind || (S.fmt === "intl" ? "intl" : "excel");

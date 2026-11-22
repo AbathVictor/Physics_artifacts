@@ -1,6 +1,9 @@
-// Interface dos objetos: fileira de botões sob os controles do vídeo (escolher o objeto ativo, criar massa ou centro
-// de massa), escolha das massas do centro de massa ativo logo abaixo dela, lista das massas no passo 5 (cor, valor,
-// incerteza, excluir), unidade das massas e situação de cada centro de massa.
+/**
+ * @file Interface dos objetos: fileira de botões (escolher o objeto ativo, criar massa ou centro de massa), escolha das
+ * massas do centro de massa ativo, lista das massas no passo 5 (cor, valor, incerteza, excluir), unidade das massas e
+ * situação de cada centro de massa. Com o celular deitado, a fileira e a escolha ficam na gaveta dos objetos
+ * (paisagem.js).
+ */
 
 import { persist, predict } from "./analise.js";
 import { renderData } from "./dados.js";
@@ -13,8 +16,18 @@ import { renderPanels } from "./paineis.js";
 import { stopTrack, trackMsg } from "./rastreio/rastreador.js";
 import { $, esc, fmt, parseNum, toast } from "./util.js";
 
+/**
+ * Bolinha na cor do objeto.
+ * @param {string} cor Cor (#rrggbb).
+ * @returns {string} HTML da bolinha.
+ */
 const bolinha = (cor) => `<i class="dot" style="background:${cor}"></i>`;
 
+/**
+ * Monta a fileira dos objetos (com + massa e + centro de massa quando cabem), a cor do objeto ativo (variável CSS
+ * --obj) e, para um centro de massa ativo, a escolha das massas que o formam (como o CenterOfMassInspector do Tracker).
+ * Com o celular deitado, os botões ficam compactos: o trecho "massa " some pelo CSS.
+ */
 export function renderObjs() {
   const on = S.frames.length ? "" : " disabled", nm = massasDe(S.objs).length, nc = cmsDe(S.objs).length;
   // com o celular deitado, os botões ficam compactos (bolinha e letra; "cm A"): o trecho "massa " some pelo CSS
@@ -37,7 +50,11 @@ export function renderObjs() {
   }
 }
 
-// situação de um centro de massa, em uma linha
+/**
+ * Situação de um centro de massa, em uma linha: sem massas, massas faltantes, massas iguais ou massa total.
+ * @param {object} cm O centro de massa.
+ * @returns {{bad: boolean, txt: string}} Se é um problema e o texto.
+ */
 export function situacaoCm(cm) {
   const s = sistemaCm(cm, S.objs), nomes = s.membros.map((m) => m.nome).join(" + ");
   if (!s.membros.length) return { bad: true, txt: `${cm.nome}: escolha as massas que o formam (toque no ${cm.nome}, abaixo dos controles do vídeo).` };
@@ -48,6 +65,10 @@ export function situacaoCm(cm) {
 
 // lista do passo 5: só é refeita quando muda a estrutura (para não tirar o foco de um campo enquanto se digita)
 let estrutura = "";
+/**
+ * Atualiza a lista do passo 5 (refeita só quando muda a estrutura, para não tirar o foco de um campo enquanto se
+ * digita), a situação das massas (informadas, 1 u.a. cada, incompletas) e uma linha por centro de massa.
+ */
 export function renderMassas() {
   const ms = massasDe(S.objs);
   const sig = ms.map((m) => m.letra).join("");
@@ -83,7 +104,11 @@ export function renderMassas() {
   $("cmResumo").innerHTML = cmsDe(S.objs).map((c) => { const r = situacaoCm(c); return `<p class="status${r.bad ? " bad" : ""}">${esc(r.txt)}</p>`; }).join("");
 }
 
-// muda o objeto ativo; no Marcar, a mira vai para o ponto dele neste quadro (ou para a posição prevista)
+/**
+ * Muda o objeto ativo; na ferramenta Marcar, a mira vai para o ponto dele neste quadro (ou para a posição
+ * prevista).
+ * @param {number} i Índice do objeto em S.objs.
+ */
 export function ativar(i) {
   if (!S.objs[i]) return;
   stopTrack(); stopPlay(); trackMsg("");
@@ -94,6 +119,9 @@ export function ativar(i) {
   }
   persist(); renderPanels(); renderHint(); render();
 }
+/**
+ * Cria a próxima massa (até 10), na ordem das letras e antes dos centros de massa, e a deixa ativa.
+ */
 function adicionarMassa() {
   const m = novaMassa(S.objs);
   if (!m) { toast(`O limite é de ${MAX_MASSAS} massas.`); return; }
@@ -104,7 +132,10 @@ function adicionarMassa() {
   ativar(i);
   toast(`${m.nome} criada: toque nela no vídeo para marcar.`);
 }
-// centro de massa novo: vazio, como no Tracker; as massas são escolhidas logo abaixo dos botões dos objetos
+/**
+ * Cria um centro de massa novo (até 10, com pelo menos 2 massas), vazio como no Tracker, e o deixa ativo; as
+ * massas são escolhidas logo abaixo dos botões dos objetos.
+ */
 function adicionarCm() {
   if (massasDe(S.objs).length < 2) return;
   const c = novoCm(S.objs);
@@ -115,6 +146,10 @@ function adicionarCm() {
   ativar(i);
   toast(`${c.nome} criado: toque nas massas que o formam.`);
 }
+/**
+ * Exclui um objeto; uma massa excluída sai também dos centros de massa que a usavam.
+ * @param {number} i Índice do objeto em S.objs.
+ */
 function excluir(i) {
   const o = S.objs[i]; if (!o) return;
   stopTrack(); stopPlay();
@@ -124,7 +159,13 @@ function excluir(i) {
   persist(); renderPanels(); renderHint(); render();
   toast(`${o.nome} excluíd${o.tipo === "cm" ? "o" : "a"}`);
 }
-// confirmação em dois toques (como Apagar todas as marcações)
+/**
+ * Confirmação em dois toques (como Apagar as marcações): o primeiro toque troca o texto do botão por 3,5 s; o
+ * segundo, nesse tempo, faz a ação.
+ * @param {HTMLElement} b O botão.
+ * @param {string} texto Texto da confirmação.
+ * @param {function(): void} acao A ação.
+ */
 function armar(b, texto, acao) {
   if (!b.classList.contains("arm")) {
     b._orig = b.textContent;
@@ -154,8 +195,17 @@ $("delCm").addEventListener("click", () => {
   const cm = objAtivo(); if (!cm || cm.tipo !== "cm") return;
   armar($("delCm"), "Toque de novo para excluir", () => excluir(S.ativo));
 });
-// cor da massa, escolhida pelo usuário (o seletor de cor do sistema): muda na hora e é salva ao fechar o seletor
+/**
+ * A massa da linha da lista do passo 5 em que está um elemento.
+ * @param {HTMLElement} el Elemento dentro da linha.
+ * @returns {object|null} A massa, ou null.
+ */
 const massaDaLinha = (el) => { const row = el.closest("[data-l]"); return row ? massasDe(S.objs).find((o) => o.letra === row.dataset.l) : null; };
+/**
+ * Troca a cor de uma massa pelo seletor de cor do sistema: muda na hora e é salva ao fechar o seletor.
+ * @param {Event} e Evento input ou change do seletor.
+ * @param {boolean} salvar Guardar (persist).
+ */
 function mudarCor(e, salvar) {
   const m = massaDaLinha(e.target); if (!m || !/^#[0-9a-f]{6}$/i.test(e.target.value)) return;
   m.cor = e.target.value.toLowerCase();

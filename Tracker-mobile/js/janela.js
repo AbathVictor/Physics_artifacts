@@ -1,14 +1,16 @@
-// Janela do gráfico na tela cheia (variação C do celular deitado). O gráfico flutua sobre o vídeo numa janela que
-// o aluno arrasta por qualquer ponto, redimensiona puxando as bordas e os cantos, e maximiza com um toque duplo
-// (outro toque duplo volta ao tamanho e ao lugar de antes). Maximizada, ela ocupa a área do vídeo que os controles
-// flutuantes não cobrem: da coluna de etapas até a borda direita, do topo até a barra de quadros. Play, ±1 e a
-// barra de quadros continuam funcionando; Marcar ponto e Rastrear somem enquanto isso, porque o vídeo fica escondido.
-//
-// Um toque sem arrastar no gráfico leva ao quadro do ponto mais perto, como fora da tela cheia, mas só depois de
-// TOQUE_DUPLO_MS: se vier um segundo toque nesse tempo, é um toque duplo e o quadro não muda.
-// O lugar, o tamanho e se está recolhida ficam guardados em localStorage ("va-grafico"), em frações da tela, fora do
-// salvamento por vídeo. Ao entrar na tela cheia, a janela volta onde estava, nunca maximizada.
-// Fora da tela cheia nada daqui vale: a janela fica escondida (css/paisagem.css) e sem estilos de posição.
+/**
+ * @file Janela do gráfico na tela cheia (variação C do celular deitado).
+ *
+ * O gráfico flutua sobre o vídeo numa janela que o aluno arrasta por qualquer ponto, redimensiona puxando as bordas e os
+ * cantos, e maximiza com um toque duplo (outro toque duplo volta ao tamanho e ao lugar de antes). Maximizada, ela ocupa
+ * a área do vídeo que os controles flutuantes não cobrem: da coluna de etapas até a borda direita, do topo até a barra
+ * de quadros. Play, ±1 e a barra de quadros continuam funcionando; Marcar ponto e Rastrear somem enquanto isso, porque o
+ * vídeo fica escondido. Um toque sem arrastar no gráfico leva ao quadro do ponto mais perto, como fora da tela cheia, mas
+ * só depois de TOQUE_DUPLO_MS: se vier um segundo toque nesse tempo, é um toque duplo e o quadro não muda. O lugar, o
+ * tamanho e se está recolhida ficam guardados em localStorage ("va-grafico"), em frações da tela, fora do salvamento
+ * por vídeo. Ao entrar na tela cheia, a janela volta onde estava, nunca maximizada. Fora da tela cheia nada daqui vale:
+ * a janela fica escondida (css/paisagem.css) e sem estilos de posição.
+ */
 
 import { drawPlot, irAoPontoDoGrafico } from "./dados.js";
 import { IC } from "./icones.js";
@@ -32,21 +34,41 @@ $("pMiniRec").innerHTML = IC.abaixo;
 
 // ---------- estado ----------
 const salvo = LS.get(CHAVE) || {};
+/**
+ * Diz se o valor guardado é uma fração da tela válida (de 0 a 1).
+ * @param {*} v Valor.
+ * @returns {boolean} Válida.
+ */
 const fracao = (v) => Number.isFinite(v) && v >= 0 && v <= 1;
 // geometria normal em frações da tela; null = nunca mexida (lugar padrão)
 let geo = ["x", "y", "w", "h"].every((k) => fracao(salvo[k])) ? { x: salvo.x, y: salvo.y, w: salvo.w, h: salvo.h } : null;
 let fechado = !!salvo.fechado, max = false, emCAntes = false;
+/**
+ * Diz se a diagramação é a de tela cheia (variação C).
+ * @returns {boolean} Na tela cheia.
+ */
 const emC = () => document.body.classList.contains("pais-c");
+/**
+ * Guarda o lugar, o tamanho e se está recolhida no localStorage ("va-grafico").
+ */
 function guardar() { LS.set(CHAVE, geo ? { ...geo, fechado } : { fechado }); }
 
 // ---------- geometria ----------
-// lugar padrão: no canto de baixo, à esquerda, logo acima da barra de controles (onde ficava o mini gráfico)
+/**
+ * Lugar padrão da janela: no canto de baixo, à esquerda, logo acima da barra de controles.
+ * @param {number} W Largura da tela.
+ * @param {number} H Altura da tela.
+ * @returns {{x: number, y: number, w: number, h: number}} Retângulo em px.
+ */
 function padrao(W, H) {
   const et = $("etapas").getBoundingClientRect(), br = $("pBarra").getBoundingClientRect();
   const w = clampF(W * 0.34, MIN_W, 300), h = 190;
   return { x: et.right + 8, y: br.top - 8 - h, w, h };
 }
-// retângulo da janela normal, em px, sempre inteiro dentro da tela
+/**
+ * Retângulo da janela normal (não maximizada), em px, com o tamanho limitado à tela.
+ * @returns {{x: number, y: number, w: number, h: number}} Retângulo em px.
+ */
 function normal() {
   const W = innerWidth, H = innerHeight;
   const r = geo ? { x: geo.x * W, y: geo.y * H, w: geo.w * W, h: geo.h * H } : padrao(W, H);
@@ -54,17 +76,32 @@ function normal() {
   r.h = clampF(r.h, Math.min(MIN_H, H - 2 * MARGEM), H - 2 * MARGEM);
   return r;
 }
-// área maximizada: a do vídeo que os controles flutuantes não cobrem
+/**
+ * Área da janela maximizada: a do vídeo que os controles flutuantes não cobrem.
+ * @returns {{x: number, y: number, w: number, h: number}} Retângulo em px.
+ */
 function areaMax() {
   const et = $("etapas").getBoundingClientRect(), br = $("pBarra").getBoundingClientRect();
   return { x: br.left, y: et.top, w: br.right - br.left, h: br.top - 8 - et.top };
 }
+/**
+ * Põe a janela num retângulo (em px).
+ * @param {number} x Esquerda.
+ * @param {number} y Topo.
+ * @param {number} w Largura.
+ * @param {number|null} h Altura (null: a do conteúdo, janela recolhida).
+ */
 function estilo(x, y, w, h) {
   const s = jan.style;
   s.left = Math.round(x) + "px"; s.top = Math.round(y) + "px"; s.width = Math.round(w) + "px";
   s.height = h == null ? "" : Math.round(h) + "px";
 }
-// põe a janela no lugar certo; chamada por prepararLayout (paisagem.js) a cada layout, giro e mudança de tela
+/**
+ * Põe a janela no lugar certo: maximizada, normal (sempre inteira na tela) ou recolhida; fora da tela cheia,
+ * sem estilos. Ao entrar na tela cheia, nunca maximizada. Maximizada, o cabeçalho deixa livre o canto de cima à direita,
+ * onde ficam a alça dos objetos, o botão do painel, ⤢ e ≡. Chamada por prepararLayout (paisagem.js) a cada layout, giro
+ * e mudança de tela.
+ */
 export function posicionarJanela() {
   const c = emC();
   if (c && !emCAntes) max = false;   // ao entrar na tela cheia, nunca maximizada
@@ -90,12 +127,18 @@ export function posicionarJanela() {
   }
   jan.style.setProperty("--pj-reserva", reserva + "px");
 }
-// guarda o lugar e o tamanho atuais (da janela normal) em frações da tela
+/**
+ * Guarda o lugar e o tamanho atuais da janela normal, em frações da tela (recolhida, a altura guardada continua a
+ * de antes).
+ */
 function guardarGeo() {
   const r = jan.getBoundingClientRect(), W = innerWidth, H = innerHeight;
   geo = { x: r.left / W, y: r.top / H, w: r.width / W, h: fechado ? (geo ? geo.h : padrao(W, H).h / H) : r.height / H };
   guardar();
 }
+/**
+ * Maximiza ou volta ao tamanho de antes (toque duplo); maximizar abre a janela, se estava recolhida.
+ */
 function alternarMax() {
   max = !max;
   if (max) fechado = false;
@@ -147,6 +190,12 @@ jan.addEventListener("pointermove", (e) => {
   }
   estilo(l, t, w, fechado ? null : h);
 });
+/**
+ * Fim do toque na janela: depois de arrastar ou redimensionar, guarda o lugar; um toque duplo maximiza ou volta;
+ * um toque simples no gráfico espera TOQUE_DUPLO_MS antes de ir ao quadro do ponto mais perto. Os botões (recolher,
+ * y(t)/x(t)) cuidam do próprio clique.
+ * @param {PointerEvent} e Evento pointerup ou pointercancel.
+ */
 function fim(e) {
   const g = gesto;
   if (!g || e.pointerId !== g.id) return;

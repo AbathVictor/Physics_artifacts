@@ -1,4 +1,11 @@
-// Gestos no vídeo: pinça para aproximar, arrastar a imagem ou as alças da escala e dos eixos, toque para pôr a mira.
+/**
+ * @file Gestos no vídeo: pinça para aproximar, arrastar a imagem ou as pontas da escala e dos eixos, toque para pôr a
+ * mira.
+ *
+ * Dois dedos: pinça para aproximar e mover. Um dedo: arrasta a imagem, ou a ponta da escala e os eixos quando começa
+ * sobre eles. Um toque curto, na ferramenta Marcar, põe a mira exatamente onde o dedo tocou. Em Navegar, a pinça e o
+ * arrasto mexem só na vista e não interrompem o play. No computador, a roda do mouse com Ctrl aproxima.
+ */
 
 import { axisHandle, persist } from "./analise.js";
 import { agendarRender, clampView, cv, maxZoom, render, resetView, viewK, zoomAt } from "./desenho.js";
@@ -15,8 +22,24 @@ import { pump } from "./video/decodificador.js";
 // Em Navegar, a pinça e o arrasto mexem só na vista e não interrompem o play.
 const ptrs = new Map();
 let gest = null;
+/**
+ * Converte uma posição da tela para o canvas do vídeo.
+ * @param {number} cx x na tela (clientX).
+ * @param {number} cy y na tela (clientY).
+ * @returns {{x: number, y: number}} Posição em px do canvas.
+ */
 function canvasXY(cx, cy) { const r = cv.getBoundingClientRect(); return { x: cx - r.left, y: cy - r.top }; }
+/**
+ * Converte uma posição da tela para pixels do vídeo, levando em conta o zoom e a vista.
+ * @param {number} cx x na tela (clientX).
+ * @param {number} cy y na tela (clientY).
+ * @returns {{x: number, y: number}} Posição em pixels do vídeo.
+ */
 function toImg(cx, cy) { const q = canvasXY(cx, cy), k = viewK(); return { x: S.view.vx + q.x / k, y: S.view.vy + q.y / k }; }
+/**
+ * Começa a pinça com os dois dedos na tela: guarda a distância inicial, o zoom e o ponto da imagem entre os dedos
+ * (e encerra o arrasto de uma ponta, se havia).
+ */
 function startPinch() {
   const [a, b] = [...ptrs.values()];
   const m = canvasXY((a.x + b.x) / 2, (a.y + b.y) / 2), k = viewK();
@@ -24,6 +47,9 @@ function startPinch() {
   S.grab = null; S.lupa = null;
   gest = { type: "pinch", d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: S.view.z, ix: S.view.vx + m.x / k, iy: S.view.vy + m.y / k };
 }
+/**
+ * Atualiza o zoom e a vista com a pinça: o ponto da imagem entre os dedos continua entre eles.
+ */
 function updatePinch() {
   const [a, b] = [...ptrs.values()];
   const d = Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), m = canvasXY((a.x + b.x) / 2, (a.y + b.y) / 2);
@@ -75,6 +101,11 @@ cv.addEventListener("pointermove", (e) => {
   } else return;
   agendarRender();
 });
+/**
+ * Termina o toque de um dedo: na pinça, o dedo que ficou passa a arrastar a imagem; um toque curto em Marcar põe
+ * a mira (e mede o tamanho do alvo, com a medição automática); soltar uma ponta guarda a escala ou os eixos.
+ * @param {PointerEvent} e Evento pointerup ou pointercancel.
+ */
 function endPointer(e) {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);

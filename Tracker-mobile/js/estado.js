@@ -1,4 +1,11 @@
-// Estado da página (S), exposto em globalThis.__va para os testes, e o orçamento de memória dos caches.
+/**
+ * @file Estado do aplicativo (S), exposto em globalThis.__va para os testes, e o limite de memória dos quadros
+ * guardados.
+ *
+ * Todo o estado compartilhado fica em S (vídeo, quadros, caches, análise, objetos, diagramação); os outros módulos
+ * leem S e só o alteram pelas próprias funções. estado.js não usa o DOM, para o Node conseguir importá-lo nos testes
+ * de cálculo (tests/test_calculo.mjs).
+ */
 
 export const S = {
   gen: 0, file: null, isSample: false, track: null, ts: 1, brands: "",
@@ -17,7 +24,7 @@ export const S = {
   sessoes: 0,
   // quadro que o gráfico mostra como o atual (dados.js; os testes conferem que acompanha o vídeo no play)
   graficoNoQuadro: -1,
-  // a página está em segundo plano (decodificador.js devolve a memória dos quadros)
+  // o aplicativo está em segundo plano (decodificador.js devolve a memória dos quadros)
   oculta: false,
   // resultado de "Medir este vídeo" (medicao.js), mostrado no diagnóstico; some ao abrir outro vídeo
   medicao: null,
@@ -31,7 +38,7 @@ export const S = {
   // (pontos do objeto ativo) é definido em objetos.js
   objs: [], ativo: 0, massUnit: "g", ver: 0,
   // celular deitado (paisagem.js): etapa e aba do painel escolhidas e tela cheia; não vão no salvamento por vídeo.
-  // A página abre em tela cheia (pedido do autor, 21/11/2026); sair dela é escolha do aluno, no botão do canto de cima
+  // O aplicativo abre em tela cheia (pedido do autor, 21/11/2026); sair dela é escolha do aluno, no botão do canto de cima
   etapa: "intervalo", aba: "param", telaCheia: true,
 };
 // exposto para os testes (não remova); globalThis é o window no navegador e também existe no Node

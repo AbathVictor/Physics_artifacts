@@ -1,12 +1,14 @@
-// Objetos da análise, no molde do Tracker. Cada massa é uma "massa pontual" (PointMass do Tracker): nome, cor,
-// valor da massa e pontos marcados, guardados em pixels da imagem. Cada centro de massa (CenterOfMass do Tracker)
-// guarda só os nomes das massas do sistema, escolhidas pelo usuário (nasce vazio, como no Tracker, e pode haver
-// vários, cm A a cm J); a posição dele em cada quadro é a média das posições ponderada pelas
-// massas, também em pixels, e só existe nos quadros em que todas as massas do sistema têm ponto. Como tudo fica em
-// pixels e a conversão para unidades é feita na hora de mostrar, digitar a escala ou as massas reais atualiza tudo.
-//
-// S.objs é a lista de objetos e S.ativo o índice do objeto escolhido (o que se marca, rastreia e vê na tabela).
-// S.marks continua existindo: é o mapa de pontos do objeto ativo (para o centro de massa, os pontos calculados).
+/**
+ * @file Objetos da análise, no molde do Tracker (sem DOM: testado no Node).
+ *
+ * Cada massa é uma "massa pontual" (PointMass do Tracker): nome, cor, valor da massa e pontos marcados, guardados em
+ * pixels da imagem. Cada centro de massa (CenterOfMass do Tracker) guarda só os nomes das massas do sistema, escolhidas
+ * pelo usuário (nasce vazio, como no Tracker, e pode haver vários, cm A a cm J); a posição dele em cada quadro é a média
+ * das posições ponderada pelas massas, também em pixels, e só existe nos quadros em que todas as massas do sistema têm
+ * ponto. Como tudo fica em pixels e a conversão para unidades é feita na hora de mostrar, digitar a escala ou as massas
+ * reais atualiza tudo. S.objs é a lista de objetos e S.ativo o índice do objeto escolhido (o que se marca, rastreia e
+ * vê na tabela); S.marks é o mapa de pontos do objeto ativo (para o centro de massa, os pontos calculados).
+ */
 
 import { S } from "./estado.js";
 import { parseNum } from "./util.js";
@@ -19,15 +21,44 @@ const LETRAS = "ABCDEFGHIJ";
 // E (azul) e J (framboesa) foram escolhidas longe do âmbar da mira e das outras cores da tela (distância de cor
 // ΔE2000 de pelo menos 20 para todas). O usuário pode trocar a cor de cada massa no passo 5.
 export const CORES = ["#ff3030", "#00e5ff", "#ff40ff", "#9999ff", "#1791cf", "#c6ff00", "#ff80ab", "#1de9b6", "#b388ff", "#c2185b"];
+/**
+ * Cor padrão da massa de uma letra (A a D com as cores do Tracker).
+ * @param {string} letra Letra de A a J.
+ * @returns {string} A cor (#rrggbb).
+ */
 export const corPadrao = (letra) => CORES[LETRAS.indexOf(letra)] || CORES[0];
+/**
+ * Diz se a cor guardada é válida (#rrggbb).
+ * @param {*} c Valor.
+ * @returns {boolean} É uma cor válida.
+ */
 export const corValida = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 export const COR_CM = "#33cc33"; // a do centro de massa no Tracker (a mesma para todos; o nome os distingue)
 
+/**
+ * As massas de uma lista de objetos.
+ * @param {Array<object>} objs Objetos.
+ * @returns {Array<object>} Só as massas.
+ */
 export const massasDe = (objs) => objs.filter((o) => o.tipo === "massa");
+/**
+ * Os centros de massa de uma lista de objetos.
+ * @param {Array<object>} objs Objetos.
+ * @returns {Array<object>} Só os centros de massa.
+ */
 export const cmsDe = (objs) => objs.filter((o) => o.tipo === "cm");
+/**
+ * Primeira letra de A a J que ninguém da lista usa.
+ * @param {Array<{letra: string}>} lista Objetos.
+ * @returns {string|null} A letra, ou null se todas estiverem em uso.
+ */
 const letraLivre = (lista) => { const usadas = new Set(lista.map((o) => o.letra)); return [...LETRAS].find((l) => !usadas.has(l)) || null; };
 
-// próxima massa: a primeira letra livre de A a J, como o getNextName do Tracker (a cor acompanha a letra)
+/**
+ * Cria a próxima massa: a primeira letra livre de A a J, como o getNextName do Tracker (a cor acompanha a letra).
+ * @param {Array<object>} objs Objetos que já existem.
+ * @returns {object|null} A massa nova (sem valor e sem pontos), ou null se já houver 10.
+ */
 export function novaMassa(objs) {
   const usadas = new Set(massasDe(objs).map((m) => m.letra));
   for (let i = 0; i < MAX_MASSAS; i++) {
@@ -36,16 +67,25 @@ export function novaMassa(objs) {
   }
   return null;
 }
-// centro de massa novo: "cm A", "cm B"… (getNextName do Tracker), vazio até o usuário escolher as massas
+/**
+ * Cria um centro de massa novo, "cm A", "cm B"… (getNextName do Tracker), vazio até o usuário escolher as massas.
+ * @param {Array<object>} objs Objetos que já existem.
+ * @returns {object|null} O centro de massa novo, ou null se já houver 10.
+ */
 export function novoCm(objs) {
   const l = letraLivre(cmsDe(objs));
   return l ? { tipo: "cm", letra: l, nome: "cm " + l, cor: COR_CM, massas: [] } : null;
 }
 
-// sistema do centro de massa e os pesos de cada massa:
-// - nenhum valor preenchido: massas iguais, 1 u.a. cada (a massa padrão do Tracker é 1);
-// - todos preenchidos: os valores reais;
-// - só uma parte: sem pesos (o centro de massa fica sem posição) e a lista das massas faltantes.
+/**
+ * Monta o sistema de um centro de massa e os pesos de cada massa: nenhum valor preenchido, massas iguais (1 u.a.
+ * cada; a massa padrão do Tracker é 1); todos preenchidos, os valores reais; só uma parte, sem pesos (o centro de massa
+ * fica sem posição) e a lista das massas faltantes.
+ * @param {object} cm O centro de massa.
+ * @param {Array<object>} objs Todos os objetos.
+ * @returns {{membros: Array<object>, pesos: number[]|null, faltam: string[], generica: boolean, total: number}} As
+ * massas do sistema, os pesos (null se falta valor), os nomes das que faltam, se as massas são genéricas e a soma.
+ */
 export function sistemaCm(cm, objs) {
   const membros = massasDe(objs).filter((m) => cm.massas.includes(m.nome));
   const vazias = membros.filter((m) => String(m.massa.val).trim() === "");
@@ -56,10 +96,20 @@ export function sistemaCm(cm, objs) {
   const total = pesos ? pesos.reduce((s, v) => s + v, 0) : NaN;
   return { membros, pesos, faltam, generica, total };
 }
-// aviso das massas sem valor, no texto combinado com o autor: "massa B faltante"
+/**
+ * Aviso das massas sem valor, no texto combinado com o autor: "massa B faltante".
+ * @param {string[]} faltam Nomes das massas sem valor.
+ * @returns {string} O aviso.
+ */
 export const avisoFaltam = (faltam) => faltam.map((n) => `${n} faltante`).join(", ");
 
-// posições do centro de massa em cada quadro (pixels da imagem)
+/**
+ * Calcula as posições do centro de massa em cada quadro em que todas as massas do sistema têm ponto (pixels da
+ * imagem, média ponderada pelas massas).
+ * @param {object} cm O centro de massa.
+ * @param {Array<object>} objs Todos os objetos.
+ * @returns {Map<number, {x: number, y: number}>} Quadro → posição (vazio sem pesos).
+ */
 export function pontosCm(cm, objs) {
   const out = new Map(), { membros, pesos, total } = sistemaCm(cm, objs);
   if (!pesos || !membros.length || !(total > 0)) return out;
@@ -77,27 +127,54 @@ export function pontosCm(cm, objs) {
 // pontos de um objeto; o centro de massa é recalculado só quando algo mudou (S.ver muda a cada alteração de
 // pontos, massas ou sistema: persist() e o rastreamento aumentam S.ver)
 let cache = { ver: -1, cm: null, pts: null };
+/**
+ * Pontos de um objeto: os marcados de uma massa, ou os calculados de um centro de massa, recalculados só quando
+ * algo mudou (S.ver muda a cada alteração de pontos, massas ou sistema: persist() e o rastreamento aumentam S.ver).
+ * @param {object} o O objeto.
+ * @returns {Map<number, {x: number, y: number}>} Quadro → posição em pixels da imagem.
+ */
 export function pontosDe(o) {
   if (o.tipo === "massa") return o.marks;
   if (cache.ver !== S.ver || cache.cm !== o) cache = { ver: S.ver, cm: o, pts: pontosCm(o, S.objs) };
   return cache.pts;
 }
+/**
+ * O objeto ativo (o que se marca, rastreia e vê na tabela).
+ * @returns {object|null} O objeto, ou null sem objetos.
+ */
 export const objAtivo = () => S.objs[S.ativo] || null;
+/**
+ * Diz se o objeto ativo é uma massa (só massas se marcam; o centro de massa é calculado).
+ * @returns {boolean} É uma massa.
+ */
 export const ativoEhMassa = () => { const o = objAtivo(); return !!o && o.tipo === "massa"; };
 const VAZIO = new Map();
 Object.defineProperty(S, "marks", { get() { const o = objAtivo(); return o ? pontosDe(o) : VAZIO; }, configurable: true });
 
-// objetos iniciais: uma massa só, a "massa A"
+/**
+ * Recomeça com os objetos iniciais: uma massa só, a "massa A", ativa.
+ * @returns {object} A massa A.
+ */
 export function objetosIniciais() { const a = novaMassa([]); S.objs = [a]; S.ativo = 0; S.ver++; return a; }
 
-// salvamento no localStorage: Map vira lista de pares [quadro, ponto]. A cor só é guardada quando o usuário a
-// trocou (campo opcional: um salvamento sem ele usa a cor padrão da letra)
+/**
+ * Prepara os objetos para o salvamento no localStorage: os mapas de pontos viram listas de pares [quadro, ponto];
+ * a cor só é guardada quando o usuário a trocou (campo opcional: um salvamento sem ele usa a cor padrão da letra).
+ * @param {Array<object>} objs Objetos.
+ * @returns {Array<object>} Objetos prontos para JSON.
+ */
 export function serializar(objs) {
   return objs.map((o) => o.tipo === "massa"
     ? { tipo: "massa", letra: o.letra, massa: { val: o.massa.val, sig: o.massa.sig }, marks: [...o.marks.entries()], ...(o.cor !== corPadrao(o.letra) ? { cor: o.cor } : {}) }
     : { tipo: "cm", letra: o.letra, massas: o.massas.slice() });
 }
-// N = número de quadros do vídeo (pontos fora do vídeo são descartados)
+/**
+ * Refaz os objetos a partir do salvamento, descartando letras repetidas ou inválidas, pontos fora do vídeo e
+ * massas de centros de massa que não existem mais.
+ * @param {Array<object>} lista Objetos salvos.
+ * @param {number} N Número de quadros do vídeo.
+ * @returns {Array<object>} As massas e depois os centros de massa.
+ */
 export function desserializar(lista, N) {
   const objs = [];
   for (const s of lista || []) {

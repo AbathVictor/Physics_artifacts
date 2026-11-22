@@ -4,7 +4,7 @@ Contexto para o Claude Code. Leia antes de mexer nesta pasta.
 
 ## O que é
 
-Uma página (`index.html` com módulos JavaScript em `js/`) de vídeo-análise quadro a quadro no celular, inspirada no
+Um aplicativo web (`index.html` com módulos JavaScript em `js/`) de vídeo-análise quadro a quadro no celular, inspirado no
 [Tracker](https://github.com/OpenSourcePhysics/tracker) do Open Source Physics, para as atividades experimentais
 de Física Básica (sistema massa-mola, pêndulo). O aluno grava o vídeo no próprio celular, define o intervalo,
 calibra a escala e os eixos, informa as massas, marca a posição de cada objeto (à mão ou com rastreamento
@@ -13,9 +13,9 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 - Público: alunos com celular **Android e Chrome**. iOS ainda não é alvo.
 - Tudo roda no navegador; o vídeo nunca sai do aparelho. Nada para instalar (instalar como app pelo Chrome é
   opcional; o app instalado abre sempre deitado e em tela cheia). Por hora, só com o celular deitado.
-- Funciona **sem internet** depois de aberta: o aluno abre o link uma vez com conexão e a página continua
+- Funciona **sem internet** depois de aberto: o aluno abre o link uma vez com conexão e o aplicativo continua
   funcionando em modo avião, e até recarrega sem conexão (service worker, `sw.js`).
-- Publicada pelo GitHub Pages em `https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/`.
+- Publicado pelo GitHub Pages em `https://abathvictor.github.io/Physics_artifacts/Tracker-mobile/`.
 
 ## Como trabalhar com o autor
 
@@ -25,8 +25,19 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
   prefere trabalhar. Correções e ajustes pequenos podem ir direto.
 - O autor testa no próprio celular Android. Diga claramente o que você conseguiu verificar no computador e o que
   só dá para confirmar no aparelho (sensação do toque, desempenho, janela de download).
-- Rode os testes (seção **Testes**) antes de cada commit que mexa na página (`index.html`, `js/`, `css/`).
+- Rode os testes (seção **Testes**) antes de cada commit que mexa no aplicativo (`index.html`, `js/`, `css/`).
 - Textos da interface: curtos, diretos, escritos para o aluno; mensagens de erro dizem o que aconteceu e como resolver.
+- Nomes (decisão do autor em 22/11/2026): para o aluno e na interface, **aplicativo**; no texto técnico, **aplicação
+  web** ou **aplicativo web**. Nunca "página" para o produto; "página" só para o documento HTML (rolar a página)
+  e para as páginas dentro da gaveta ≡ (Diagnóstico, Ajuda).
+- Comentários do código (base do manual técnico): cada arquivo de `js/` começa com um bloco `/** @file … */` que
+  diz o que o módulo faz, e cada função do módulo tem um bloco JSDoc em português logo acima: a primeira frase, com
+  o verbo no presente, diz o que a função faz; depois vêm os detalhes, as decisões e a data dos pedidos do autor;
+  um `@param {tipo} nome Descrição.` para cada parâmetro (opcional entre colchetes, com o padrão: `[nome=1]`) e
+  `@returns {tipo} …` quando o valor é usado. Comentários de linha (`//`) ficam para trechos dentro das funções.
+  O `tests/test_comentarios.mjs` confere o padrão; rode-o junto com os outros testes. Ele confere só a forma (bloco
+  presente, um `@param` por parâmetro), não se o texto ainda está certo: ao mudar o que uma função faz, atualize o
+  bloco dela no mesmo commit.
 
 ## Especificação decidida (não mude sem combinar)
 
@@ -34,7 +45,7 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | --- | --- |
 | Plataforma | Android + Chrome primeiro; iOS fica para depois |
 | Forma | Página nesta pasta em **módulos JavaScript nativos, sem passo de montagem** (sem Node/npm para publicar): edita e publica. Decidido em 14/11/2026, substituiu o arquivo único (que existia só por causa do artefato do claude.ai, hoje obsoleto) |
-| Sem internet | uma vez aberta, a página **não pode perder nenhuma função sem conexão** (modo avião). Nada é carregado de fora: `mp4box.js` e as fontes são cópias locais; todos os módulos são importados no início (sem `import()` tardio); o `sw.js` guarda tudo para recarregar sem conexão |
+| Sem internet | uma vez aberto, o aplicativo **não pode perder nenhuma função sem conexão** (modo avião). Nada é carregado de fora: `mp4box.js` e as fontes são cópias locais; todos os módulos são importados no início (sem `import()` tardio); o `sw.js` guarda tudo para recarregar sem conexão |
 | Compatibilidade com o Tracker | princípio permanente: a versão móvel e o Tracker de computador **devem conversar sempre**. Os formatos e o modelo de dados seguem os do Tracker (objetos como os *point mass* dele, coordenadas em pixels da imagem, eixos, fita de calibração, intervalo do clipe), para que no futuro um trabalho feito no celular abra no Tracker e vice-versa (arquivo `.trk`) |
 | Várias massas | até **10 massas** no mesmo vídeo (massa A a massa J, cores do Tracker em A a D) e **centros de massa** (cm A a cm J), como o `CenterOfMass` do Tracker: cada um **nasce vazio** e é formado pelas massas que o usuário escolher (nunca entram sozinhas; pedido do autor), e pode haver vários, cada um com as suas massas. Posição: média das posições ponderada pelas massas, calculada em pixels, só nos quadros em que todas as massas do sistema têm ponto. A escolha das massas fica logo abaixo dos botões dos objetos, quando o cm está ativo (no Tracker é a janela `CenterOfMassInspector`). Todos na cor verde do Tracker; o nome os distingue. Feito em 14/11/2026. Falta rastrear todas numa passada só de decodificação |
 | Cores das massas | A a D com as cores do Tracker; E a J escolhidas para não confundir (E azul `#1791cf` e J framboesa `#c2185b`, longe do âmbar da mira). O usuário pode **trocar a cor de cada massa** tocando na bolinha dela no passo 5 (pedido do autor); a cor trocada vai no salvamento |
@@ -53,9 +64,9 @@ automático; até 10 massas e centros de massa formados pelas massas que ele esc
 | Lupa | **só para a escala** (pedido do autor, 14/11/2026): ao arrastar uma ponta da fita de calibração, um círculo ampliado (124 px, 2,5× a vista, de 3 a 12 px de tela por pixel do vídeo) com cruz fina no centro, 70 px acima do dedo; perto do topo da tela vai para baixo do dedo, perto de uma borda lateral vai para o outro lado; some ao soltar. Sem lupa para marcar nem para a mira. Usa o quadro já guardado (`S.full`), sem cache novo |
 | Gráfico na tela cheia | decidido em 15/11/2026: o gráfico fica numa **janela móvel** sobre o vídeo, que se arrasta por **qualquer ponto** (o dedo precisa andar 8 px para virar arrasto; antes disso é toque) e nunca sai da tela, e se **redimensiona pelas quatro bordas e pelos quatro cantos** (18 px de toque nas bordas, que passam 12 px para fora da janela; mínimo de 220 × 140 px; marca no canto de baixo à direita). **Toque duplo** maximiza na área do vídeo livre dos controles flutuantes (da coluna de etapas à borda direita, do topo até a barra de quadros), e outro toque duplo volta ao tamanho e ao lugar de antes. Maximizada, não se move, e Marcar ponto e Rastrear somem (play, ±1 e a barra de quadros continuam funcionando). **Sem botão de maximizar** no cabeçalho, só o toque duplo (pedido do autor). Um toque simples no gráfico espera 0,25 s antes de ir ao quadro, para não confundir com o toque duplo. O cabeçalho tem só recolher e y(t)/x(t) (o objeto ativo fica na alça dos objetos, no canto de cima). A janela fica acima do vídeo e abaixo dos controles flutuantes. Lugar, tamanho e se está recolhida ficam em `localStorage` (`va-grafico`, em frações da tela), fora do salvamento por vídeo; ao entrar na tela cheia, a janela nunca vem maximizada |
 | Objetos deitado (gaveta) | decidido em 15/11/2026, para tirar a poluição visual em volta do gráfico (o autor escolheu **gaveta** em vez de menu flutuante): no alto do painel fica **uma linha só**, a alça (bolinha, nome do objeto ativo, seta e, num centro de massa sem posição, um aviso curto em vermelho: "escolha as massas" ou "massa B faltante") e, **na mesma linha, y(t)/x(t)** (em A, só com a aba Gráfico; em B, sempre). Tocar na alça faz descer, por cima do conteúdo, a fileira dos objetos de sempre (+ massa, + cm) e a escolha das massas do cm ativo, com rolagem se não couber. Fecha ao tocar de novo na alça, ao tocar fora (o toque segue: tocar no vídeo também põe a mira), com Esc, com o Voltar do Android e ao escolher ou criar uma massa; ao escolher ou criar um cm, ela fica aberta para a escolha das massas dele. A linha repetida com o nome do objeto acima do gráfico e da tabela saiu. Na **tela cheia**, a alça sobe para o canto de cima (no lugar do antigo indicador do objeto ativo) e abre a gaveta ali mesmo; o painel (Parâmetros e Tabela) abre por um **botão do painel** ao lado dela e começa logo abaixo dessa linha, que fica por cima dele (com o painel aberto ainda dá para trocar de objeto, sair da tela cheia e abrir o ≡). **Em pé, nada mudou** (a fileira continua abaixo dos controles do vídeo; desde 21/11/2026, por hora, a diagramação em pé fica coberta pelo aviso "Gire o celular") |
-| Abrir deitado | pedido do autor em 16/11/2026, **por hora**: o app abre deitado. Uma página numa aba do Chrome não consegue girar a tela (o Chrome só deixa travar a orientação em tela cheia ou no app instalado), então a página virou **app instalável** (`manifest.webmanifest`: `"orientation": "landscape"`, `"display": "fullscreen"` desde 21/11/2026, ícones em `img/`). Instalado pelo Chrome (⋮ → Instalar app), abre sempre deitado e sem as barras do sistema, mesmo com a rotação automática desligada; em pé fica inalcançável no app. Numa aba comum quem gira a tela é o celular. Para voltar atrás, basta trocar `"orientation"` para `"any"` (e `"display"` para `"standalone"`) |
-| Só deitado | pedido do autor em 21/11/2026, **por hora**: as funções em pé ficam desativadas. Com o celular em pé, o aviso **"Gire o celular"** cobre a página, com o botão **"Deitar em tela cheia"** (pede a tela cheia e trava a orientação deitada; numa aba, o Chrome só trava a orientação em tela cheia, e a tela cheia exige um toque). A diagramação em pé continua no código, intacta e montada por baixo do aviso (girar não perde nada); `SO_DEITADO = false` em `paisagem.js` a devolve. Computador e tablet (deitados, com mais de 500 px de altura) continuam com a diagramação de sempre |
-| Abrir em tela cheia | pedido do autor em 21/11/2026: a página **abre na tela cheia (C)** (`S.telaCheia` começa `true`), e sair dela é escolha do aluno, no botão do canto de cima; nada fica guardado, a próxima abertura volta à tela cheia. No app instalado, o manifesto já tira as barras do sistema; numa aba comum, é a diagramação de tela cheia com as barras do navegador (a tela cheia do sistema exige um toque: o botão do aviso em pé ou sair e entrar de novo no botão do canto). Girar em pé na tela cheia não sai dela: o aviso cobre a página e, ao deitar de novo, a tela cheia continua |
+| Abrir deitado | pedido do autor em 16/11/2026, **por hora**: o app abre deitado. Um aplicativo web numa aba do Chrome não consegue girar a tela (o Chrome só deixa travar a orientação em tela cheia ou no app instalado), então o aplicativo virou **app instalável** (`manifest.webmanifest`: `"orientation": "landscape"`, `"display": "fullscreen"` desde 21/11/2026, ícones em `img/`). Instalado pelo Chrome (⋮ → Instalar app), abre sempre deitado e sem as barras do sistema, mesmo com a rotação automática desligada; em pé fica inalcançável no app. Numa aba comum quem gira a tela é o celular. Para voltar atrás, basta trocar `"orientation"` para `"any"` (e `"display"` para `"standalone"`) |
+| Só deitado | pedido do autor em 21/11/2026, **por hora**: as funções em pé ficam desativadas. Com o celular em pé, o aviso **"Gire o celular"** cobre a tela, com o botão **"Deitar em tela cheia"** (pede a tela cheia e trava a orientação deitada; numa aba, o Chrome só trava a orientação em tela cheia, e a tela cheia exige um toque). A diagramação em pé continua no código, intacta e montada por baixo do aviso (girar não perde nada); `SO_DEITADO = false` em `paisagem.js` a devolve. Computador e tablet (deitados, com mais de 500 px de altura) continuam com a diagramação de sempre |
+| Abrir em tela cheia | pedido do autor em 21/11/2026: o aplicativo **abre na tela cheia (C)** (`S.telaCheia` começa `true`), e sair dela é escolha do aluno, no botão do canto de cima; nada fica guardado, a próxima abertura volta à tela cheia. No app instalado, o manifesto já tira as barras do sistema; numa aba comum, é a diagramação de tela cheia com as barras do navegador (a tela cheia do sistema exige um toque: o botão do aviso em pé ou sair e entrar de novo no botão do canto). Girar em pé na tela cheia não sai dela: o aviso cobre a tela e, ao deitar de novo, a tela cheia continua |
 | Etapas deitado | sem marca nas etapas concluídas (o ✓ saiu a pedido do autor em 16/11/2026: informação demais). Fica só o selo neutro "u.a." em Escala e Massas sem valor |
 | Rastreamento | automático no estilo do autotracker do Tracker (ver abaixo) |
 | Toque | sensibilidade "aceitável"; otimizar no futuro |
@@ -83,11 +94,11 @@ mesmo vídeo; arquivos em `Test_videos/`, fora do git):
   (massas iguais) até 0,005 mm.
 - **Carimbo de tempo errado no `de_money.mp4`**: o arquivo tem um intervalo de 66,7 ms antes do quadro 256 (t = 8,567 s),
   mas a imagem não pula (a velocidade muda suave quadro a quadro, e o ciclo que contém o salto mede 0,475 s contra
-  0,440–0,446 s dos outros): nenhum quadro foi perdido, o carimbo é que está errado. A página usa os carimbos (decisão
+  0,440–0,446 s dos outros): nenhum quadro foi perdido, o carimbo é que está errado. O aplicativo usa os carimbos (decisão
   da especificação, para vídeos de taxa variável), então herda o erro ali: um ciclo 33 ms mais longo e a velocidade
   daquele intervalo pela metade. O Tracker espalha o tempo por igual (33,383 ms por quadro, 0,15 % a mais em todo o
   vídeo, até 20 ms fora de lugar perto do salto). Com o salto tirado, os dois dão 0,4424 s. **Decidido pelo autor:
-  fazer como o Tracker** (armadilha 2): desde então, os tempos da página no `de_money.mp4` coincidem com os do
+  fazer como o Tracker** (armadilha 2): desde então, os tempos do aplicativo no `de_money.mp4` coincidem com os do
   Tracker até 5 µs.
 - Observações: um arquivo do celular chegou como planilha (.xlsx com nome .csv) com o CSV "Internacional/Python" numa
   coluna só, por ter sido aberto numa planilha em português (para planilha, o formato certo é "Excel/Planilhas Google").
@@ -95,7 +106,7 @@ mesmo vídeo; arquivos em `Test_videos/`, fora do git):
 ## Arquitetura
 
 ```
-index.html                 marcação da página; carrega vendor/mp4box.all.min.js e js/main.js (type="module")
+index.html                 marcação do aplicativo; carrega vendor/mp4box.all.min.js e js/main.js (type="module")
 sw.js                      service worker: cópia local de todos os arquivos (lista ARQUIVOS, conferida por teste)
 manifest.webmanifest, img/ app instalável: abre deitado (orientation landscape), ícones de 192 e 512 px e um para o
                            recorte do Android (maskable), desenhados por tests/gerar_icones.py (Pillow: fundo
@@ -117,11 +128,11 @@ js/objetos.js              objetos no molde do Tracker: massas (nome, cor, valor
 js/massas.js               interface dos objetos: fileira de botões (ativo, + massa, + centro de massa), escolha das
                            massas do cm ativo e passo 5 (cor, valor e incerteza de cada massa; situação de cada cm)
 js/tema.js                 tema automático, claro ou escuro (data-theme no <html>) e meta theme-color; um script curto
-                           no <head> do index.html aplica a escolha antes de a página aparecer
+                           no <head> do index.html aplica a escolha antes de o aplicativo aparecer
 js/gaveta.js               gaveta ≡ montada da lista MENU (grupo → itens com rótulo, ícone e ação); as ações chamam as
                            funções exportadas por arquivos.js, dados.js, diagnostico.js e tema.js (sem lógica copiada)
 js/icones.js               ícones em SVG embutido (IC.menu, IC.camera…)
-js/paisagem.js             celular deitado: move os elementos da página para os contêineres de #pais (e os devolve
+js/paisagem.js             celular deitado: move os elementos do aplicativo para os contêineres de #pais (e os devolve
                            ao girar); etapas, gaveta dos objetos, abas do painel, variações B (vídeo em pé) e C (tela cheia)
 js/barra.js                barra de quadros deitada: trilho, trecho do intervalo, alças do início e do fim, quadro atual
 js/janela.js               janela do gráfico na tela cheia (C): arrastar, redimensionar pelas bordas, toque duplo
@@ -144,7 +155,7 @@ Regras da estrutura:
   `export`); nenhum módulo altera variáveis de outro (só lê), e o estado compartilhado fica em `S`.
 - Código de cálculo (sem DOM ao carregar) fica em módulos que o Node consegue importar, para ter testes rápidos
   (`tests/test_calculo.mjs`). `estado.js` usa `globalThis` por isso.
-- Arquivo novo na página: inclua em `ARQUIVOS` no `sw.js` e mude `VERSAO` (o `test_offline.py` confere a lista).
+- Arquivo novo no aplicativo: inclua em `ARQUIVOS` no `sw.js` e mude `VERSAO` (o `test_offline.py` confere a lista).
 - Objetos: `S.objs` (massas e cm) e `S.ativo` (índice do objeto ativo). `S.marks` é um *getter* definido em
   `objetos.js`: os pontos do objeto ativo (para o cm, os calculados). Escreva pontos só em `objeto.marks` de uma
   massa. Toda alteração de pontos, massas ou sistema passa por `persist()`, que aumenta `S.ver`; é o `S.ver` que
@@ -166,7 +177,7 @@ do eixo x medido no sentido anti-horário.
    21/11/2026 o tempo é **como no Tracker** (decisão do autor): `tempo(i)` (`analise.js`) usa o mesmo Δt para todos
    os quadros, a média do intervalo de análise (tempo do arquivo no quadro de fim − no de início, ÷ número de
    passos), com t = 0 no quadro de início. Conferido no `de_money.mp4`: o Tracker dá 33,38338 ms por quadro (a média
-   do intervalo analisado; a do vídeo inteiro seria 33,3505 ms), e os tempos da página coincidem com os do .txt do
+   do intervalo analisado; a do vídeo inteiro seria 33,3505 ms), e os tempos do aplicativo coincidem com os do .txt do
    Tracker até 5 µs. Mudar o início ou o fim do intervalo muda um pouco o Δt, como no Tracker; o bloco do intervalo
    mostra o "tempo por quadro". Antes, a análise usava o carimbo de cada quadro, e um carimbo errado no arquivo virava
    um ciclo mais longo e uma velocidade pela metade. Teste: `salto_carimbo.mp4` (`gerar_videos.py`).
@@ -211,7 +222,7 @@ do eixo x medido no sentido anti-horário.
     `tests/videos/exemplo.mp4` gerado por `tests/gerar_videos.py`.
 12. **Service worker com rede primeiro**: com conexão, cada arquivo vem da rede (o aluno recebe a versão publicada
     sem precisar limpar cache) e a cópia é atualizada; sem conexão, ou sem resposta em 4 s, usa a cópia. O
-    `clients.claim()` faz o service worker atender a página já na primeira visita (inclui as fontes, que o navegador
+    `clients.claim()` faz o service worker atender o aplicativo já na primeira visita (inclui as fontes, que o navegador
     só busca quando um caractere de cada subconjunto aparece).
 13. **Fileira de objetos abaixo de Marcar ponto e Rastrear**: posta logo abaixo das ferramentas, ela empurrava
     *Marcar ponto* para fora da tela num celular de 412 × 915, e o aluno teria de rolar a página entre tocar no
@@ -224,9 +235,9 @@ do eixo x medido no sentido anti-horário.
     `--ov-edge`…) com `getComputedStyle` (`readOV` em `desenho.js`, `drawPlot` em `dados.js`) e redesenham quando o
     tema muda (`main.js` observa `data-theme` e `prefers-color-scheme`). Token novo usado no canvas: leia-o ali.
 16. **Gaveta e histórico**: cada nível da gaveta (menu, página) faz `history.pushState`; fechar volta com
-    `history.go(-nível)` e o `popstate` atualiza a tela. Assim o Voltar do Android fecha a gaveta em vez de sair da
-    página. Com a gaveta aberta, `header`, `main` e `footer` ficam `inert`; antes de uma ação que abre o seletor de
-    arquivo, a página deixa de ser inerte (o campo `fileIn` está dentro do `main`).
+    `history.go(-nível)` e o `popstate` atualiza a tela. Assim o Voltar do Android fecha a gaveta em vez de sair do
+    aplicativo. Com a gaveta aberta, `header`, `main` e `footer` ficam `inert`; antes de uma ação que abre o seletor de
+    arquivo, o resto do aplicativo deixa de ser inerte (o campo `fileIn` está dentro do `main`).
 17. **Celular deitado: mover, não recriar**. `paisagem.js` move os elementos que já existem (mesmos ids e
     eventos) para os contêineres de `#pais` e deixa um comentário no lugar de origem de cada um; ao girar para em pé,
     cada elemento volta para o comentário dele. Só move quando a diagramação muda (A, B, C ou em pé), porque mover
@@ -258,17 +269,17 @@ do eixo x medido no sentido anti-horário.
     **Voltar uma vez só**: as duas gavetas fecham por `voltarHistorico()` (`gaveta.js`), que volta no histórico uma
     vez só até o `popstate` chegar (ou até 1 s). O `popstate` é assíncrono; sem a trava, dois pedidos seguidos (os
     dois dedos de uma pinça pousam juntos e dão dois `pointerdown` no mesmo quadro, ou Esc repetido) voltavam duas
-    vezes, e o segundo Voltar **saía da página** (achado no debug de 16/11/2026, com teste em `test_paisagem.py`).
+    vezes, e o segundo Voltar **saía do aplicativo** (achado no debug de 16/11/2026, com teste em `test_paisagem.py`).
 21. **Orientação**: o `"orientation"` do manifesto só vale no app instalado (numa aba, o Chrome ignora). No app,
     sair da tela cheia chama `screen.orientation.unlock()`, que volta à orientação do manifesto (deitado), e não à
     livre. `start_url`, `scope` e `id` são `"./"`, relativos ao manifesto, para funcionar dentro da subpasta do
     GitHub Pages. O `test_offline.py` pergunta ao próprio Chrome (`Page.getAppManifest` e
-    `Page.getInstallabilityErrors`) se o manifesto é lido sem erros e se a página é instalável; o motivo
+    `Page.getInstallabilityErrors`) se o manifesto é lido sem erros e se o aplicativo é instalável; o motivo
     "in-incognito" é descontado, porque a janela do Playwright é anônima. **Só deitado** (21/11/2026): o aviso
     `#gire` aparece com `(orientation: portrait)`, não com o contrário da condição da paisagem, para que computador
-    e tablet deitados (mais de 500 px de altura) continuem com a diagramação de sempre. Ele cobre a página (z 60,
+    e tablet deitados (mais de 500 px de altura) continuem com a diagramação de sempre. Ele cobre a tela (z 60,
     acima da gaveta ≡), mas a diagramação em pé continua montada por baixo: girar não mexe em S nem nos elementos.
-    `localStorage` "va-retrato" = "1" libera a diagramação em pé; `helpers.abrir()` põe essa chave antes de a página
+    `localStorage` "va-retrato" = "1" libera a diagramação em pé; `helpers.abrir()` põe essa chave antes de o aplicativo
     carregar (`retrato=True`, o padrão), porque a maior parte dos testes roda em pé; o `test_paisagem.py` abre sem
     ela. Com o em pé liberado, girar em pé sai da tela cheia, como antes; sem ele, a tela cheia fica guardada.
 
@@ -292,8 +303,8 @@ do eixo x medido no sentido anti-horário.
     um vídeo já trocado (sem isso, abrir um vídeo durante as prévias de fundo do anterior mostrava por um instante
     "Não consegui decodificar este trecho").
 23. **Memória** (fase 2, 21/11/2026). Limites da baixa e da cheia na armadilha 6. O rastreamento fecha o decodificador
-    da página antes de abrir o seu (um só aberto por vez; o `pump` cria outro depois, ~0,25 s no celular) e lê o
-    vídeo amostra por amostra pelo leitor (`lerAmostra`), não mais o grupo inteiro de uma vez. Com a página em
+    do aplicativo antes de abrir o seu (um só aberto por vez; o `pump` cria outro depois, ~0,25 s no celular) e lê o
+    vídeo amostra por amostra pelo leitor (`lerAmostra`), não mais o grupo inteiro de uma vez. Com o aplicativo em
     segundo plano (`visibilitychange`, `S.oculta`), os quadros guardados, menos o atual, e o decodificador são
     devolvidos (o arquivo e as prévias ficam); ao voltar, o `pump` refaz a janela. Durante o rastreamento e a
     medição, nada é devolvido. Teto de tudo num aparelho de 8 GB: ~96 MB de baixa + 2 quadros em cheia + 32 MB de
@@ -314,7 +325,7 @@ do eixo x medido no sentido anti-horário.
     antes e ainda não mostrados); (c) um quadro que já entrou e não saiu (`pendente()`) não conta como faltando; (d)
     resultado "pendente" (com quadros B, um quadro P fica preso até entrarem os B anteriores a ele) e "abandonado"
     não são falha, e um grupo só é marcado como falho se o quadro ainda era o que se queria (sem isso, um salto no
-    meio de um pedido marcava o grupo e a página nunca mais o decodificava). `S.sessoes` conta as sessões.
+    meio de um pedido marcava o grupo e o aplicativo nunca mais o decodificava). `S.sessoes` conta as sessões.
 25. **Tudo acompanha o quadro atual** (21/11/2026, pedido do autor): `quadroMudou()` (`navegacao.js`) redesenha o
     vídeo com as marcas, destaca a linha da tabela e a rola para a vista dentro do `#tblWrap` (nunca a página; só o
     necessário para ficar abaixo do cabeçalho fixo), redesenha o gráfico (anel âmbar no ponto do quadro atual;
@@ -325,8 +336,8 @@ do eixo x medido no sentido anti-horário.
 
 ## Testes
 
-Os testes abrem a página, servida por um servidor local que o próprio `helpers.py` sobe, num **Google Chrome de verdade** (o Chromium do Playwright não decodifica H.264),
-com tela de celular e toque simulado, e comparam o que a página mede com vídeos sintéticos cuja trajetória é
+Os testes abrem o aplicativo, servido por um servidor local que o próprio `helpers.py` sobe, num **Google Chrome de verdade** (o Chromium do Playwright não decodifica H.264),
+com tela de celular e toque simulado, e comparam o que o aplicativo mede com vídeos sintéticos cuja trajetória é
 conhecida (a equação está em `tests/gerar_videos.py`; o número de cada quadro está codificado em 12 quadradinhos
 no topo da imagem).
 
@@ -342,13 +353,14 @@ python tests/test_gaveta.py                # gaveta ≡: abrir, fechar (✕, toq
 python tests/test_paisagem.py              # deitado (915 × 412), sem liberar o em pé: aviso "Gire o celular", abre em tela cheia, etapas, barra e alças, pinça, gaveta dos objetos, pior caso 10 massas + 2 cm, girar, B, C, janela do gráfico (arrastar, bordas, mínimo, toque duplo, lugar lembrado), gaveta ≡, Voltar uma vez só (pinça e Esc duplo), alça a 640 × 360, temas, arquivo que não é vídeo
 python tests/test_lupa.py                  # lupa da escala: só nas pontas da fita, lado certo perto das bordas, pixel do centro, some ao soltar
 python tests/test_desempenho.py            # fases 1 e 2, com a leitura lenta do celular simulada (0,9 s) e decodificação por software: arquivo em poucas leituras, abrir vídeo durante a decodificação do anterior, arrasto na barra e na alça com prévia, quadro exato e certo ao soltar, quadros B com trabalho abandonado, play sem pular quadros, play com grupos longos sem recomeçar do quadro-chave (gop150.mp4), memória dentro dos limites, segundo plano, vídeo de até 960 px sem cópia repetida
-python tests/test_offline.py               # modo avião com a página aberta, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
+python tests/test_offline.py               # modo avião com o aplicativo aberto, recarregar sem conexão, lista do sw.js, nada externo, app instalável e deitado
 node tests/test_calculo.mjs                # previsão, máscara, correlação e modelo de objetos, direto no Node (sem navegador)
+node tests/test_comentarios.mjs            # padrão dos comentários: bloco @file em cada arquivo e JSDoc em cada função do módulo, com um @param por parâmetro
 python tests/medir_desempenho.py [--software] [--leitura-lenta] v.mp4   # não é teste: a mesma medição do "Medir este vídeo" do celular, para comparar antes e depois
 ```
 
 Cada teste imprime `ok`/`FALHA` por item e sai com código 1 se algo falhar. Variáveis opcionais: `CHROME_PATH`
-(outro executável do Chrome). Por hora a página só funciona deitada; `helpers.abrir()` libera a diagramação em pé
+(outro executável do Chrome). Por hora o aplicativo só funciona deitado; `helpers.abrir()` libera a diagramação em pé
 (chave "va-retrato"), onde roda a maior parte dos testes, e o `test_paisagem.py` abre sem ela, como o aluno. Os vídeos ficam em `tests/videos/`, fora do git.
 
 Resultados de referência (computador, decodificação por software): tempo de cada quadro igual ao do arquivo
@@ -402,7 +414,7 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      2. ~~Memória~~ (feito em 21/11/2026; falta o autor testar no celular; armadilhas 6 e 23): a baixa resolução
         só guarda a janela, num limite pela memória do aparelho; a cheia, só o quadro atual e o próximo da marcação;
         num vídeo de até 960 px, sem a segunda cópia idêntica; um decodificador só no rastreamento, lendo amostra por
-        amostra; memória devolvida com a página em segundo plano. No vídeo do autor, com a leitura lenta simulada:
+        amostra; memória devolvida com o aplicativo em segundo plano. No vídeo do autor, com a leitura lenta simulada:
         quadros guardados 161 MB (190 MB antes da fase 1) → 94 MB, com salto, arrasto e play iguais aos da fase 1.
         **Testado pelo autor no celular**: no `de_sei_lá.mp4`, 94 MB e tudo bem; no `Pendulum_test.mp4` (1080p, 2
         grupos de até 158 quadros), engasgos no play (70 % da velocidade). Corrigido no mesmo dia com a sessão do
@@ -423,7 +435,7 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
   4a. **Celular deitado e cores** (plano aprovado pelo autor em 14/11/2026, etapas em ordem, uma por vez, testada no
      celular entre elas; o autor pediu commit e push ao fim de cada etapa): 1. ~~cores e temas~~ (feito);
      2. ~~gaveta ≡~~ (feito: Vídeo, Dados, Ferramentas, com Diagnóstico, Tema e Ajuda, também em pé, sem tirar os
-     botões de onde estão; Voltar do Android fecha; a Ajuda é montada com as notas de cada passo da página, até o
+     botões de onde estão; Voltar do Android fecha; a Ajuda é montada com as notas de cada passo do aplicativo, até o
      autor escrever o texto próprio);
      3, 5 e 6. ~~paisagem A, variação B e tela cheia C~~ (feitas juntas: as três dividem o mesmo módulo);
      4. ~~lupa da escala e desenho juntado num quadro de tela~~ (feito). Todas as etapas do plano estão feitas; falta
@@ -442,3 +454,9 @@ Vídeo 1080p a 30 quadros/s, H.264: decodificação por hardware; cerca de 10 ms
      para baixo perto do topo e de lado perto das bordas; sem lupa na mira; desenho juntado em um por quadro de tela
      (requestAnimationFrame); 5. variação B (vídeo em pé); 6. variação C (tela cheia).
   5. Futuro: exportar e importar `.trk` (arquivo de projeto do Tracker).
+- **Manuais** (pedido do autor em 22/11/2026: primeiro o técnico, depois o do aluno). Feito: os comentários de
+  todas as funções no padrão (ver "Como trabalhar com o autor"), que são a fonte do manual técnico; ele pode ser
+  gerado deles a qualquer momento por um script em Node sem dependências, com a introdução tirada deste HandOff
+  (arquitetura, coordenadas, decisões técnicas). Antes de escrever o gerador, combinar com o autor: o leitor (quem
+  mantém o código, ou também professores), o formato (HTML no GitHub Pages, fora da cópia offline, ou Markdown no
+  repositório) e o visual (identidade da UFRRJ sem logotipo, ou neutro).

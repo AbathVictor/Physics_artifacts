@@ -1,9 +1,12 @@
-// Gaveta ≡: menu que desliza da direita, com fundo escurecido. Fecha no ✕, num toque fora dela, com Esc ou com o
-// botão Voltar do Android (cada abertura entra no histórico do navegador; o Voltar dispara popstate).
-//
-// O menu é montado a partir da lista MENU (grupo → itens com rótulo, ícone e ação). As ações chamam as mesmas funções
-// dos botões da página (arquivos.js, dados.js, diagnostico.js, tema.js): nada é duplicado. Os botões continuam onde
-// estavam; a gaveta é só mais um caminho até eles. Diagnóstico e Ajuda abrem uma página dentro da gaveta (‹ volta).
+/**
+ * @file Gaveta ≡: menu que desliza da direita, com fundo escurecido. Fecha no ✕, num toque fora dela, com Esc ou com
+ * o botão Voltar do Android (cada abertura entra no histórico do navegador; o Voltar dispara popstate).
+ *
+ * O menu é montado a partir da lista MENU (grupo → itens com rótulo, ícone e ação). As ações chamam as mesmas funções dos
+ * botões do aplicativo (arquivos.js, dados.js, diagnostico.js, tema.js): nada é duplicado. Os botões continuam onde
+ * estavam; a gaveta é só mais um caminho até eles. Diagnóstico e Ajuda abrem uma página dentro da gaveta (‹ volta).
+ * Também exporta voltarHistorico, usada pelas duas gavetas (esta e a dos objetos, paisagem.js).
+ */
 
 import { abrirExemplo } from "./arquivos.js";
 import { copiarTabela, exportarCsv, temDados } from "./dados.js";
@@ -51,9 +54,13 @@ const PAGINAS = {
         toast(M ? "Medição pronta: copie o diagnóstico" : "Não deu para medir agora");
       });
     } },
-  // a ajuda começa com as dicas que já estão em cada passo da página (o autor vai escrever o texto próprio depois)
+  // a ajuda começa com as dicas que já estão em cada passo do aplicativo (o autor vai escrever o texto próprio depois)
   ajuda: { titulo: "Ajuda", html: ajudaHtml },
 };
+/**
+ * Monta a página Ajuda com as dicas que já estão em cada passo (o autor vai escrever o texto próprio depois).
+ * @returns {string} HTML da página.
+ */
 function ajudaHtml() {
   const partes = [];
   for (const b of document.querySelectorAll(".panel > .block")) {
@@ -65,6 +72,12 @@ function ajudaHtml() {
   return `<div class="gpag ajuda">${partes.join("")}</div>`;
 }
 
+/**
+ * Monta um item do menu: botão com ícone, rótulo e detalhe (desligado se a ação não puder agora), ou a linha do
+ * Tema com os três botões.
+ * @param {object} it Item da lista MENU.
+ * @returns {string} HTML do item.
+ */
 function itemHtml(it) {
   if (it.tipo === "tema") {
     const t = temaEscolhido();
@@ -75,14 +88,27 @@ function itemHtml(it) {
   const off = it.pode && !it.pode() ? " disabled" : "";
   return `<button type="button" class="item" data-item="${it.id}"${off}>${it.icone}<span class="txt">${esc(it.rotulo)}${det ? `<small>${esc(det)}</small>` : ""}</span>${it.pagina ? '<span class="seta" aria-hidden="true">›</span>' : ""}</button>`;
 }
+/**
+ * Monta a lista do menu, grupo por grupo.
+ * @returns {string} HTML da lista.
+ */
 function listaHtml() {
   return MENU.map((g) => `<section class="grupo"><h3>${esc(g.grupo)}</h3>${g.itens.map(itemHtml).join("")}</section>`).join("");
 }
+/**
+ * Acha um item do menu pelo id.
+ * @param {string} id Id do item.
+ * @returns {object|undefined} O item.
+ */
 const itemPorId = (id) => MENU.flatMap((g) => g.itens).find((i) => i.id === id);
 
 // nível: 0 fechada, 1 lista, 2 página. Cada nível tem uma entrada no histórico (pushState), para o Voltar do Android
 let nivel = 0, pagina = null, quemAbriu = null;
 const FORA = ["header.top", "main.app", "footer.credits", "#pais"];
+/**
+ * Mostra a gaveta no nível atual (fechada, lista ou página): fundo, foco, o resto do aplicativo inerte enquanto
+ * ela está aberta, título, botão ‹ e conteúdo; ao fechar, devolve o foco a quem a abriu.
+ */
 function mostrar() {
   const aberta = nivel > 0, g = $("gaveta");
   document.body.classList.toggle("gaveta-aberta", aberta);
@@ -100,27 +126,48 @@ function mostrar() {
   $("gavetaCorpo").scrollTop = 0;
   (pg ? $("gavetaVolta") : $("gavetaFecha")).focus({ preventScroll: true });
 }
+/**
+ * Abre a gaveta na lista (nível 1), com uma entrada no histórico para o Voltar do Android fechá-la.
+ */
 export function abrirGaveta() {
   if (nivel) return;
   quemAbriu = document.activeElement;
   history.pushState({ va: "gaveta" }, "");
   nivel = 1; mostrar();
 }
+/**
+ * Abre uma página dentro da gaveta (nível 2), com outra entrada no histórico.
+ * @param {"diag"|"ajuda"} p Qual página.
+ */
 function abrirPagina(p) {
   history.pushState({ va: "pagina" }, "");
   nivel = 2; pagina = p; mostrar();
 }
 // Volta n entradas no histórico uma vez só até o popstate chegar (ou até 1 s, se ele nunca vier). O popstate é
 // assíncrono: sem essa trava, dois pedidos seguidos (os dois dedos de uma pinça que pousam juntos, Esc repetido)
-// voltariam duas vezes, e o segundo Voltar sairia da página. Vale também para a gaveta dos objetos (paisagem.js).
+// voltariam duas vezes, e o segundo Voltar sairia do aplicativo. Vale também para a gaveta dos objetos (paisagem.js).
 let voltandoDesde = -Infinity;
+/**
+ * Volta n entradas no histórico uma vez só até o popstate chegar (ou até 1 s, se ele nunca vier).
+ *
+ * O popstate é assíncrono: sem essa trava, dois pedidos seguidos (os dois dedos de uma pinça que pousam juntos, Esc
+ * repetido) voltariam duas vezes, e o segundo Voltar sairia do aplicativo. Vale também para a gaveta dos objetos
+ * (paisagem.js).
+ * @param {number} [n=1] Quantas entradas.
+ */
 export function voltarHistorico(n = 1) {
   if (n < 1 || performance.now() - voltandoDesde < 1000) return;
   voltandoDesde = performance.now();
   history.go(-n);
 }
-// fechar volta no histórico tantas entradas quantas a gaveta criou; o popstate atualiza a tela
+/**
+ * Fecha a gaveta: volta no histórico tantas entradas quantas ela criou; o popstate atualiza a tela.
+ */
 export function fecharGaveta() { if (nivel) voltarHistorico(nivel); }
+/**
+ * Diz se a gaveta ≡ está aberta.
+ * @returns {boolean} Aberta.
+ */
 export const gavetaAberta = () => nivel > 0;
 window.addEventListener("popstate", (e) => {
   voltandoDesde = -Infinity;
@@ -151,7 +198,7 @@ $("gavetaCorpo").addEventListener("click", (e) => {
   const it = itemPorId(b.dataset.item); if (!it) return;
   if (it.pagina) { abrirPagina(it.pagina); return; }
   // a ação vem antes de fechar: abrir o seletor de arquivo exige estar dentro do toque; e o campo de arquivo da
-  // galeria fica na página, que precisa deixar de ser inerte antes do clique
+  // galeria fica no resto do aplicativo, que precisa deixar de ser inerte antes do clique
   FORA.forEach((s) => { const el = document.querySelector(s); if (el) el.inert = false; });
   it.acao();
   quemAbriu = null;

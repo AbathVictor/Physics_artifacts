@@ -1,17 +1,21 @@
-// Medição do desempenho com o vídeo aberto (fase 0 do plano de memória e decodificação, combinado com o autor em
-// 21/11/2026): roda no próprio celular os testes feitos no computador e guarda o resultado em S.medicao, que o
-// diagnóstico mostra e copia (diagnostico.js). Nada é alterado: intervalo, marcas e objetos ficam como estão, e no
-// fim a página volta ao quadro em que estava.
-//   salto      tempo até aparecer um quadro longe do atual, em 5 pontos do vídeo;
-//   arrasto    3 s mudando de quadro a cada 50 ms pelo mesmo caminho do dedo na barra (barra.js): em quantos quadros
-//              de tela havia imagem do lugar certo (o quadro exato ou a prévia do grupo dele) e em quantos o quadro
-//              exato, quadros de tela por segundo (engasgos) e o tempo até o exato aparecer depois de "soltar";
-//   play       até 4 s de play: velocidade em relação à real (o play não pula quadros: desacelera quando o celular
-//              não dá conta), quadros mostrados e quadros de tela por segundo;
-//   decodificador, à parte (o da página é fechado antes, para não haver dois abertos): um grupo (até 120 quadros)
-//              só decodificando, decodificando e copiando como a página faz, e só o quadro-chave com um decodificador
-//              novo e com ele já aberto (o custo de uma prévia);
-//   memória    quadros guardados e memória do JavaScript (quando o Chrome informa).
+/**
+ * @file Medição do desempenho com o vídeo aberto ("Medir este vídeo", gaveta ≡ → Diagnóstico; fase 0 do plano de
+ * memória e decodificação, combinado com o autor em 21/11/2026).
+ *
+ * Roda no próprio celular os testes feitos no computador e guarda o resultado em S.medicao, que o diagnóstico mostra e
+ * copia (diagnostico.js). Nada é alterado: intervalo, marcas e objetos ficam como estão, e no fim o aplicativo volta ao
+ * quadro em que estava.
+ *   salto      tempo até aparecer um quadro longe do atual, em 5 pontos do vídeo;
+ *   arrasto    3 s mudando de quadro a cada 50 ms pelo mesmo caminho do dedo na barra (barra.js): em quantos quadros de
+ *              tela havia imagem do lugar certo (o quadro exato ou a prévia do grupo dele) e em quantos o quadro exato,
+ *              quadros de tela por segundo (engasgos) e o tempo até o exato aparecer depois de "soltar";
+ *   play       até 4 s de play: velocidade em relação à real (o play não pula quadros: desacelera quando o celular não
+ *              dá conta), quadros mostrados e quadros de tela por segundo;
+ *   decodificador, à parte (o do aplicativo é fechado antes, para não haver dois abertos): um grupo (até 120 quadros)
+ *              só decodificando, decodificando e copiando como o aplicativo faz, e só o quadro-chave com um
+ *              decodificador novo e com ele já aberto (o custo de uma prévia);
+ *   memória    quadros guardados, prévias, arquivo e memória do JavaScript (quando o Chrome informa).
+ */
 
 import { arrastarPara, atualizarBarra, soltarArrasto } from "./barra.js";
 import { S } from "./estado.js";
@@ -20,21 +24,59 @@ import { stopTrack } from "./rastreio/rastreador.js";
 import { copyFrame, readRange } from "./video/decodificador.js";
 import { leitura } from "./video/leitor.js";
 
+/**
+ * Espera o próximo quadro de tela.
+ * @returns {Promise<DOMHighResTimeStamp>}
+ */
 const quadroTela = () => new Promise((r) => requestAnimationFrame(r));
+/**
+ * Espera um tempo.
+ * @param {number} ms Milissegundos.
+ * @returns {Promise<void>}
+ */
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
-// espera a condição (conferida a cada quadro de tela) por no máximo `limite` ms; devolve o tempo ou null
+/**
+ * Espera a condição (conferida a cada quadro de tela) por no máximo limite ms.
+ * @param {function(): boolean} cond Condição.
+ * @param {number} limite Milissegundos.
+ * @returns {Promise<number|null>} O tempo que levou, ou null se não aconteceu a tempo.
+ */
 async function ate(cond, limite) {
   const t0 = performance.now();
   while (!cond()) { if (performance.now() - t0 > limite) return null; await quadroTela(); }
   return performance.now() - t0;
 }
+/**
+ * Espera o decodificador do aplicativo ficar livre (até 15 s).
+ * @returns {Promise<number|null>} O tempo que levou, ou null.
+ */
 const ocioso = () => ate(() => !S.busy, 15000);
+/**
+ * Diz se o quadro i é o atual e já está decodificado.
+ * @param {number} i Índice do quadro.
+ * @returns {boolean} Pronto.
+ */
 const pronto = (i) => S.cur === i && S.low.has(i);
+/**
+ * Vai ao quadro i (como os botões) e atualiza a barra.
+ * @param {number} i Índice do quadro.
+ */
 function ir(i) { show(i); atualizarBarra(); }
 
 let medindo = false;
+/**
+ * Diz se a medição está em andamento (o botão da gaveta fica desligado).
+ * @returns {boolean} Medindo.
+ */
 export const medindoAgora = () => medindo;
 
+/**
+ * Mede o vídeo aberto: saltos, arrasto, play, decodificador à parte e memória (ver o começo do arquivo), e
+ * guarda o resultado em S.medicao; no fim, volta ao quadro em que estava.
+ * @param {function(string): void} [progresso] Avisada no começo de cada etapa ("saltos", "arrasto", "play",
+ * "decodificador").
+ * @returns {Promise<object|null>} O resultado, ou null se não havia vídeo, já estava medindo ou rastreando.
+ */
 export async function medirVideo(progresso = () => {}) {
   if (medindo || !S.frames.length || S.tracking) return null;
   medindo = true; S.semFundo = true;
@@ -89,9 +131,14 @@ export async function medirVideo(progresso = () => {}) {
   }
 }
 
+/**
+ * Mede o decodificador à parte: fecha o do aplicativo (um só aberto por vez; o pump cria outro depois), lê um
+ * grupo do meio do vídeo (até 120 quadros) e decodifica só, copiando, e só o quadro-chave.
+ * @returns {Promise<object>} Quadros, MB, tempo de leitura e os resultados das três rodadas (ou o erro).
+ */
 async function bancada() {
   if (await ocioso() == null) return { erro: "o decodificador da página não terminou em 15 s" };
-  // um decodificador só por vez: o da página é fechado (o pump cria outro quando precisar)
+  // um decodificador só por vez: o do aplicativo é fechado (o pump cria outro quando precisar)
   if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
   const d = S.frames[Math.floor(S.frames.length / 2)].d, g0 = S.gopStart[d], g1 = Math.min(S.gopEnd[g0], g0 + 119);
   let bytes = 0; for (let k = g0; k <= g1; k++) bytes += S.samples[k].size;
@@ -99,8 +146,17 @@ async function bancada() {
   const so = await rodada(g0, g1, get, false), copia = await rodada(g0, g1, get, true), chave = await rodada(g0, g0, get, false, true);
   return { quadros: g1 - g0 + 1, mb: bytes / 1e6, leitura, so, copia, chave, erro: so.erro || copia.erro || chave.erro || null };
 }
-// decodifica as amostras g0..ate com um decodificador próprio; copia (como a página) se pedido. deNovo: decodifica
-// outra vez com o mesmo decodificador, já aberto (o custo de uma prévia na página), e devolve esse tempo em msDeNovo
+/**
+ * Decodifica as amostras g0..fim com um decodificador próprio, copiando como o aplicativo faz se pedido; com
+ * deNovo, decodifica outra vez com o mesmo decodificador já aberto (o custo de uma prévia).
+ * @param {number} g0 Primeira amostra (quadro-chave), na ordem de decodificação.
+ * @param {number} fim Última amostra.
+ * @param {function(number): Uint8Array} get Bytes de cada amostra (readRange).
+ * @param {boolean} copiar Copiar cada quadro em baixa resolução.
+ * @param {boolean} [deNovo=false] Medir também com o decodificador já aberto.
+ * @returns {Promise<{n: number, ms: number|null, msDeNovo: number|null, porQuadro: number|null, copiaPorQuadro: number|null, erro: string|null}>}
+ * Quadros, tempos e o erro, se houve.
+ */
 async function rodada(g0, fim, get, copiar, deNovo = false) {
   let n = 0, tc = 0, erro = null;
   const dec = new VideoDecoder({

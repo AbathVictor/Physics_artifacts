@@ -1,5 +1,8 @@
-// Contêiner MP4/MOV: lê só ftyp + moov com o mp4box, monta o índice de quadros (tempo de cada quadro pelo
-// carimbo do arquivo) e as dimensões; abre o arquivo escolhido.
+/**
+ * @file Contêiner MP4/MOV: lê só ftyp + moov com o mp4box (pelo leitor em blocos), monta o índice de quadros (tempo
+ * de cada quadro pelo carimbo do arquivo, guardado em S.frames; a análise usa o tempo como no Tracker, analise.js),
+ * calcula as dimensões e os limites de memória e abre o arquivo escolhido.
+ */
 
 import { restoreOrDefaults } from "../analise.js";
 import { layout, resetView } from "../desenho.js";
@@ -9,6 +12,13 @@ import { renderPanels, resetVideo, setControls, setSrc } from "../paineis.js";
 import { $, esc, fmt, fmtBytes } from "../util.js";
 import { lerBytes } from "./leitor.js";
 
+/**
+ * Lista as caixas de primeiro nível do arquivo (tipo, início e tamanho), lendo o cabeçalho de cada uma pelo leitor
+ * em blocos: no celular cada leitura do arquivo custa caro, e as caixas do começo (e o índice, num arquivo pequeno)
+ * vêm num bloco só.
+ * @param {File} file O arquivo.
+ * @returns {Promise<Array<{type: string, start: number, size: number}>>} As caixas (no máximo 2000).
+ */
 async function topBoxes(file) {
   const out = []; let pos = 0;
   while (pos + 8 <= file.size && out.length < 2000) {
@@ -25,6 +35,11 @@ async function topBoxes(file) {
   }
   return out;
 }
+/**
+ * Extrai a descrição do codec (caixa avcC ou hvcC) que o VideoDecoder precisa.
+ * @param {object} trak Trilha do mp4box.
+ * @returns {Uint8Array|undefined} A descrição, sem o cabeçalho da caixa.
+ */
 function codecDescription(trak) {
   for (const e of trak.mdia.minf.stbl.stsd.entries) {
     const box = e.avcC || e.hvcC;
@@ -32,13 +47,31 @@ function codecDescription(trak) {
   }
   return undefined;
 }
+/**
+ * Rotação do vídeo a partir da matriz da trilha (vídeos gravados em pé), arredondada para múltiplo de 90°.
+ * @param {number[]} m Matriz da trilha.
+ * @returns {number} 0, 90, 180 ou 270.
+ */
 function rotationOf(m) {
   if (!m || m.length < 2) return 0;
   const deg = Math.round(Math.atan2(m[1], m[0]) * 180 / Math.PI);
   return ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
 }
+/**
+ * Nome do formato para o aluno (H.264, HEVC, VP9, AV1) a partir do codec.
+ * @param {string} c Codec (por exemplo "avc1.42001f").
+ * @returns {string} O nome, ou o próprio codec se não conhecido.
+ */
 export const friendlyCodec = (c) => /^(avc1|avc3)/.test(c) ? "H.264" : /^(hvc1|hev1)/.test(c) ? "HEVC (H.265)" : /^vp09/.test(c) ? "VP9" : /^av01/.test(c) ? "AV1" : c;
 
+/**
+ * Abre um vídeo: volta ao estado inicial, lê o índice, confere se o navegador decodifica o formato (por hardware,
+ * se puder), monta o índice de quadros, calcula as dimensões, recupera o que foi salvo e mostra o quadro de início. Um
+ * erro aparece na linha de situação e no lugar do vídeo.
+ * @param {File} file O arquivo.
+ * @param {boolean} isSample É o vídeo de exemplo.
+ * @returns {Promise<void>}
+ */
 export async function openFile(file, isSample) {
   const gen = ++S.gen;
   resetVideo();
@@ -103,6 +136,11 @@ export async function openFile(file, isSample) {
   }
 }
 
+/**
+ * Monta o índice de quadros: ordem de apresentação (S.frames, com o tempo do arquivo), presOf (amostra →
+ * quadro), o início e o fim do grupo de cada amostra (gopStart, gopEnd) e as estatísticas de tempo (S.timing: Δt
+ * mediano, mínimo e máximo, taxa variável).
+ */
 function buildIndex() {
   const sm = S.samples, ts = S.ts;
   const fr = sm.map((s, d) => ({ d, cts: s.cts }));
@@ -129,8 +167,17 @@ function buildIndex() {
   S.timing = { mean, sd, med, minDt: sorted[0], maxDt: sorted[sorted.length - 1], gaps: dts.filter((x) => x > 1.5 * med).length, dur: fr[fr.length - 1].t, fps: 1 / med, variable: (sorted[sorted.length - 1] - sorted[0]) / med > 0.02 };
 }
 
-// num vídeo de até 960 px no lado maior, a "resolução cheia" é igual à baixa: não há segunda cópia de cada quadro
+/**
+ * Diz se a "resolução cheia" é igual à baixa (vídeo de até 960 px no lado maior): aí não há segunda cópia de cada
+ * quadro.
+ * @returns {boolean} Iguais.
+ */
 export const cheiaIgual = () => S.fullW === S.lw && S.fullH === S.lh;
+/**
+ * Calcula as dimensões exibidas (já com a rotação), as resoluções baixa (lado maior ≤ 960 px), cheia (≤ 2560 px)
+ * e das prévias (≤ 400 px), a janela da baixa resolução (até 15 quadros para trás e 45 para a frente, dentro do limite
+ * BAIXA) e os limites em bytes das duas.
+ */
 export function computeDims() {
   const r = S.rot % 180 !== 0;
   S.dispW = r ? S.fh : S.fw; S.dispH = r ? S.fw : S.fh;

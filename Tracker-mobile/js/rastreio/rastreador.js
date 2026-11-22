@@ -1,5 +1,14 @@
-// Rastreamento automático: medição do alvo ao tocar, preparo do modelo, busca em dois níveis e o laço
-// que decodifica os quadros com um decodificador próprio (o pump fica parado durante o rastreamento).
+/**
+ * @file Rastreamento automático: medição do alvo ao tocar, preparo do modelo, busca em dois níveis e o laço que
+ * decodifica os quadros com um decodificador próprio (o do aplicativo é fechado antes e o pump fica parado durante o
+ * rastreamento).
+ *
+ * Como o autotracker do Tracker: um modelo (o círculo em volta da mira, guardado num quadrado com os cantos mascarados) é
+ * procurado em cada quadro por correlação normalizada nas cores. Primeiro numa versão reduzida da região de busca,
+ * depois em resolução cheia em volta do melhor ponto, com ajuste de subpixel. A busca começa na posição prevista por
+ * aceleração ou velocidade constante. O modelo evolui 20% por quadro para acompanhar mudanças de iluminação e de forma,
+ * ancorado 5% no modelo original para não derivar. Se a semelhança cair abaixo da exigência, o rastreamento para ali.
+ */
 
 import { inInterval, persist, tempo } from "../analise.js";
 import { ensureVisible, render } from "../desenho.js";
@@ -19,9 +28,19 @@ import { copyFrame, lerAmostra, pump, putCache } from "../video/decodificador.js
 // mudanças de iluminação e de forma, ancorado 5% no modelo original para não derivar. Se a semelhança cair
 // abaixo da exigência, o rastreamento para ali.
 export const TR = { running: false, stop: false, userStop: false, tf: null, tc: null, R: 0, sx: 1, delta: null, alpha: 0.2, ancora: 0.05 };
+/**
+ * Espera um tempo.
+ * @param {number} ms Milissegundos.
+ * @returns {Promise<void>}
+ */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// mede o objeto sob a mira: a partir da cor no ponto tocado, procura o raio em que a cor deixa de ser a do objeto
-// e passa a ser a do fundo; o círculo do alvo fica 35% maior que o objeto, para incluir a borda e um pouco do fundo
+/**
+ * Mede o objeto sob a mira e ajusta o tamanho do alvo do rastreamento: a partir da cor no ponto tocado, procura o
+ * raio em que a cor deixa de ser a do objeto e passa a ser a do fundo (mediana dos anéis externos); o círculo do alvo
+ * fica 35% maior que o objeto, para incluir a borda e um pouco do fundo.
+ * @param {{x: number, y: number}} p Ponto tocado (pixels do vídeo).
+ * @returns {boolean} Conseguiu medir (sem contraste suficiente, ou objeto grande demais, não mede).
+ */
 export function autoSizeAt(p) {
   const f = S.full.get(S.cur), c = S.low.get(S.cur), src = f ? f.bmp : c ? c.bmp : null;
   if (!src || !p) return false;
@@ -65,9 +84,14 @@ export function autoSizeAt(p) {
   S.objR = rObj / k;
   return true;
 }
-// prepara o modelo a partir do quadro de início, centrado na mira.
-// Nível fino: resolução cheia se o alvo for pequeno; para alvos grandes, uma versão reduzida com no máximo 81 px de lado,
-// que mantém o ajuste de subpixel bem abaixo de um pixel do vídeo. Nível grosso: cerca de 25 px de lado, para a busca ampla.
+/**
+ * Prepara o modelo a partir do quadro de início, centrado na mira. Nível fino: resolução cheia se o alvo for
+ * pequeno; para alvos grandes, uma versão reduzida com no máximo 121 px de lado, que mantém o ajuste de subpixel bem
+ * abaixo de um pixel do vídeo. Nível grosso: cerca de 25 px de lado, para a busca ampla.
+ * @param {VideoFrame} frame O quadro de início.
+ * @param {{x: number, y: number}} p Posição da mira (pixels do vídeo).
+ * @returns {boolean} Conseguiu (senão, TR.initErr diz por quê: alvo passa da borda ou tem pouco contraste).
+ */
 function initTemplate(frame, p) {
   const R = Math.max(3, Math.round(S.trR)), n = 2 * R + 1;
   TR.R = R; TR.n = n;
@@ -91,7 +115,16 @@ function initTemplate(frame, p) {
   } else { TR.sx = TR.sf; TR.tc = null; }
   return true;
 }
-// procura o alvo perto da posição prevista q (posição da mira), com raio de busca Sr em pixels do vídeo
+/**
+ * Procura o alvo num quadro perto da posição prevista: busca grossa na região ampla e fina em volta do melhor ponto,
+ * com ajuste de subpixel; se a semelhança ficar abaixo da exigência, uma segunda busca 2,5× maior. Encontrado, o modelo
+ * evolui com o trecho recortado exatamente na posição encontrada (com fração de pixel), para não acumular deslocamentos.
+ * @param {VideoFrame} frame O quadro.
+ * @param {{x: number, y: number}} q Posição prevista da mira (pixels do vídeo).
+ * @param {number} Sr0 Raio de busca (pixels do vídeo).
+ * @returns {{pos: {x: number, y: number}, score: number}|{lost: true, score: number}} A posição encontrada e a
+ * semelhança, ou "perdido" com a melhor semelhança.
+ */
 function trackFrame(frame, q, Sr0) {
   const n = TR.n, W = S.dispW, H = S.dispH, sf = TR.sf;
   let best = null, Sr = Sr0;
@@ -136,13 +169,33 @@ function trackFrame(frame, q, Sr0) {
   }
   return { pos: { x: c.x + TR.delta.x, y: c.y + TR.delta.y }, score: r.score };
 }
+/**
+ * Troca Rastrear por Parar (e desliga Marcar ponto e Apagar ponto) durante o rastreamento, e volta depois.
+ * @param {boolean} on Rastreando.
+ */
 function setTrackUI(on) {
   $("bTrack").hidden = on; $("bTrackStop").hidden = !on;
   ["bMark", "bDel"].forEach((id) => { $(id).disabled = on || $(id).disabled; });
   if (!on) updateReadout();
 }
+/**
+ * Mostra a mensagem do rastreamento abaixo dos controles (vazia esconde).
+ * @param {string} txt Texto.
+ * @param {"ok"|"bad"} [kind] Sucesso ou problema.
+ */
 export function trackMsg(txt, kind) { const el = $("trackMsg"); el.hidden = !txt; el.textContent = txt || ""; el.className = "status" + (kind ? " " + kind : ""); }
+/**
+ * Pede para o rastreamento parar (botão Parar, ou qualquer ação que mude o quadro, a ferramenta ou o objeto).
+ */
 export function stopTrack() { if (TR.running) { TR.stop = true; TR.userStop = true; } }
+/**
+ * Rastreia a massa ativa do quadro atual até o fim do intervalo (a cada "passo" quadros): fecha o decodificador do
+ * aplicativo (um só aberto por vez), lê o vídeo amostra por amostra pelo leitor e alimenta um decodificador próprio
+ * grupo após grupo; em cada quadro, prevê a posição (tempo como no Tracker), procura o alvo, marca o ponto e mostra o
+ * progresso uma vez por quadro de tela. Termina ao fim do intervalo, ao perder o alvo (fica no quadro do problema, com a
+ * mira na posição prevista), ao Parar ou num erro, com a mensagem de cada caso.
+ * @returns {Promise<void>}
+ */
 async function runTrack() {
   if (TR.running || !S.frames.length) return;
   const alvo = objAtivo();
@@ -157,7 +210,7 @@ async function runTrack() {
   TR.running = true; TR.stop = false; TR.userStop = false; S.tracking = true; setTrackUI(true);
   trackMsg("Preparando o rastreamento…");
   while (S.busy) await sleep(20);
-  // um decodificador só por vez (fase 2 do plano de memória): o da página é fechado; o pump cria outro depois
+  // um decodificador só por vez (fase 2 do plano de memória): o do aplicativo é fechado; o pump cria outro depois
   if (S.decoder) { try { if (S.decoder.state !== "closed") S.decoder.close(); } catch {} S.decoder = null; }
   const gen = S.gen, F = S.frames;
   const st = { hist: [{ p: { x: S.cross.x, y: S.cross.y }, t: tempo(startI) }], last: startI, n: 0, lost: null, err: null, score: 1, minScore: 1, dirty: false };

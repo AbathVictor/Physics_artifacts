@@ -1,12 +1,13 @@
-// Lupa da escala: enquanto o dedo arrasta uma ponta da fita de calibração, um círculo ampliado mostra a região em
-// volta da ponta, com uma cruz fina no centro (a posição exata da ponta). Fica acima do dedo, para não ser coberta
-// por ele; perto do topo da tela passa para baixo do dedo e perto de uma borda lateral passa para o outro lado.
-// Some ao soltar. Não há lupa para marcar pontos nem para a mira (decisão do autor).
-//
-// A imagem vem do quadro já guardado (S.full, a resolução cheia, que o decodificador mantém para o quadro atual nas
-// ferramentas Escala e Eixos; senão S.low): nenhum cache ou decodificação a mais. A lupa é um canvas próprio, fixo na
-// tela (pode sair da área do vídeo), desenhado no mesmo ciclo de requestAnimationFrame que o vídeo (render()), sem
-// criar bitmaps a cada toque.
+/**
+ * @file Lupa da escala: enquanto o dedo arrasta uma ponta da fita de calibração, um círculo ampliado mostra a região
+ * em volta da ponta, com uma cruz fina no centro (a posição exata da ponta).
+ *
+ * Fica acima do dedo, para não ser coberta por ele; perto do topo da tela passa para baixo do dedo e perto de uma borda
+ * lateral passa para o outro lado. Some ao soltar. Não há lupa para marcar pontos nem para a mira (decisão do autor).
+ * A imagem vem do quadro já guardado (S.full, a resolução cheia; senão S.low, que num vídeo de até 960 px é a própria
+ * resolução cheia): nenhum cache ou decodificação a mais. A lupa é um canvas próprio, fixo na tela (pode sair da área
+ * do vídeo), desenhado no mesmo ciclo de requestAnimationFrame que o vídeo (render()), sem criar bitmaps a cada toque.
+ */
 
 import { S } from "./estado.js";
 import { $ } from "./util.js";
@@ -18,10 +19,23 @@ export const AUMENTO_VISTA = 2.5, MIN_PX = 3, MAX_PX = 12;
 const cv = $("lupa"), g = cv.getContext("2d");
 let dprL = 0;
 
-// px de tela por pixel do vídeo dentro da lupa: 2,5× a vista atual, pelo menos 3 e no máximo 12 (o limite do zoom)
+/**
+ * Devolve o aumento dentro da lupa: 2,5× a vista atual, com pelo menos 3 e no máximo 12 px de tela por pixel do
+ * vídeo (o limite do zoom).
+ * @param {number} k Pixels de tela por pixel do vídeo na vista atual.
+ * @returns {number} Pixels de tela por pixel do vídeo dentro da lupa.
+ */
 export const aumentoLupa = (k) => Math.min(MAX_PX, Math.max(AUMENTO_VISTA * k, MIN_PX));
 
-// posição da lupa (canto superior esquerdo, em px da tela) para o dedo em (fx, fy)
+/**
+ * Calcula onde fica a lupa para o dedo em (fx, fy): acima dele; perto do topo, abaixo; perto de uma borda
+ * lateral, do outro lado; sempre inteira na tela.
+ * @param {number} fx Posição x do dedo (px da tela).
+ * @param {number} fy Posição y do dedo (px da tela).
+ * @param {number} [W=innerWidth] Largura da tela.
+ * @param {number} [H=innerHeight] Altura da tela.
+ * @returns {{x: number, y: number}} Canto de cima à esquerda da lupa (px da tela).
+ */
 export function posicaoLupa(fx, fy, W = innerWidth, H = innerHeight) {
   const R = TAM / 2;
   let cx = fx, cy = fy - DIST - R;
@@ -32,9 +46,19 @@ export function posicaoLupa(fx, fy, W = innerWidth, H = innerHeight) {
   return { x: Math.round(cx - R), y: Math.round(cy - R) };
 }
 
+/**
+ * Esconde a lupa (ao soltar a ponta da escala ou fora da ferramenta Escala).
+ */
 export function esconderLupa() { if (!cv.hidden) cv.hidden = true; }
 
-// desenha a lupa em volta do ponto p (pixels do vídeo) com o dedo em (fx, fy); k = px de tela por pixel do vídeo
+/**
+ * Desenha a lupa em volta do ponto p, com o dedo em (fx, fy): o recorte ampliado do quadro atual (sem suavizar
+ * quando o aumento é grande, para os pixels aparecerem nítidos), a cruz fina no centro e a borda.
+ * @param {{x: number, y: number}} p Ponta da escala (pixels do vídeo).
+ * @param {number} fx Posição x do dedo (px da tela).
+ * @param {number} fy Posição y do dedo (px da tela).
+ * @param {number} k Pixels de tela por pixel do vídeo na vista atual.
+ */
 export function desenharLupa(p, fx, fy, k) {
   const f = S.full.get(S.cur), c = S.low.get(S.cur);
   const src = f ? f.bmp : c ? c.bmp : S.lastBmp;
